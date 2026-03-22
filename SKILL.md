@@ -215,10 +215,12 @@ python <skill-creator-path>/scripts/run_skill_evals.py \
   --iteration <N> \
   --model <model-id> \
   --max-parallel 4 \
-  --timeout 300
+  --timeout 600
 ```
 
-Run this in the **background** (via Bash `run_in_background`) because it takes a while. To monitor progress while it runs, read `<workspace>/iteration-<N>/progress.json`. It updates after each run completes and shows how many are done, how many are running, elapsed time, and cost so far.
+**Timeout:** The default is 300 seconds per turn. That is enough for prompts that involve reading and answering questions. For skills that ask agents to do real implementation work (writing code, running tests, building projects), set `--timeout 600` or higher. If any runs time out, increase the timeout and re-run. A timed-out run produces no useful output.
+
+Run this in the **background** (via Bash `run_in_background`) because it takes a while.
 
 **How it works:** Each eval runs as its own `claude -p` process. The process starts in an isolated temp directory. For `with_skill` runs, the skill under test is in that directory's `.claude/skills/<name>/` so Claude Code discovers it through normal skill resolution. For `without_skill` runs, no skill is present. The prompts are identical. The only difference is whether the skill is discoverable.
 
@@ -231,14 +233,19 @@ Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent tur
 - `timing.json` with tokens, duration, and cost
 - `raw_output.jsonl` with the full `stream-json` transcript for debugging
 - `run_manifest.json` summarizing all runs (status, timing, costs)
+- `progress.json` with live progress (updates after each run completes)
 
 **Baseline notes:**
 - **Creating a new skill**: the `without_skill` directory has no skill at all. True baseline.
 - **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Pass the snapshot path as `--skill-path` to build baseline directories containing the old version.
 
-### Step 2: While runs are in progress, draft expectations
+### Step 2: Monitor progress and draft expectations
 
-The script takes a while to finish. Use that time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
+After launching the script in the background, do two things in parallel:
+
+**Monitor progress.** Periodically read `<workspace>/iteration-<N>/progress.json` to track how many runs have completed, how many are still running, and whether any have failed. Report progress to the user at natural intervals (e.g. after drafting expectations, or every few minutes if the user is waiting). If runs are failing, investigate early rather than waiting for the full batch to finish.
+
+**Draft expectations.** Use the time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
 
 Good expectations are objectively verifiable and have descriptive names. They should read clearly in the benchmark viewer so someone glancing at the results immediately understands what each one checks. Subjective skills (writing style, design quality) are better evaluated qualitatively. Do not force expectations onto things that need human judgment.
 
@@ -252,7 +259,7 @@ Once `run_skill_evals.py` finishes, spawn grader subagents for each run. One gra
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
-Once all graders have finished:
+**Wait for every grader to finish before continuing.** Aggregating with incomplete grading data produces wrong benchmark numbers. Do not aggregate, analyze, or launch the viewer until all graders have reported back.
 
 2. **Aggregate into benchmark** — run the aggregation script:
    ```bash
@@ -272,6 +279,8 @@ Put each with_skill version before its baseline counterpart.
    ```
    For iteration 2+, also pass `--previous-workspace <workspace>/iteration-<N-1>`.
 
+   The only flags are: `--port`, `--skill-name`, `--previous-workspace`, `--benchmark`, `--static`, `--open`, `--no-open`. Do not invent flags that are not listed here. If unsure, run `serve_viewer.py start --help`.
+
    The script backgrounds the server, writes a PID file, and health-checks the port before reporting success. There is no need for `nohup`, `&`, or PID capture.
 
    By default, `--open` is on and the script opens the viewer in the user's browser. If the user has asked you not to open browsers automatically, pass `--no-open` instead. On the first run of a session, ask the user whether they want the browser opened automatically. Remember their answer for the rest of the session.
@@ -280,7 +289,15 @@ Put each with_skill version before its baseline counterpart.
 
 Note: please use `serve_viewer.py` to create the viewer; there's no need to write custom HTML.
 
-5. **Tell the user** something like: "I've opened the results in your browser. There are two tabs — 'Outputs' lets you click through each test case and leave feedback, 'Benchmark' shows the quantitative comparison. When you're done, come back here and let me know."
+5. **Present a debrief to the user.** After the viewer is live, your final message should be a substantive summary the user can discuss with you before opening the viewer. Include:
+   - The headline numbers (with_skill vs without_skill pass rates and the delta)
+   - What worked well (evals where the skill clearly helped)
+   - What did not work (evals that failed or regressed)
+   - Patterns you noticed in the transcripts (e.g. the skill caused agents to waste time on something unproductive, or agents ignored a key instruction)
+   - Concrete next steps you would recommend (specific edits to the skill, new test cases to add, expectations to revise)
+   - The viewer URL and a note to leave feedback there when ready
+
+   This debrief is the most important output of the grading step. The viewer is for detailed inspection. The debrief is for the conversation. Put it last so the user sees it immediately.
 
 ### What the user sees in the viewer
 

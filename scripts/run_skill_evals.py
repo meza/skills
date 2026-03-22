@@ -306,8 +306,8 @@ def main():
         help="Maximum number of parallel eval runs (default: 4)",
     )
     parser.add_argument(
-        "--timeout", type=int, default=300,
-        help="Timeout per turn in seconds (default: 300)",
+        "--timeout", type=int, default=600,
+        help="Timeout per turn in seconds (default: 600)",
     )
 
     args = parser.parse_args()
