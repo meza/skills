@@ -161,50 +161,80 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
     return prompt
 
 
+_IS_WINDOWS = sys.platform == "win32"
+
+
+def _kill_process_tree(pid):
+    """Kill a process and all its children.
+
+    On Unix uses process group kill (SIGTERM then SIGKILL).
+    On Windows uses taskkill /F /T which kills the entire tree.
+    """
+    if _IS_WINDOWS:
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True,
+            )
+        except OSError:
+            pass
+    else:
+        try:
+            pgid = os.getpgid(pid)
+            os.killpg(pgid, signal.SIGTERM)
+        except OSError:
+            pass
+
+
+def _force_kill_process_tree(pid):
+    """Force kill a process tree. Unix only (Windows taskkill is already forced)."""
+    if _IS_WINDOWS:
+        return
+    try:
+        pgid = os.getpgid(pid)
+        os.killpg(pgid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
 def run_claude_with_timeout(cmd, prompt, cwd, timeout):
     """Run a claude -p command with timeout and full process tree cleanup.
 
-    Spawns the process in its own session (start_new_session=True) so the
-    entire process group can be killed on timeout. A threading.Timer triggers
-    the kill, which lets communicate() finish draining all buffered output
-    before returning. This means partial output from timed-out runs is
-    captured rather than lost.
+    On Unix spawns the process in its own session so the entire process
+    group can be killed on timeout. On Windows uses CREATE_NEW_PROCESS_GROUP
+    and taskkill /F /T for tree kill. A threading.Timer triggers the kill,
+    which lets communicate() finish draining all buffered output before
+    returning. This means partial output from timed-out runs is captured
+    rather than lost.
 
     Returns (stdout, stderr, returncode, timed_out).
     """
-    process = subprocess.Popen(
-        cmd,
+    popen_kwargs = dict(
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
         text=True,
-        start_new_session=True,
     )
+    if _IS_WINDOWS:
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    process = subprocess.Popen(cmd, **popen_kwargs)
 
     timed_out = False
 
-    def kill_process_group():
+    def kill_on_timeout():
         nonlocal timed_out
         timed_out = True
-        # SIGTERM first for graceful shutdown
-        try:
-            pgid = os.getpgid(process.pid)
-            os.killpg(pgid, signal.SIGTERM)
-        except OSError:
-            pass
-        # Force kill after 5 seconds if still alive
-        def force_kill():
-            try:
-                pgid = os.getpgid(process.pid)
-                os.killpg(pgid, signal.SIGKILL)
-            except OSError:
-                pass
-        force_timer = threading.Timer(5.0, force_kill)
+        _kill_process_tree(process.pid)
+        # Force kill after 5 seconds if still alive (Unix only)
+        force_timer = threading.Timer(5.0, _force_kill_process_tree, args=[process.pid])
         force_timer.daemon = True
         force_timer.start()
 
-    timer = threading.Timer(float(timeout), kill_process_group)
+    timer = threading.Timer(float(timeout), kill_on_timeout)
     timer.daemon = True
     timer.start()
 

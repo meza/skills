@@ -18,7 +18,12 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-PIDFILE = Path("/tmp/skill-creator-viewer.json")
+_IS_WINDOWS = sys.platform == "win32"
+
+if _IS_WINDOWS:
+    PIDFILE = Path(os.environ.get("TEMP", "C:\\Temp")) / "skill-creator-viewer.json"
+else:
+    PIDFILE = Path("/tmp/skill-creator-viewer.json")
 DEFAULT_PORT = 3117
 
 
@@ -40,31 +45,53 @@ def _is_ssh() -> bool:
 
 
 def _kill_pid(pid: int) -> bool:
-    """Send SIGTERM to a PID. Return True if the process existed."""
+    """Terminate a process by PID. Return True if the process existed."""
     try:
-        os.kill(pid, signal.SIGTERM)
+        if _IS_WINDOWS:
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid)],
+                capture_output=True,
+                timeout=5,
+            )
+        else:
+            os.kill(pid, signal.SIGTERM)
         return True
-    except ProcessLookupError:
+    except (ProcessLookupError, OSError):
         return False
 
 
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        for pid_str in result.stdout.strip().split("\n"):
-            if pid_str.strip():
-                try:
-                    _kill_pid(int(pid_str.strip()))
-                except ValueError:
-                    pass
-        if result.stdout.strip():
-            time.sleep(0.5)
+        if _IS_WINDOWS:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    pid_str = parts[-1]
+                    try:
+                        _kill_pid(int(pid_str))
+                    except ValueError:
+                        pass
+        else:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for pid_str in result.stdout.strip().split("\n"):
+                if pid_str.strip():
+                    try:
+                        _kill_pid(int(pid_str.strip()))
+                    except ValueError:
+                        pass
+        time.sleep(0.5)
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
@@ -146,12 +173,18 @@ def cmd_start(args) -> None:
 
     _kill_port(port)
 
-    proc = subprocess.Popen(
-        cmd,
+    popen_kwargs = dict(
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        start_new_session=True,
     )
+    if _IS_WINDOWS:
+        popen_kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        )
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
 
     PIDFILE.write_text(json.dumps({"pid": proc.pid, "port": port}))
 
