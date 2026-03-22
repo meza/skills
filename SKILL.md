@@ -215,10 +215,10 @@ python <skill-creator-path>/scripts/run_skill_evals.py \
   --iteration <N> \
   --model <model-id> \
   --max-parallel 4 \
-  --timeout 600
+  --timeout 900
 ```
 
-**Timeout:** The default is 300 seconds per turn. That is enough for prompts that involve reading and answering questions. For skills that ask agents to do real implementation work (writing code, running tests, building projects), set `--timeout 600` or higher. If any runs time out, increase the timeout and re-run. A timed-out run produces no useful output.
+**Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
 
 Run this in the **background** (via Bash `run_in_background`) because it takes a while.
 
@@ -243,7 +243,12 @@ Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent tur
 
 After launching the script in the background, do two things in parallel:
 
-**Monitor progress.** Periodically read `<workspace>/iteration-<N>/progress.json` to track how many runs have completed, how many are still running, and whether any have failed. Report progress to the user at natural intervals (e.g. after drafting expectations, or every few minutes if the user is waiting). If runs are failing, investigate early rather than waiting for the full batch to finish.
+**Monitor progress.** Start the progress poller in the background:
+```bash
+python <skill-creator-path>/scripts/poll_progress.py \
+  <workspace>/iteration-<N>/progress.json --interval 30
+```
+Run this with `run_in_background`. It prints a status line each time a run completes and exits when all runs are done. You will get a notification when it finishes. Do not use `sleep` commands to poll manually. If runs are failing, investigate early rather than waiting for the full batch to finish.
 
 **Draft expectations.** Use the time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
 
