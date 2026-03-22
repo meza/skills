@@ -2,8 +2,18 @@
 """
 Prepare isolated run directories for each eval before an iteration's runs.
 
+Everything is created under --run-root:
+  <run-root>/
+  ├── fixtures/               # cloned/staged fixture repo (if any)
+  └── <skill>-eval-runs-xxx/  # unique per invocation
+      ├── eval-1/
+      │   ├── with_skill/     # has .claude/skills/<name>/
+      │   └── without_skill/  # no skill
+      └── eval-2/
+          └── ...
+
 Three-step process:
-  1. If fixture_repo is defined, clone (or reset) it into a temp staging area.
+  1. If fixture_repo is defined, clone (or reset) it into <run-root>/fixtures/.
   2. For EVERY eval in evals.json, create a run directory per configuration
      (with_skill, without_skill). If the eval has a fixture, copy it into
      the run directory.
@@ -11,24 +21,26 @@ Three-step process:
      directory at .claude/skills/<skill-name>/ so Claude Code discovers it
      naturally. without_skill directories get no skill.
 
-Each eval agent receives its own isolated run directory and works exclusively
-inside it. The skill is discovered through normal Claude Code mechanisms
-rather than being passed as a prompt parameter.
+Claude Code does not discover skills in temp directories. The caller must
+provide a --run-root that points to a real (non-temp) path.
 
 Usage:
-    python -m scripts.prepare_fixture --skill-path /path/to/skill
+    python -m scripts.prepare_fixture --skill-path /path/to/skill --run-root /path/to/run-root
 
-Output (stdout): JSON mapping eval id (string) -> {configuration: path}
+Output (stdout): JSON mapping eval id -> {configuration -> entry}.
+    Each entry has "path" (the agent's working directory) and optionally
+    "fixture_path" (only present when the eval defines a fixture).
+
     {
       "1": {
-        "with_skill":    "/tmp/.../eval-1/with_skill",
-        "without_skill": "/tmp/.../eval-1/without_skill"
+        "with_skill":    {"path": "/run-root/.../eval-1/with_skill", "fixture_path": "/run-root/.../eval-1/with_skill/my-fixture"},
+        "without_skill": {"path": "/run-root/.../eval-1/without_skill", "fixture_path": "/run-root/.../eval-1/without_skill/my-fixture"}
       },
-      "2": { ... }
+      "2": {
+        "with_skill":    {"path": "/run-root/.../eval-2/with_skill"},
+        "without_skill": {"path": "/run-root/.../eval-2/without_skill"}
+      }
     }
-
-Every eval appears in the output, regardless of whether it has a fixture.
-The path points to the run directory root (the agent's working directory).
 """
 
 import argparse
@@ -94,6 +106,12 @@ def main():
         required=True,
         help="Path to the skill directory containing evals/evals.json",
     )
+    parser.add_argument(
+        "--run-root",
+        required=True,
+        help="Directory to create run directories in. Claude Code only discovers "
+             "skills in non-temp paths so this must be a real directory.",
+    )
     args = parser.parse_args()
 
     skill_path = Path(args.skill_path).expanduser().resolve()
@@ -110,6 +128,12 @@ def main():
     fixture_base_raw = evals_data.get("fixture_base_path")
     skill_name = evals_data.get("skill_name", skill_path.name)
 
+    # Everything lives under --run-root: fixture staging, run directories, etc.
+    # Claude Code does not discover skills in temp directories so this must be
+    # a real path provided by the caller.
+    base = Path(args.run_root).expanduser().resolve()
+    base.mkdir(parents=True, exist_ok=True)
+
     # Fixture staging area (only needed if any eval uses fixtures)
     has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
 
@@ -117,7 +141,7 @@ def main():
         if fixture_base_raw:
             fixture_staging = Path(fixture_base_raw).expanduser().resolve()
         else:
-            fixture_staging = Path(tempfile.gettempdir()) / f"{skill_name}-eval-fixtures"
+            fixture_staging = base / "fixtures"
 
         if fixture_repo:
             git_clone_or_pull(fixture_repo, fixture_staging)
@@ -130,11 +154,9 @@ def main():
     else:
         fixture_staging = None
 
-    # Run directory root (separate from fixture staging).
-    # Use mkdtemp so each invocation gets a unique directory. This prevents
-    # cross-iteration contamination if a previous iteration's agents left
-    # modified files behind.
-    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-"))
+    # Unique subdirectory for this invocation's run directories to prevent
+    # cross-iteration contamination.
+    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
 
     CONFIGURATIONS = ["with_skill", "without_skill"]
     run_paths: dict[str, dict] = {}

@@ -44,11 +44,12 @@ from pathlib import Path
 CONFIGURATIONS = ["with_skill", "without_skill"]
 
 
-def run_prepare_fixture(skill_path: Path) -> dict:
+def run_prepare_fixture(skill_path: Path, run_root: Path) -> dict:
     """Call prepare_fixture.py and return the run paths mapping."""
     script = Path(__file__).parent / "prepare_fixture.py"
+    cmd = [sys.executable, str(script), "--skill-path", str(skill_path), "--run-root", str(run_root)]
     result = subprocess.run(
-        [sys.executable, str(script), "--skill-path", str(skill_path)],
+        cmd,
         capture_output=True,
         text=True,
     )
@@ -314,6 +315,16 @@ def main():
         "--timeout", type=int, default=600,
         help="Timeout per turn in seconds (default: 600)",
     )
+    parser.add_argument(
+        "--run-root", required=True, type=Path,
+        help="Directory to create run directories in. Claude Code only discovers "
+             "skills in non-temp paths so this must be a real directory.",
+    )
+    parser.add_argument(
+        "--eval-ids", default=None,
+        help="Comma-separated list of eval IDs to run (e.g. '1,3,5'). "
+             "If omitted, all evals in evals.json are run.",
+    )
 
     args = parser.parse_args()
     skill_path = args.skill_path.expanduser().resolve()
@@ -332,10 +343,21 @@ def main():
         print("Error: no evals found in evals.json", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found {len(evals_list)} evals in {evals_json_path}")
+    if args.eval_ids:
+        requested = {int(x.strip()) for x in args.eval_ids.split(",")}
+        evals_list = [e for e in evals_list if e["id"] in requested]
+        missing = requested - {e["id"] for e in evals_list}
+        if missing:
+            print(f"Warning: eval IDs not found in evals.json: {missing}", file=sys.stderr)
+        if not evals_list:
+            print("Error: no matching evals after filtering by --eval-ids", file=sys.stderr)
+            sys.exit(1)
+
+    print(f"Running {len(evals_list)} evals from {evals_json_path}")
     print(f"Preparing fixtures...")
 
-    run_paths = run_prepare_fixture(skill_path)
+    run_root = args.run_root.expanduser().resolve()
+    run_paths = run_prepare_fixture(skill_path, run_root)
 
     iteration_dir = workspace / f"iteration-{args.iteration}"
     iteration_dir.mkdir(parents=True, exist_ok=True)

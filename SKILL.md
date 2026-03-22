@@ -215,8 +215,11 @@ python <skill-creator-path>/scripts/run_skill_evals.py \
   --iteration <N> \
   --model <model-id> \
   --max-parallel 4 \
-  --timeout 900
+  --timeout 900 \
+  --run-root /path/to/run-root
 ```
+
+**Run root (required):** A directory where the script does all its work: staging fixtures and creating isolated run directories. Claude Code does not discover skills in temp directories so this must be a real path. The script creates everything it needs inside it.
 
 **Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
 
