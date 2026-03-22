@@ -44,6 +44,8 @@ from pathlib import Path
 
 def calculate_stats(values: list[float]) -> dict:
     """Calculate mean, stddev, min, max for a list of values."""
+    # Filter out None values that can appear from timed-out or failed runs
+    values = [v for v in values if v is not None]
     if not values:
         return {"mean": 0.0, "stddev": 0.0, "min": 0.0, "max": 0.0}
 
@@ -150,25 +152,26 @@ def load_run_results(benchmark_dir: Path) -> dict:
                     "total": (grading.get("summary") or {}).get("total", 0),
                 }
 
-                # Extract timing — check grading.json first, then sibling timing.json
+                # Extract timing — check grading.json first, then sibling timing.json.
+                # Use "or 0" to coerce None values from timed-out/failed runs.
                 timing = grading.get("timing") or {}
-                result["time_seconds"] = timing.get("total_duration_seconds", 0.0)
+                result["time_seconds"] = timing.get("total_duration_seconds") or 0.0
                 timing_file = run_dir / "timing.json"
                 if result["time_seconds"] == 0.0 and timing_file.exists():
                     try:
                         with open(timing_file) as tf:
                             timing_data = json.load(tf)
-                        result["time_seconds"] = timing_data.get("total_duration_seconds", 0.0)
-                        result["tokens"] = timing_data.get("total_tokens", 0)
+                        result["time_seconds"] = timing_data.get("total_duration_seconds") or 0.0
+                        result["tokens"] = timing_data.get("total_tokens") or 0
                     except json.JSONDecodeError:
                         pass
 
                 # Extract metrics if available
                 metrics = grading.get("execution_metrics") or {}
-                result["tool_calls"] = metrics.get("total_tool_calls", 0)
+                result["tool_calls"] = metrics.get("total_tool_calls") or 0
                 if not result.get("tokens"):
-                    result["tokens"] = metrics.get("output_chars", 0)
-                result["errors"] = metrics.get("errors_encountered", 0)
+                    result["tokens"] = metrics.get("output_chars") or 0
+                result["errors"] = metrics.get("errors_encountered") or 0
 
                 # Extract expectations — viewer requires fields: text, passed, evidence
                 raw_expectations = grading.get("expectations", [])

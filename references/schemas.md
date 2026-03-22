@@ -61,6 +61,9 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `evals[].turns[].expectations`: List of verifiable statements for this turn. The grader evaluates these against the corresponding turn's response and transcript.
 - `evals[].fixture`: Name of the fixture directory to use. If a turn's prompt contains `{{FIXTURE_PATH}}`, it is replaced with the absolute fixture path. If no turn contains the placeholder and `fixture_in_workdir` is true, the fixture path is prepended to the first turn.
 - `evals[].fixture_in_workdir`: Boolean (default `true`). When `true`, the fixture is copied into the agent's working directory so it is visible from the start. When `false`, the fixture is placed in a sibling directory outside the working directory. The agent cannot discover it by browsing. It is only accessible via `{{FIXTURE_PATH}}` substitution in a turn prompt. Use `false` when you want to test whether the agent asks for the codebase location before being told.
+- `evals[].timeout`: Optional integer (seconds). Overrides the CLI `--timeout` for all turns in this eval. Individual turns can override further with their own `timeout` field.
+- `evals[].turns[].timeout`: Optional integer (seconds). Overrides both the eval-level and CLI timeout for this specific turn. Use lower values for turns that ask a simple question and higher values for turns that require implementation work.
+- `evals[].force_skill`: Optional boolean (default `false`). When `true`, the with_skill run prepends an instruction telling the agent to read and follow the skill file. Useful for evals where normal skill discovery is unreliable. The CLI `--force-skill` flag acts as a global override that enables this for all evals.
 - `evals[].files`: Optional list of input file paths (relative to skill root)
 
 ---

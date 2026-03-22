@@ -14,7 +14,8 @@ Usage:
         --iteration 1 \
         [--model claude-opus-4-6] \
         [--max-parallel 4] \
-        [--timeout 300]
+        [--timeout 300] \
+        [--total-timeout 3600]
 
 Produces:
     <workspace>/iteration-<N>/
@@ -31,6 +32,8 @@ Produces:
 
 import argparse
 import json
+import os
+import signal
 import subprocess
 import sys
 import threading
@@ -132,8 +135,12 @@ def get_result_event(events: list[dict]) -> dict:
     return {}
 
 
-def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None) -> str:
-    """Build the prompt for a turn, handling fixture path substitution."""
+def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, skill_file: str | None = None) -> str:
+    """Build the prompt for a turn, handling fixture path and skill file substitution.
+
+    If skill_file is set (absolute path to SKILL.md in the run directory),
+    prepend an instruction telling the agent to read and follow that skill.
+    """
     prompt = turn_prompt
 
     if fixture_path and "{{FIXTURE_PATH}}" in prompt:
@@ -148,7 +155,72 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None) -> 
         if not has_placeholder_in_any_turn:
             prompt = f"The codebase is at {fixture_path}.\n\n{prompt}"
 
+    if skill_file:
+        prompt = f"Read and follow the skill at {skill_file} to complete this task.\n\n{prompt}"
+
     return prompt
+
+
+def run_claude_with_timeout(cmd, prompt, cwd, timeout):
+    """Run a claude -p command with timeout and full process tree cleanup.
+
+    Spawns the process in its own session (start_new_session=True) so the
+    entire process group can be killed on timeout. A threading.Timer triggers
+    the kill, which lets communicate() finish draining all buffered output
+    before returning. This means partial output from timed-out runs is
+    captured rather than lost.
+
+    Returns (stdout, stderr, returncode, timed_out).
+    """
+    process = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        text=True,
+        start_new_session=True,
+    )
+
+    timed_out = False
+
+    def kill_process_group():
+        nonlocal timed_out
+        timed_out = True
+        # SIGTERM first for graceful shutdown
+        try:
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGTERM)
+        except OSError:
+            pass
+        # Force kill after 5 seconds if still alive
+        def force_kill():
+            try:
+                pgid = os.getpgid(process.pid)
+                os.killpg(pgid, signal.SIGKILL)
+            except OSError:
+                pass
+        force_timer = threading.Timer(5.0, force_kill)
+        force_timer.daemon = True
+        force_timer.start()
+
+    timer = threading.Timer(float(timeout), kill_process_group)
+    timer.daemon = True
+    timer.start()
+
+    try:
+        stdout, stderr = process.communicate(input=prompt)
+    except Exception:
+        stdout, stderr = "", ""
+        try:
+            process.kill()
+        except OSError:
+            pass
+        process.wait()
+    finally:
+        timer.cancel()
+
+    return stdout, stderr, process.returncode, timed_out
 
 
 def run_single_job(
@@ -159,6 +231,8 @@ def run_single_job(
     iteration_dir: Path,
     model: str | None,
     timeout: int,
+    deadline: float | None = None,
+    skill_file: str | None = None,
 ) -> dict:
     """Run all turns of one eval+config combination.
 
@@ -172,6 +246,21 @@ def run_single_job(
     config_dir = iteration_dir / f"eval-{eval_id}" / config
     config_dir.mkdir(parents=True, exist_ok=True)
 
+    # Skip entirely if the total deadline already passed
+    if deadline and time.time() >= deadline:
+        print(f"  [{config}] eval-{eval_id} SKIPPED (total timeout exceeded)", flush=True)
+        return {
+            "eval_id": eval_id,
+            "eval_name": eval_name,
+            "config": config,
+            "session_id": session_id,
+            "status": "skipped",
+            "error": "Total timeout exceeded before job started",
+            "duration_ms": 0,
+            "total_tokens": 0,
+            "cost_usd": 0,
+        }
+
     all_events = []
     total_input_tokens = 0
     total_output_tokens = 0
@@ -180,11 +269,36 @@ def run_single_job(
     status = "success"
     error_message = None
 
+    # Eval-level timeout overrides the CLI default
+    eval_timeout = eval_def.get("timeout", timeout)
+
     for turn_idx, turn in enumerate(turns):
-        prompt = build_prompt(turn["prompt"], eval_def, fixture_path)
+        # Turn-level timeout overrides eval-level
+        turn_timeout = turn.get("timeout", eval_timeout)
+
+        # Check total deadline before each turn
+        if deadline:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                status = "timeout"
+                error_message = (
+                    f"Total timeout exceeded before turn {turn_idx + 1}/{len(turns)}"
+                )
+                print(
+                    f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
+                    f"SKIPPED (total timeout)",
+                    flush=True,
+                )
+                break
+            # Cap to the remaining total time
+            effective_timeout = min(turn_timeout, remaining)
+        else:
+            effective_timeout = turn_timeout
+
+        prompt = build_prompt(turn["prompt"], eval_def, fixture_path, skill_file=skill_file)
 
         session_name = f"eval-{eval_id}-{config}"
-        cmd = ["claude", "-p"]
+        cmd = ["claude", "-p", "--effort", "medium"]
 
         if turn_idx == 0:
             cmd.extend(["--session-id", session_id, "--name", session_name])
@@ -205,31 +319,44 @@ def run_single_job(
             flush=True,
         )
 
-        try:
-            result = subprocess.run(
-                cmd,
-                input=prompt,
-                cwd=run_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            status = "timeout"
-            error_message = f"Turn {turn_idx + 1} timed out after {timeout}s"
-            print(f"  [{config}] eval-{eval_id} turn {turn_idx + 1} TIMEOUT", flush=True)
-            break
+        stdout, stderr, returncode, timed_out = run_claude_with_timeout(
+            cmd, prompt, run_dir, effective_timeout
+        )
 
-        if result.returncode != 0 and not result.stdout.strip():
-            status = "error"
-            error_message = result.stderr[:500] if result.stderr else f"Exit code {result.returncode}"
+        events = parse_stream_json(stdout)
+
+        if timed_out:
+            # Save partial output when available
+            if events:
+                all_events.extend(events)
+                response_text = extract_response(events)
+                transcript_text = extract_transcript(events, prompt)
+                turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
+                turn_dir.mkdir(parents=True, exist_ok=True)
+                (turn_dir / "response.md").write_text(response_text)
+                (turn_dir / "transcript.md").write_text(transcript_text)
+
+            status = "timeout"
+            error_message = (
+                f"Turn {turn_idx + 1}/{len(turns)} timed out "
+                f"after {int(effective_timeout)}s"
+            )
             print(
-                f"  [{config}] eval-{eval_id} turn {turn_idx + 1} ERROR: {error_message[:100]}",
+                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} TIMEOUT",
                 flush=True,
             )
             break
 
-        events = parse_stream_json(result.stdout)
+        if returncode != 0 and not stdout.strip():
+            status = "error"
+            error_message = stderr[:500] if stderr else f"Exit code {returncode}"
+            print(
+                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
+                f"ERROR: {error_message[:100]}",
+                flush=True,
+            )
+            break
+
         all_events.extend(events)
 
         response_text = extract_response(events)
@@ -316,6 +443,12 @@ def main():
         help="Timeout per turn in seconds (default: 600)",
     )
     parser.add_argument(
+        "--total-timeout", type=int, default=None,
+        help="Total timeout for the entire run in seconds. Jobs that "
+             "cannot start before this deadline are skipped. "
+             "Turns already in progress are capped to the remaining time.",
+    )
+    parser.add_argument(
         "--run-root", required=True, type=Path,
         help="Directory to create run directories in. Claude Code only discovers "
              "skills in non-temp paths so this must be a real directory.",
@@ -324,6 +457,12 @@ def main():
         "--eval-ids", default=None,
         help="Comma-separated list of eval IDs to run (e.g. '1,3,5'). "
              "If omitted, all evals in evals.json are run.",
+    )
+    parser.add_argument(
+        "--force-skill", action="store_true",
+        help="Prepend an instruction telling the agent to read and follow the "
+             "skill file. Only applies to with_skill runs. Can also be set "
+             "per-eval via \"force_skill\": true in evals.json.",
     )
 
     args = parser.parse_args()
@@ -394,14 +533,19 @@ def main():
             else:
                 run_dir = entry["path"]
                 fixture_path = entry.get("fixture_path")
-            jobs.append((eval_def, config, run_dir, fixture_path))
+            force = args.force_skill or eval_def.get("force_skill", False)
+            skill_file = entry.get("skill_file") if force else None
+            jobs.append((eval_def, config, run_dir, fixture_path, skill_file))
 
     total_jobs = len(jobs)
     print(f"Launching {total_jobs} runs ({len(evals_list)} evals x {len(CONFIGURATIONS)} configs)")
     print(f"Max parallel: {args.max_parallel}, timeout per turn: {args.timeout}s")
+    if args.total_timeout:
+        print(f"Total timeout: {args.total_timeout}s")
     print()
 
     start_time = time.time()
+    deadline = start_time + args.total_timeout if args.total_timeout else None
     summaries = []
     progress_lock = threading.Lock()
     progress_path = iteration_dir / "progress.json"
@@ -432,7 +576,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.max_parallel) as executor:
         futures = {}
-        for eval_def, config, run_dir, fixture_path in jobs:
+        for eval_def, config, run_dir, fixture_path, skill_file in jobs:
             future = executor.submit(
                 run_single_job,
                 eval_def,
@@ -442,6 +586,8 @@ def main():
                 iteration_dir,
                 args.model,
                 args.timeout,
+                deadline,
+                skill_file,
             )
             futures[future] = (eval_def["id"], config)
 
