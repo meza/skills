@@ -137,18 +137,19 @@ def main():
     run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-"))
 
     CONFIGURATIONS = ["with_skill", "without_skill"]
-    run_paths: dict[str, dict[str, str]] = {}
+    run_paths: dict[str, dict] = {}
 
     for eval_def in evals_data.get("evals", []):
         eval_id = str(eval_def["id"])
         fixture_name = eval_def.get("fixture")
+        fixture_in_workdir = eval_def.get("fixture_in_workdir", True)
 
         run_paths[eval_id] = {}
         for config in CONFIGURATIONS:
             run_dir = run_root / f"eval-{eval_id}" / config
             run_dir.mkdir(parents=True, exist_ok=True)
 
-            # Copy fixture into run directory if this eval has one
+            fixture_path = None
             if fixture_name and fixture_staging:
                 source = fixture_staging / fixture_name
                 if not source.exists():
@@ -157,13 +158,31 @@ def main():
                         file=sys.stderr,
                     )
                     sys.exit(1)
-                shutil.copytree(source, run_dir / fixture_name)
+
+                if fixture_in_workdir:
+                    # Copy fixture into the run directory (agent sees it immediately)
+                    dest = run_dir / fixture_name
+                    shutil.copytree(source, dest)
+                    fixture_path = str(dest)
+                else:
+                    # Copy fixture to a sibling directory outside the run directory
+                    # so the agent cannot discover it by browsing its working directory.
+                    # Only accessible via {{FIXTURE_PATH}} substitution in prompts.
+                    external_dir = run_dir.parent / f"{config}_fixtures"
+                    external_dir.mkdir(parents=True, exist_ok=True)
+                    dest = external_dir / fixture_name
+                    if not dest.exists():
+                        shutil.copytree(source, dest)
+                    fixture_path = str(dest)
 
             # Copy skill into with_skill run directories
             if config == "with_skill":
                 copy_skill(skill_path, run_dir, skill_name)
 
-            run_paths[eval_id][config] = str(run_dir)
+            entry = {"path": str(run_dir)}
+            if fixture_path:
+                entry["fixture_path"] = fixture_path
+            run_paths[eval_id][config] = entry
 
     print(json.dumps(run_paths, indent=2))
 

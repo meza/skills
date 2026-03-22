@@ -131,16 +131,20 @@ def get_result_event(events: list[dict]) -> dict:
     return {}
 
 
-def build_prompt(turn_prompt: str, eval_def: dict, run_dir: str) -> str:
+def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None) -> str:
     """Build the prompt for a turn, handling fixture path substitution."""
-    fixture_name = eval_def.get("fixture")
     prompt = turn_prompt
 
-    if fixture_name:
-        fixture_path = str(Path(run_dir) / fixture_name)
-        if "{{FIXTURE_PATH}}" in prompt:
-            prompt = prompt.replace("{{FIXTURE_PATH}}", fixture_path)
-        else:
+    if fixture_path and "{{FIXTURE_PATH}}" in prompt:
+        prompt = prompt.replace("{{FIXTURE_PATH}}", fixture_path)
+    elif fixture_path and eval_def.get("fixture_in_workdir", True):
+        # Only auto-prepend if the fixture is in the working directory.
+        # External fixtures must use explicit {{FIXTURE_PATH}} in the turn prompt.
+        has_placeholder_in_any_turn = any(
+            "{{FIXTURE_PATH}}" in t.get("prompt", "")
+            for t in eval_def.get("turns", [])
+        )
+        if not has_placeholder_in_any_turn:
             prompt = f"The codebase is at {fixture_path}.\n\n{prompt}"
 
     return prompt
@@ -150,6 +154,7 @@ def run_single_job(
     eval_def: dict,
     config: str,
     run_dir: str,
+    fixture_path: str | None,
     iteration_dir: Path,
     model: str | None,
     timeout: int,
@@ -175,7 +180,7 @@ def run_single_job(
     error_message = None
 
     for turn_idx, turn in enumerate(turns):
-        prompt = build_prompt(turn["prompt"], eval_def, run_dir)
+        prompt = build_prompt(turn["prompt"], eval_def, fixture_path)
 
         session_name = f"eval-{eval_id}-{config}"
         cmd = ["claude", "-p"]
@@ -352,14 +357,22 @@ def main():
         eval_id = str(eval_def["id"])
         paths = run_paths.get(eval_id, {})
         for config in CONFIGURATIONS:
-            run_dir = paths.get(config)
-            if not run_dir:
+            entry = paths.get(config)
+            if not entry:
                 print(
                     f"Warning: no run directory for eval {eval_id} config {config}",
                     file=sys.stderr,
                 )
                 continue
-            jobs.append((eval_def, config, run_dir))
+            # prepare_fixture.py returns {"path": "...", "fixture_path": "..."}
+            if isinstance(entry, str):
+                # Backwards compat with old format (plain string)
+                run_dir = entry
+                fixture_path = None
+            else:
+                run_dir = entry["path"]
+                fixture_path = entry.get("fixture_path")
+            jobs.append((eval_def, config, run_dir, fixture_path))
 
     total_jobs = len(jobs)
     print(f"Launching {total_jobs} runs ({len(evals_list)} evals x {len(CONFIGURATIONS)} configs)")
@@ -397,12 +410,13 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.max_parallel) as executor:
         futures = {}
-        for eval_def, config, run_dir in jobs:
+        for eval_def, config, run_dir, fixture_path in jobs:
             future = executor.submit(
                 run_single_job,
                 eval_def,
                 config,
                 run_dir,
+                fixture_path,
                 iteration_dir,
                 args.model,
                 args.timeout,

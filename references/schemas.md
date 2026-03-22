@@ -32,6 +32,7 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
       "id": 2,
       "eval_name": "notifications-vague-request",
       "fixture": "my-app",
+      "fixture_in_workdir": false,
       "turns": [
         {
           "prompt": "We need to add notifications to our app.",
@@ -58,7 +59,8 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `evals[].turns`: Array of turn objects. One entry for a single-turn eval. Multiple for a conversation. The agent is blind to future turns.
 - `evals[].turns[].prompt`: The user message sent to the agent at this turn.
 - `evals[].turns[].expectations`: List of verifiable statements for this turn. The grader evaluates these against the corresponding turn's response and transcript.
-- `evals[].fixture`: Name of the fixture directory to use. If a turn's prompt contains `{{FIXTURE_PATH}}`, it is replaced with the absolute fixture path. If no turn contains the placeholder, the fixture path is prepended to the first turn.
+- `evals[].fixture`: Name of the fixture directory to use. If a turn's prompt contains `{{FIXTURE_PATH}}`, it is replaced with the absolute fixture path. If no turn contains the placeholder and `fixture_in_workdir` is true, the fixture path is prepended to the first turn.
+- `evals[].fixture_in_workdir`: Boolean (default `true`). When `true`, the fixture is copied into the agent's working directory so it is visible from the start. When `false`, the fixture is placed in a sibling directory outside the working directory. The agent cannot discover it by browsing. It is only accessible via `{{FIXTURE_PATH}}` substitution in a turn prompt. Use `false` when you want to test whether the agent asks for the codebase location before being told.
 - `evals[].files`: Optional list of input file paths (relative to skill root)
 
 ---
