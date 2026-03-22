@@ -130,11 +130,11 @@ def main():
     else:
         fixture_staging = None
 
-    # Run directory root (separate from fixture staging)
-    run_root = Path(tempfile.gettempdir()) / f"{skill_name}-eval-runs"
-    if run_root.exists():
-        shutil.rmtree(run_root)
-    run_root.mkdir()
+    # Run directory root (separate from fixture staging).
+    # Use mkdtemp so each invocation gets a unique directory. This prevents
+    # cross-iteration contamination if a previous iteration's agents left
+    # modified files behind.
+    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-"))
 
     CONFIGURATIONS = ["with_skill", "without_skill"]
     run_paths: dict[str, dict[str, str]] = {}
