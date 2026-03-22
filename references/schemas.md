@@ -8,43 +8,43 @@ This document defines the JSON schemas used by skill-creator.
 
 Defines the evals for a skill. Located at `evals/evals.json` within the skill directory.
 
-**Single-turn eval:**
+Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an object with `prompt` and `expectations`.
+
 ```json
 {
   "skill_name": "example-skill",
   "evals": [
     {
       "id": 1,
-      "prompt": "User's example prompt",
-      "expected_output": "Description of expected result",
-      "files": ["evals/files/sample1.pdf"],
-      "expectations": [
-        "The output includes X",
-        "The skill used script Y"
-      ]
-    }
-  ]
-}
-```
-
-**Multi-turn eval** (use `turns[]` instead of `prompt`):
-```json
-{
-  "skill_name": "example-skill",
-  "evals": [
+      "eval_name": "basic-output-check",
+      "turns": [
+        {
+          "prompt": "User's example prompt",
+          "expectations": [
+            "The output includes X",
+            "The skill used script Y"
+          ]
+        }
+      ],
+      "files": ["evals/files/sample1.pdf"]
+    },
     {
       "id": 2,
+      "eval_name": "notifications-vague-request",
       "fixture": "my-app",
-      "fixture_at_turn": 2,
       "turns": [
-        "We need to add notifications to our app.",
-        "Here's the codebase — it's at the fixture path."
-      ],
-      "expected_output": "Turn 1 asks for the codebase. Turn 2 reads it and asks one focused clarifying question.",
-      "files": [],
-      "expectations": [
-        "Turn 1 response asks to see the codebase before doing anything else",
-        "Turn 2 response references specific artifacts from the codebase"
+        {
+          "prompt": "We need to add notifications to our app.",
+          "expectations": [
+            "Response asks to see the codebase before doing anything else"
+          ]
+        },
+        {
+          "prompt": "Here's the codebase. It's at {{FIXTURE_PATH}}.",
+          "expectations": [
+            "Response references specific artifacts from the codebase"
+          ]
+        }
       ]
     }
   ]
@@ -54,12 +54,12 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 **Fields:**
 - `skill_name`: Name matching the skill's frontmatter
 - `evals[].id`: Unique integer identifier
-- `evals[].prompt`: The task to execute (single-turn evals)
-- `evals[].turns`: Array of user messages for multi-turn evals. Replaces `prompt`. Each turn agent is blind to all future turns — `turns[i]` is injected only after `turns[i-1]` has completed and its response is captured. There is no cap on the number of turns.
-- `evals[].fixture_at_turn`: Which turn first makes the fixture available to the agent (default: 1). Use `2` when the eval tests whether the agent asks for the codebase before receiving it.
-- `evals[].expected_output`: Human-readable description of success
+- `evals[].eval_name`: Human-readable name for the eval. Displayed in the viewer and benchmark tab. This is the source of truth. The eval_metadata.json and aggregation scripts read it from here.
+- `evals[].turns`: Array of turn objects. One entry for a single-turn eval. Multiple for a conversation. The agent is blind to future turns.
+- `evals[].turns[].prompt`: The user message sent to the agent at this turn.
+- `evals[].turns[].expectations`: List of verifiable statements for this turn. The grader evaluates these against the corresponding turn's response and transcript.
+- `evals[].fixture`: Name of the fixture directory to use. If a turn's prompt contains `{{FIXTURE_PATH}}`, it is replaced with the absolute fixture path. If no turn contains the placeholder, the fixture path is prepended to the first turn.
 - `evals[].files`: Optional list of input file paths (relative to skill root)
-- `evals[].expectations`: List of verifiable statements. For multi-turn evals, prefix expectations with "Turn 1" or "Turn 2" so the grader knows which turn's output to examine.
 
 ---
 
@@ -67,41 +67,27 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 
 Written at the eval directory level (e.g., `eval-1/eval_metadata.json`). Consumed by the viewer for display and by the aggregation script for eval naming.
 
-**Single-turn:**
 ```json
 {
   "eval_id": 1,
   "eval_name": "descriptive-name-here",
-  "prompt": "The user's task prompt",
-  "expectations": [
-    "The output includes X",
-    "The agent reads the codebase first"
-  ]
-}
-```
-
-**Multi-turn:**
-```json
-{
-  "eval_id": 2,
-  "eval_name": "descriptive-name-here",
   "turns": [
-    "First user message",
-    "Second user message"
-  ],
-  "expectations": [
-    "Turn 1 response asks for the codebase",
-    "Turn 2 response references specific files"
+    {
+      "prompt": "First user message",
+      "expectations": ["Response asks for the codebase"]
+    },
+    {
+      "prompt": "Second user message",
+      "expectations": ["Response references specific files"]
+    }
   ]
 }
 ```
 
 **Fields:**
 - `eval_id`: Numeric identifier matching the eval's ID in evals.json
-- `eval_name`: Human-readable name displayed in the viewer and benchmark tab
-- `prompt`: The task prompt (single-turn evals)
-- `turns`: Array of user messages (multi-turn evals, replaces `prompt`)
-- `expectations`: List of verifiable statements passed to the grader. Use the same field name as evals.json and grading.json.
+- `eval_name`: Human-readable name displayed in the viewer and benchmark tab. Sourced from evals.json.
+- `turns`: Array of turn objects matching the evals.json schema. Each has `prompt` and `expectations`.
 
 **Viewer lookup order:** The viewer checks `run_dir/eval_metadata.json` first, then `run_dir.parent/eval_metadata.json`. Placing it at the eval directory level (parent of config dirs) means both with_skill and without_skill runs share the same metadata.
 

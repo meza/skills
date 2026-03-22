@@ -69,32 +69,25 @@ def _find_runs_recursive(root: Path, current: Path, runs: list[dict]) -> None:
     if not current.is_dir():
         return
 
-    # Detect multi-turn eval directories first: children named turn-1/, turn-2/, etc. with outputs/
+    # Detect run directories: children named turn-1/, turn-2/, etc. with outputs/
     turn_dirs = sorted(
         [c for c in current.iterdir() if c.is_dir() and re.match(r'^turn-\d+$', c.name) and (c / "outputs").is_dir()],
         key=lambda p: int(re.search(r'\d+', p.name).group()),
     )
     if turn_dirs:
-        run = build_multi_turn_run(root, current, turn_dirs)
+        run = build_run(root, current, turn_dirs)
         if run:
             runs.append(run)
         return
 
-    outputs_dir = current / "outputs"
-    if outputs_dir.is_dir():
-        run = build_run(root, current)
-        if run:
-            runs.append(run)
-        return
-
-    skip = {"node_modules", ".git", "__pycache__", "skill", "inputs"}
+    skip = {"node_modules", ".git", "__pycache__", "skill", "inputs", "outputs"}
     for child in sorted(current.iterdir()):
         if child.is_dir() and child.name not in skip:
             _find_runs_recursive(root, child, runs)
 
 
-def build_multi_turn_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> dict | None:
-    """Build a run dict for a multi-turn eval (directory containing turn-1/, turn-2/, etc.)."""
+def build_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> dict | None:
+    """Build a run dict from turn-N/ directories."""
     prompt = ""
     eval_id = None
     eval_name = None
@@ -105,8 +98,21 @@ def build_multi_turn_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> di
         if candidate.exists():
             try:
                 metadata = json.loads(candidate.read_text())
-                prompt_turns = metadata.get("turns", [])
-                prompt = prompt_turns[0] if prompt_turns else metadata.get("prompt", "")
+                raw_turns = metadata.get("turns", [])
+                # Handle both new format (list of {prompt, expectations})
+                # and legacy format (list of strings)
+                prompt_turns = []
+                for t in raw_turns:
+                    if isinstance(t, dict):
+                        prompt_turns.append(t.get("prompt", ""))
+                    else:
+                        prompt_turns.append(str(t))
+                if not prompt_turns:
+                    # Legacy: single prompt field
+                    p = metadata.get("prompt", "")
+                    if p:
+                        prompt_turns = [p]
+                prompt = prompt_turns[0] if prompt_turns else ""
                 eval_id = metadata.get("eval_id")
                 eval_name = metadata.get("eval_name")
             except (json.JSONDecodeError, OSError):
@@ -173,110 +179,6 @@ def build_multi_turn_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> di
         "transcript": transcript,
     }
 
-
-def build_run(root: Path, run_dir: Path) -> dict | None:
-    """Build a run dict with prompt, outputs, and grading data."""
-    prompt = ""
-    eval_id = None
-    eval_name = None
-
-    # Try eval_metadata.json
-    for candidate in [run_dir / "eval_metadata.json", run_dir.parent / "eval_metadata.json"]:
-        if candidate.exists():
-            try:
-                metadata = json.loads(candidate.read_text())
-                prompt = metadata.get("prompt", "")
-                eval_id = metadata.get("eval_id")
-                eval_name = metadata.get("eval_name")
-            except (json.JSONDecodeError, OSError):
-                pass
-            if prompt:
-                break
-
-    # Fall back to transcript.md
-    if not prompt:
-        for candidate in [run_dir / "transcript.md", run_dir / "outputs" / "transcript.md"]:
-            if candidate.exists():
-                try:
-                    text = candidate.read_text()
-                    match = re.search(r"## Eval Prompt\n\n([\s\S]*?)(?=\n##|$)", text)
-                    if match:
-                        prompt = match.group(1).strip()
-                except OSError:
-                    pass
-                if prompt:
-                    break
-
-    if not prompt:
-        prompt = "(No prompt found)"
-
-    run_id = str(run_dir.relative_to(root)).replace("/", "-").replace("\\", "-")
-
-    # Collect output files
-    outputs_dir = run_dir / "outputs"
-    output_files: list[dict] = []
-    transcript: str | None = None
-    session_log: str | None = None
-    if outputs_dir.is_dir():
-        for f in sorted(outputs_dir.iterdir()):
-            if f.is_file() and f.name == "transcript.md":
-                try:
-                    transcript = f.read_text(errors="replace")
-                except OSError:
-                    pass
-            elif f.is_file() and f.name == "session.log":
-                try:
-                    session_log = f.read_text(errors="replace")
-                except OSError:
-                    pass
-            elif f.is_file() and f.name not in METADATA_FILES:
-                output_files.append(embed_file(f))
-
-    # Also check for session.log directly in the run dir (not outputs/)
-    if session_log is None:
-        run_session = run_dir / "session.log"
-        if run_session.exists():
-            try:
-                session_log = run_session.read_text(errors="replace")
-            except OSError:
-                pass
-
-    # Load grading if present
-    grading = None
-    run_subdirs = sorted(
-        [c for c in run_dir.iterdir() if c.is_dir() and re.match(r'^run-\d+$', c.name)],
-        key=lambda p: int(re.search(r'\d+', p.name).group()),
-    ) if run_dir.is_dir() else []
-    grading_candidates = (
-        [run_dir / "grading.json"]
-        + [d / "grading.json" for d in run_subdirs]
-        + [run_dir.parent / "grading.json"]
-    )
-    for candidate in grading_candidates:
-        if candidate.exists():
-            try:
-                grading = json.loads(candidate.read_text())
-            except (json.JSONDecodeError, OSError):
-                pass
-            if grading:
-                break
-
-    chat_turns = [
-        {"role": "user", "text": prompt},
-        {"role": "agent", "files": output_files},
-    ]
-
-    return {
-        "id": run_id,
-        "prompt": prompt,
-        "eval_id": eval_id,
-        "eval_name": eval_name,
-        "turns": chat_turns,
-        "outputs": output_files,
-        "grading": grading,
-        "transcript": transcript,
-        "session_log": session_log,
-    }
 
 
 def embed_file(path: Path) -> dict:
@@ -410,6 +312,8 @@ def generate_html(
         embedded["benchmark"] = benchmark
 
     data_json = json.dumps(embedded)
+    # Escape </script> sequences that would prematurely close the <script> tag
+    data_json = data_json.replace("</", "<\\/")
 
     return template.replace("/*__EMBEDDED_DATA__*/", f"const EMBEDDED_DATA = {data_json};")
 

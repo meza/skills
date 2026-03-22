@@ -150,8 +150,10 @@ Save test cases to `evals/evals.json`. Don't write expectations yet — just the
   "evals": [
     {
       "id": 1,
-      "prompt": "User's task prompt",
-      "expected_output": "Description of expected result",
+      "eval_name": "descriptive-name-here",
+      "turns": [
+        {"prompt": "User's task prompt", "expectations": []}
+      ],
       "files": []
     }
   ]
@@ -170,36 +172,18 @@ Put results in `<skill-name>-workspace/` as a sibling to the skill directory. Or
 
 Every iteration must follow this exact structure. The viewer, aggregation script, and grader all depend on these paths. Deviating from this layout will cause silent failures.
 
-**Single-turn eval:**
-```
-iteration-N/
-└── eval-<ID>/
-    ├── eval_metadata.json          # prompt, eval_id, eval_name, expectations
-    ├── with_skill/
-    │   ├── outputs/
-    │   │   ├── transcript.md       # verbatim execution log
-    │   │   └── (task output files)
-    │   ├── grading.json            # from grader (sibling to outputs/)
-    │   └── timing.json             # tokens and duration
-    └── without_skill/
-        ├── outputs/
-        │   ├── transcript.md
-        │   └── (task output files)
-        ├── grading.json
-        └── timing.json
-```
+Every eval uses the same layout. A one-turn eval just has `turn-1/`.
 
-**Multi-turn eval:**
 ```
 iteration-N/
 └── eval-<ID>/
-    ├── eval_metadata.json          # turns[], eval_id, eval_name, expectations
+    ├── eval_metadata.json          # turns[{prompt, expectations}], eval_id, eval_name
     ├── with_skill/
     │   ├── turn-1/
     │   │   └── outputs/
-    │   │       ├── response.md     # agent's response for this turn
-    │   │       └── transcript.md   # verbatim log for this turn
-    │   ├── turn-2/
+    │   │       ├── response.md     # extracted post-run from agent output file
+    │   │       └── transcript.md   # extracted post-run from agent output file
+    │   ├── turn-2/                 # if the eval has more turns
     │   │   └── outputs/
     │   │       ├── response.md
     │   │       └── transcript.md
@@ -257,90 +241,81 @@ For evals without a `fixture` field (pure prompt evals), no fixture path is need
 
 **Now spawn all runs.** For each test case, spawn two subagents in the same turn — one with the skill, one without. This is important: don't spawn the with-skill runs first and then come back for baselines later. Launch everything at once so it all finishes around the same time.
 
-**With-skill run:**
+#### Prompt design principle
 
+The agent under test must not know it is being evaluated. Its prompt should look like a normal user message. All eval scaffolding (output capture, transcript extraction, file organization) happens post-hoc by the parent agent, not by the agent under test.
+
+The Agent tool already captures everything you need. When a background agent completes, you receive a task notification with `total_tokens`, `duration_ms`, and an `output_file` path. That output file is a full JSONL transcript of every tool call, every result, and every text response the agent produced. You extract response.md and transcript.md from it after the run finishes. The agent never has to know.
+
+Every eval uses `turns[]`. Each turn is an object with `prompt` and `expectations`. A one-turn eval has one entry. The handling is the same regardless of how many turns there are.
+
+**Spawning:** For each eval, spawn one agent per configuration (with_skill and without_skill). The agent receives `turns[0].prompt` as its prompt. All turn-1 agents across all evals can be spawned in parallel.
+
+**With-skill prompt:**
 ```
-Execute this task:
-- Skill path: <path-to-skill>
-- Task: <eval prompt>
-- Input files: <eval files if any, or "none">
-- Fixture path: <fixture_base_path/eval/eval-<id>/<fixture-name>> (if this eval has a fixture)
-- Save outputs to: <workspace>/iteration-<N>/eval-<ID>/with_skill/outputs/
-- Outputs to save: <what the user cares about — e.g., "the .docx file", "the final CSV">
-- IMPORTANT: Work only inside the fixture path above. Do not modify any path outside it.
-
-After completing the task, save a transcript.md to <workspace>/iteration-<N>/eval-<ID>/with_skill/outputs/transcript.md. The transcript is a verbatim chronological log — not a summary. For each step: record the tool name and input, then paste the full output verbatim. If you read a file, include the full file content. If you ran a bash command, include the full stdout/stderr. This is what reviewers and graders read to verify what actually happened.
-```
-
-**Baseline run** (same prompt, but the baseline depends on context):
-- **Creating a new skill**: no skill at all. Same prompt, no skill path. Use `FIXTURE_PATHS[eval_id]["without_skill"]` as the fixture path, save to `without_skill/outputs/`.
-- **Improving an existing skill**: the old version. Before editing, snapshot the skill (`cp -r <skill-path> <workspace>/skill-snapshot/`), then point the baseline subagent at the snapshot. Save to `old_skill/outputs/`.
-
-**Multi-turn evals** — when an eval has `turns[]` instead of `prompt`, use a single agent for the full conversation. Spawn it with `turns[0]`, then use SendMessage to inject each subsequent turn after the previous response is saved. This continues the existing agent with its full context preserved. The agent stays genuinely blind to future turns because it never receives `turns[i+1]` until after it has responded to `turns[i]`.
-
-To send a follow-up message to a running agent, use SendMessage like this:
-```
-SendMessage(to: "<agent-name>", message: "<turn message>")
-```
-This is different from spawning a new agent. SendMessage continues the named agent with its existing context rather than launching a fresh one.
-
-Turn 1 agents for different multi-turn evals, plus all single-turn eval agents, can be spawned in parallel. The subsequent turns for each multi-turn eval are then driven sequentially via SendMessage as responses come in.
-
-**Initial spawn (turn index 0):**
-```
-You are participating in a multi-turn conversation eval. This conversation has <N> turns.
-
-For each turn:
-1. Respond to the user message (invoke the skill if relevant)
-2. Save your full response as response.md in the turn outputs directory: <eval-dir>/<config>/turn-1/outputs/response.md
-3. Save a transcript.md in the same directory. This is a verbatim chronological log of every action you took and every result you received — not a summary. For each step: record the tool name and input, then paste the full output verbatim. If you read a file, include the full file content in the transcript. If you ran a bash command, include the full stdout/stderr. Reviewers and graders read this to see exactly what happened and what you saw.
-4. Wait for the next message (delivered via SendMessage)
-
-Skill path: <path-to-skill> (omit for baseline)
-Fixture path: <path> (only if fixture_at_turn == 1, otherwise do not include yet)
-Save any modified files to: <eval-dir>/<config>/outputs/
-
-Note: if the turn message contains `{{FIXTURE_PATH}}`, replace it with the actual absolute fixture path before sending. The agent must receive the path inline in the message text — do not pass it as separate metadata.
-
-First user message:
-<turns[0]>
+<if skill path>Skill path: <path-to-skill>
+</if><if fixture and no {{FIXTURE_PATH}} in prompt>The codebase is at <fixture_path>.
+</if>
+<turns[0].prompt — the user's actual words>
 ```
 
-**Injecting turn i (i = 1, 2, ..., N-1)** — once the agent has saved its turn-i response and transcript, send:
+If the turn prompt contains `{{FIXTURE_PATH}}`, replace it with the actual absolute fixture path before sending. If the eval has a `fixture` field but no turn prompt contains `{{FIXTURE_PATH}}`, prepend the fixture path to the first turn.
+
+**Baseline prompt** (same but without the skill path):
+- **Creating a new skill**: no skill path. Use `FIXTURE_PATHS[eval_id]["without_skill"]` as the fixture path.
+- **Improving an existing skill**: the old version. Before editing, snapshot the skill (`cp -r <skill-path> <workspace>/skill-snapshot/`), then point the baseline subagent at the snapshot.
+
+**Subsequent turns (if `turns[]` has more than one entry):** When an agent completes a turn, you receive a task notification immediately. React by sending the next turn via SendMessage right away. Do not batch sends or poll in loops. Each agent gets its next turn the moment it finishes the previous one.
+
 ```
-Here is the next user message (turn <i+1> of <N>):
-
-<turns[i]>
-
-Save your response to: <eval-dir>/<config>/turn-<i+1>/outputs/response.md
-Save your transcript to: <eval-dir>/<config>/turn-<i+1>/outputs/transcript.md
-<if fixture_at_turn == i+1: replace {{FIXTURE_PATH}} in the turn message above with the actual absolute fixture path. Do not add a separate "Fixture path:" metadata line — the path must appear inline in the message itself so the agent sees it as part of what the user said.>
+SendMessage(to: "<agent-name>", message: "<turns[i].prompt — with {{FIXTURE_PATH}} replaced if applicable>")
 ```
 
-The **final turn's** `outputs/` directory and all per-turn `turn-N/outputs/` directories together are what the grader examines. For assertions that reference specific turns (e.g., "Turn 1 response asks for the codebase"), tell the grader the layout: "turn-1/outputs/response.md and turn-1/outputs/transcript.md, turn-2/outputs/response.md and turn-2/outputs/transcript.md, ... are all available". The transcript.md files are what make process assertions verifiable.
+The agent stays blind to future turns because it never receives `turns[i+1]` until after it has responded to `turns[i]`. No meta-language. No turn numbers. Just the user's words.
 
-Write an `eval_metadata.json` for each test case at the eval directory level (e.g., `eval-1/eval_metadata.json`). Give each eval a descriptive `eval_name`. Use the numeric ID for the directory name (`eval-1/`, `eval-2/`). If this iteration uses new or modified eval prompts, create these files for each new eval directory.
+#### Post-run extraction
 
-For single-turn evals:
+When each agent completes (including after each turn of a multi-turn eval), run the extraction script immediately. Do not wait for all agents to finish. The output file path comes from the task notification.
+
+```bash
+python <skill-creator-path>/scripts/extract_transcript.py \
+  --output-file <output_file_path> \
+  --dest-dir <workspace>/iteration-N/eval-<id>/<config> \
+  --num-turns <number_of_turns>
+```
+
+The script handles a known structural property of resumed agents: when an agent is resumed via SendMessage, the output file replays the full prior conversation before the new turn. The script detects replayed content and splits cleanly at turn boundaries.
+
+For each turn it produces two files in `turn-N/outputs/`:
+- `response.md`: the agent's text responses only
+- `transcript.md`: the full interaction including `[USER INPUT]`, `[TOOL CALL]`, `[TOOL RESULT]`, and `[ASSISTANT TEXT]` sections
+
+The transcript includes the raw user input at each turn so reviewers can see exactly what the agent received. The grader uses these files to verify process assertions.
+
+For batch extraction after all runs complete, the script also accepts a mapping file:
+
+```bash
+python <skill-creator-path>/scripts/extract_transcript.py \
+  --mapping <workspace>/iteration-N/agent_mapping.json \
+  --evals-json <path-to-skill>/evals/evals.json \
+  --iteration-dir <workspace>/iteration-N \
+  --task-dir <tasks-directory>
+```
+
+The mapping file maps agent names (e.g. `e1-ws`, `e1-bl`) to agent IDs. The script derives eval_id, config, and num_turns from the name and evals.json.
+
+#### eval_metadata.json
+
+Write an `eval_metadata.json` for each test case at the eval directory level (e.g., `eval-1/eval_metadata.json`). Use the numeric ID for the directory name (`eval-1/`, `eval-2/`). The `eval_name` comes from `evals.json`. Do not invent names.
+
 ```json
 {
   "eval_id": 1,
-  "eval_name": "descriptive-name-here",
-  "prompt": "The user's task prompt",
-  "expectations": []
-}
-```
-
-For multi-turn evals:
-```json
-{
-  "eval_id": 2,
-  "eval_name": "descriptive-name-here",
+  "eval_name": "name-from-evals-json",
   "turns": [
-    "First user message",
-    "Second user message"
-  ],
-  "expectations": []
+    {"prompt": "First user message", "expectations": []},
+    {"prompt": "Second user message", "expectations": []}
+  ]
 }
 ```
 
@@ -350,7 +325,7 @@ Don't just wait for the runs to finish — you can use this time productively. D
 
 Good expectations are objectively verifiable and have descriptive names — they should read clearly in the benchmark viewer so someone glancing at the results immediately understands what each one checks. Subjective skills (writing style, design quality) are better evaluated qualitatively — don't force expectations onto things that need human judgment.
 
-Update the `eval_metadata.json` files and `evals/evals.json` with the expectations once drafted. Also explain to the user what they'll see in the viewer — both the qualitative outputs and the quantitative benchmark.
+Update the `eval_metadata.json` files and `evals/evals.json` with the expectations. Each expectation goes inside the turn object it applies to. Explain to the user what they will see in the viewer.
 
 ### Step 3: As runs complete, capture timing data
 
@@ -372,7 +347,7 @@ Once all runs are done:
 
 1. **Grade each run** — spawn a grader subagent (or grade inline) that reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
-   For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. The transcript.md is what makes process assertions ("agent read the codebase before responding") verifiable — without it, the grader can only see what the agent said, not what it did.
+   For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
 2. **Aggregate into benchmark** — run the aggregation script:
    ```bash
