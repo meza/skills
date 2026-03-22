@@ -176,10 +176,11 @@ def run_single_job(
     for turn_idx, turn in enumerate(turns):
         prompt = build_prompt(turn["prompt"], eval_def, run_dir)
 
+        session_name = f"eval-{eval_id}-{config}"
         cmd = ["claude", "-p"]
 
         if turn_idx == 0:
-            cmd.extend(["--session-id", session_id])
+            cmd.extend(["--session-id", session_id, "--name", session_name])
         else:
             cmd.extend(["--resume", session_id])
 
