@@ -144,14 +144,14 @@ def load_run_results(benchmark_dir: Path) -> dict:
                     "eval_id": eval_id,
                     "eval_name": eval_name,
                     "run_number": run_number,
-                    "pass_rate": grading.get("summary", {}).get("pass_rate", 0.0),
-                    "passed": grading.get("summary", {}).get("passed", 0),
-                    "failed": grading.get("summary", {}).get("failed", 0),
-                    "total": grading.get("summary", {}).get("total", 0),
+                    "pass_rate": (grading.get("summary") or {}).get("pass_rate", 0.0),
+                    "passed": (grading.get("summary") or {}).get("passed", 0),
+                    "failed": (grading.get("summary") or {}).get("failed", 0),
+                    "total": (grading.get("summary") or {}).get("total", 0),
                 }
 
                 # Extract timing — check grading.json first, then sibling timing.json
-                timing = grading.get("timing", {})
+                timing = grading.get("timing") or {}
                 result["time_seconds"] = timing.get("total_duration_seconds", 0.0)
                 timing_file = run_dir / "timing.json"
                 if result["time_seconds"] == 0.0 and timing_file.exists():
@@ -164,7 +164,7 @@ def load_run_results(benchmark_dir: Path) -> dict:
                         pass
 
                 # Extract metrics if available
-                metrics = grading.get("execution_metrics", {})
+                metrics = grading.get("execution_metrics") or {}
                 result["tool_calls"] = metrics.get("total_tool_calls", 0)
                 if not result.get("tokens"):
                     result["tokens"] = metrics.get("output_chars", 0)
@@ -228,9 +228,9 @@ def aggregate_results(results: dict) -> dict:
         primary = run_summary.get(configs[0], {}) if configs else {}
         baseline = {}
 
-    delta_pass_rate = primary.get("pass_rate", {}).get("mean", 0) - baseline.get("pass_rate", {}).get("mean", 0)
-    delta_time = primary.get("time_seconds", {}).get("mean", 0) - baseline.get("time_seconds", {}).get("mean", 0)
-    delta_tokens = primary.get("tokens", {}).get("mean", 0) - baseline.get("tokens", {}).get("mean", 0)
+    delta_pass_rate = (primary.get("pass_rate") or {}).get("mean", 0) - (baseline.get("pass_rate") or {}).get("mean", 0)
+    delta_time = (primary.get("time_seconds") or {}).get("mean", 0) - (baseline.get("time_seconds") or {}).get("mean", 0)
+    delta_tokens = (primary.get("tokens") or {}).get("mean", 0) - (baseline.get("tokens") or {}).get("mean", 0)
 
     run_summary["delta"] = {
         "pass_rate": f"{delta_pass_rate:+.2f}",
