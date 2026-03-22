@@ -265,7 +265,7 @@ If the turn prompt contains `{{FIXTURE_PATH}}`, replace it with the actual absol
 - **Creating a new skill**: no skill path. Use `FIXTURE_PATHS[eval_id]["without_skill"]` as the fixture path.
 - **Improving an existing skill**: the old version. Before editing, snapshot the skill (`cp -r <skill-path> <workspace>/skill-snapshot/`), then point the baseline subagent at the snapshot.
 
-**Subsequent turns (if `turns[]` has more than one entry):** When an agent completes a turn, you receive a task notification immediately. React by sending the next turn via SendMessage right away. Do not batch sends or poll in loops. Each agent gets its next turn the moment it finishes the previous one.
+**Subsequent turns (if `turns[]` has more than one entry):** Each agent progresses through its turns independently. When agent A finishes turn 1, send it turn 2 immediately via SendMessage. Do not wait for agents B, C, or D to also finish turn 1. Every agent advances on its own timeline the moment it completes a turn.
 
 ```
 SendMessage(to: "<agent-name>", message: "<turns[i].prompt — with {{FIXTURE_PATH}} replaced if applicable>")
@@ -341,13 +341,15 @@ When each subagent task completes, you receive a notification containing `total_
 
 This is the only opportunity to capture this data — it comes through the task notification and isn't persisted elsewhere. Process each notification as it arrives rather than trying to batch them.
 
-### Step 4: Grade, aggregate, and launch the viewer
+### Step 4: Grade as runs complete, then aggregate and launch the viewer
 
-Once all runs are done:
+Do not wait for all runs to finish before grading. As each run completes and its transcript is extracted, spawn a grader subagent for that run immediately. One grader per run (not one for the whole batch).
 
-1. **Grade each run** — spawn a grader subagent (or grade inline) that reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
+1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
+
+Once all graders have finished:
 
 2. **Aggregate into benchmark** — run the aggregation script:
    ```bash
@@ -360,16 +362,18 @@ Put each with_skill version before its baseline counterpart.
 
 4. **Launch the viewer** with both qualitative outputs and quantitative data:
    ```bash
-   nohup python <skill-creator-path>/eval-viewer/generate_review.py \
+   python <skill-creator-path>/scripts/serve_viewer.py start \
      <workspace>/iteration-N \
      --skill-name "my-skill" \
-     --benchmark <workspace>/iteration-N/benchmark.json \
-     > /dev/null 2>&1 &
-   VIEWER_PID=$!
+     --benchmark <workspace>/iteration-N/benchmark.json
    ```
    For iteration 2+, also pass `--previous-workspace <workspace>/iteration-<N-1>`.
 
-   **Cowork / headless environments:** If `webbrowser.open()` is not available or the environment has no display, use `--static <output_path>` to write a standalone HTML file instead of starting a server. Feedback will be downloaded as a `feedback.json` file when the user clicks "Submit All Reviews". After download, copy `feedback.json` into the workspace directory for the next iteration to pick up.
+   The script backgrounds the server, writes a PID file, and health-checks the port before reporting success. There is no need for `nohup`, `&`, or PID capture.
+
+   By default, `--open` is on and the script opens the viewer in the user's browser. If the user has asked you not to open browsers automatically, pass `--no-open` instead. On the first run of a session, ask the user whether they want the browser opened automatically. Remember their answer for the rest of the session.
+
+   **Cowork / headless environments:** If there is no display, pass `--no-open` and use `--static <output_path>` to write a standalone HTML file instead of starting a server. Feedback will be downloaded as a `feedback.json` file when the user clicks "Submit All Reviews". After download, copy `feedback.json` into the workspace directory for the next iteration to pick up.
 
 Note: please use generate_review.py to create the viewer; there's no need to write custom HTML.
 
@@ -406,11 +410,13 @@ When the user tells you they're done, read `feedback.json`:
 
 Empty feedback means the user thought it was fine. Focus your improvements on the test cases where the user had specific complaints.
 
-Kill the viewer server when you're done with it:
+After reading the feedback, stop the viewer server immediately:
 
 ```bash
-kill $VIEWER_PID 2>/dev/null
+python <skill-creator-path>/scripts/serve_viewer.py stop
 ```
+
+The viewer is only needed while the user is reviewing. Once you have the feedback, shut it down before moving on.
 
 ---
 
