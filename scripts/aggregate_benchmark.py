@@ -178,11 +178,11 @@ def load_run_results(benchmark_dir: Path) -> dict:
                 result["expectations"] = raw_expectations
 
                 # Extract notes from user_notes_summary
-                notes_summary = grading.get("user_notes_summary", {})
+                notes_summary = grading.get("user_notes_summary") or {}
                 notes = []
-                notes.extend(notes_summary.get("uncertainties", []))
-                notes.extend(notes_summary.get("needs_review", []))
-                notes.extend(notes_summary.get("workarounds", []))
+                notes.extend(notes_summary.get("uncertainties") or [])
+                notes.extend(notes_summary.get("needs_review") or [])
+                notes.extend(notes_summary.get("workarounds") or [])
                 result["notes"] = notes
 
                 results[config].append(result)
