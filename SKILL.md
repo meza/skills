@@ -204,40 +204,34 @@ Key placement rules:
 - **timing.json**: at the config directory level.
 - **Eval directory names**: use the numeric ID from evals.json prefixed with `eval-` (e.g., `eval-1/`, `eval-2/`). Put the human-readable name in `eval_name` inside eval_metadata.json. The aggregation script requires the `eval-` prefix.
 
-### Step 1: Prepare fixtures, then spawn all runs in the same turn
+### Step 1: Prepare run directories, then spawn all runs in the same turn
 
-**If the skill's evals.json defines a `fixture_repo` or `fixture_base_path`, run fixture preparation first — before spawning any agents:**
-
-```bash
-python <skill-creator-path>/scripts/prepare_fixture.py --skill-path <path-to-skill>
-```
-
-This script resets `fixture_base_path` to the clean remote state, then wipes and rebuilds `fixture_base_path/eval/`. Each eval that has a `fixture` field gets two subdirectories per configuration so parallel with_skill and without_skill agents cannot trample each other:
-
-```
-fixture_base_path/eval/eval-<id>/with_skill/<fixture-name>/
-fixture_base_path/eval/eval-<id>/without_skill/<fixture-name>/
-```
-
-The script prints a JSON map to stdout. Capture it:
+**Always run fixture preparation first — before spawning any agents:**
 
 ```bash
-FIXTURE_PATHS=$(python <skill-creator-path>/scripts/prepare_fixture.py --skill-path <path-to-skill>)
+RUN_PATHS=$(python3 <skill-creator-path>/scripts/prepare_fixture.py --skill-path <path-to-skill>)
+```
+
+This script creates an isolated run directory for every eval in every configuration (with_skill and without_skill). Each run directory is a self-contained project root in the system temp directory. The script handles three things:
+
+1. If the skill defines a `fixture_repo`, clones (or resets) it into a staging area.
+2. For each eval, creates `<temp>/eval-<id>/with_skill/` and `<temp>/eval-<id>/without_skill/`. If the eval has a `fixture` field, copies the fixture into the run directory.
+3. For `with_skill` directories, copies the skill under test into `.claude/skills/<skill-name>/` so Claude Code discovers it through normal mechanisms. `without_skill` directories get no skill. This is what makes baselines true baselines.
+
+The output is a JSON map. Capture it:
+
+```bash
 # Output shape:
 # {
 #   "1": {
-#     "with_skill":    "/.../.../eval/eval-1/with_skill/run-management-app",
-#     "without_skill": "/.../.../eval/eval-1/without_skill/run-management-app"
+#     "with_skill":    "/tmp/.../eval-1/with_skill",
+#     "without_skill": "/tmp/.../eval-1/without_skill"
 #   },
 #   "2": { ... }
 # }
 ```
 
-These per-eval, per-configuration paths are the only paths eval agents are ever given. The canonical source at `fixture_base_path/<name>/` is never passed to an agent directly. This is what makes evals reproducible: every run starts from a clean copy, and parallel runs cannot interfere with each other.
-
-**`fixture_base_path` is optional** — if omitted, `prepare_fixture` places fixtures in the system temp directory (`tempfile.gettempdir()` on the current platform) under `<skill-name>-eval-fixtures`. Omitting it is the recommended default: temp-dir contents are outside the skill directory and are cleared on reboot, so previous agents' writes cannot contaminate a future iteration even if `prepare_fixture` is not run. Only set `fixture_base_path` explicitly when you need fixtures at a specific stable location (e.g. a network share or a CI artifact path).
-
-For evals without a `fixture` field (pure prompt evals), no fixture path is needed.
+Every eval appears in the output, including pure-prompt evals without fixtures. The path points to the run directory root (the agent's working directory). If the eval has a fixture, it lives at `<run_dir>/<fixture-name>/` inside the run directory.
 
 **Now spawn all runs.** For each test case, spawn two subagents in the same turn — one with the skill, one without. This is important: don't spawn the with-skill runs first and then come back for baselines later. Launch everything at once so it all finishes around the same time.
 
@@ -245,25 +239,28 @@ For evals without a `fixture` field (pure prompt evals), no fixture path is need
 
 The agent under test must not know it is being evaluated. Its prompt should look like a normal user message. All eval scaffolding (output capture, transcript extraction, file organization) happens post-hoc by the parent agent, not by the agent under test.
 
+The skill is never mentioned in the prompt. The agent discovers it through Claude Code's normal skill resolution because the run directory contains `.claude/skills/<skill-name>/`. This prevents the agent from narrating "I'll read the skill" or citing the skill by name. The agent just behaves differently because the skill is present.
+
 The Agent tool already captures everything you need. When a background agent completes, you receive a task notification with `total_tokens`, `duration_ms`, and an `output_file` path. That output file is a full JSONL transcript of every tool call, every result, and every text response the agent produced. You extract response.md and transcript.md from it after the run finishes. The agent never has to know.
 
 Every eval uses `turns[]`. Each turn is an object with `prompt` and `expectations`. A one-turn eval has one entry. The handling is the same regardless of how many turns there are.
 
 **Spawning:** For each eval, spawn one agent per configuration (with_skill and without_skill). The agent receives `turns[0].prompt` as its prompt. All turn-1 agents across all evals can be spawned in parallel.
 
-**With-skill prompt:**
+**Prompt construction:**
 ```
-<if skill path>Skill path: <path-to-skill>
-</if><if fixture and no {{FIXTURE_PATH}} in prompt>The codebase is at <fixture_path>.
+<if fixture and no {{FIXTURE_PATH}} in prompt>The codebase is at <run_dir>/<fixture-name>.
 </if>
 <turns[0].prompt — the user's actual words>
 ```
 
-If the turn prompt contains `{{FIXTURE_PATH}}`, replace it with the actual absolute fixture path before sending. If the eval has a `fixture` field but no turn prompt contains `{{FIXTURE_PATH}}`, prepend the fixture path to the first turn.
+If the turn prompt contains `{{FIXTURE_PATH}}`, replace it with the absolute path to the fixture inside the run directory (`<run_dir>/<fixture-name>`). If the eval has a `fixture` field but no turn prompt contains `{{FIXTURE_PATH}}`, prepend the fixture path to the first turn.
 
-**Baseline prompt** (same but without the skill path):
-- **Creating a new skill**: no skill path. Use `FIXTURE_PATHS[eval_id]["without_skill"]` as the fixture path.
-- **Improving an existing skill**: the old version. Before editing, snapshot the skill (`cp -r <skill-path> <workspace>/skill-snapshot/`), then point the baseline subagent at the snapshot.
+Both with_skill and without_skill prompts look identical. The only difference is which run directory the agent works in. The with_skill directory has the skill. The without_skill directory does not.
+
+**Baseline notes:**
+- **Creating a new skill**: the without_skill directory has no skill at all. True baseline.
+- **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Use prepare_fixture.py with the snapshot as the skill path to build baseline run directories containing the old version.
 
 **Subsequent turns (if `turns[]` has more than one entry):** Each agent progresses through its turns independently. When agent A finishes turn 1, send it turn 2 immediately via SendMessage. Do not wait for agents B, C, or D to also finish turn 1. Every agent advances on its own timeline the moment it completes a turn.
 

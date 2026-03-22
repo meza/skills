@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 """
-Prepare clean per-eval fixture copies before an iteration's eval runs.
+Prepare isolated run directories for each eval before an iteration's runs.
 
-Two-step process:
-  1. Clone fixture_repo into fixture_base_path if not already cloned.
-     If the clone already exists, reset it to the clean remote state so
-     modifications left by previous eval agents cannot affect new runs.
-  2. Wipe fixture_base_path/eval/ entirely, then for every eval in
-     evals.json that has a 'fixture' field, create one copy per
-     configuration:
-       fixture_base_path/eval/eval-<id>/with_skill/<fixture-name>/
-       fixture_base_path/eval/eval-<id>/without_skill/<fixture-name>/
+Three-step process:
+  1. If fixture_repo is defined, clone (or reset) it into a temp staging area.
+  2. For EVERY eval in evals.json, create a run directory per configuration
+     (with_skill, without_skill). If the eval has a fixture, copy it into
+     the run directory.
+  3. For with_skill configurations, copy the skill under test into the run
+     directory at .claude/skills/<skill-name>/ so Claude Code discovers it
+     naturally. without_skill directories get no skill.
 
-Each eval agent receives its own unique fixture path and works exclusively
-inside that directory. Separate copies per configuration prevent parallel
-with_skill and without_skill agents from modifying each other's fixture
-when both write to the codebase (e.g. implementing a fix or adding a route).
-The canonical source at fixture_base_path/<name>/ is never handed to an
-agent — only copies are.
+Each eval agent receives its own isolated run directory and works exclusively
+inside it. The skill is discovered through normal Claude Code mechanisms
+rather than being passed as a prompt parameter.
 
 Usage:
     python -m scripts.prepare_fixture --skill-path /path/to/skill
@@ -25,14 +21,14 @@ Usage:
 Output (stdout): JSON mapping eval id (string) -> {configuration: path}
     {
       "1": {
-        "with_skill":    "/path/.../eval/eval-1/with_skill/run-management-app",
-        "without_skill": "/path/.../eval/eval-1/without_skill/run-management-app"
+        "with_skill":    "/tmp/.../eval-1/with_skill",
+        "without_skill": "/tmp/.../eval-1/without_skill"
       },
       "2": { ... }
     }
 
-Only evals with a 'fixture' field appear in the output. Pure-prompt evals
-(no 'fixture' field) are omitted — they don't need a fixture path.
+Every eval appears in the output, regardless of whether it has a fixture.
+The path points to the run directory root (the agent's working directory).
 """
 
 import argparse
@@ -78,9 +74,20 @@ def git_clone_or_pull(repo_url: str, dest: Path) -> None:
             sys.exit(1)
 
 
+def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str) -> None:
+    """Copy the skill under test into the run directory's .claude/skills/ folder."""
+    skill_dest = dest_run_dir / ".claude" / "skills" / skill_name
+    skill_dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        skill_path,
+        skill_dest,
+        ignore=shutil.ignore_patterns("fixtures", "evals", "__pycache__", ".git"),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Prepare per-eval fixture copies from the canonical fixture repo."
+        description="Prepare isolated run directories for eval runs."
     )
     parser.add_argument(
         "--skill-path",
@@ -103,56 +110,62 @@ def main():
     fixture_base_raw = evals_data.get("fixture_base_path")
     skill_name = evals_data.get("skill_name", skill_path.name)
 
-    if fixture_base_raw:
-        fixture_base = Path(fixture_base_raw).expanduser().resolve()
-    else:
-        # Default to the system temp directory so fixtures never live inside
-        # the skill directory. tempfile.gettempdir() is cross-platform
-        # (e.g. /tmp on Unix, %TEMP% on Windows).
-        fixture_base = Path(tempfile.gettempdir()) / f"{skill_name}-eval-fixtures"
+    # Fixture staging area (only needed if any eval uses fixtures)
+    has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
 
-    # Step 1: Clone or pull the fixture repo into fixture_base_path
-    if fixture_repo:
-        git_clone_or_pull(fixture_repo, fixture_base)
-    elif not fixture_base.exists():
-        print(
-            f"Error: fixture_base_path {fixture_base} does not exist and no fixture_repo is defined to clone from",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    if has_fixtures:
+        if fixture_base_raw:
+            fixture_staging = Path(fixture_base_raw).expanduser().resolve()
+        else:
+            fixture_staging = Path(tempfile.gettempdir()) / f"{skill_name}-eval-fixtures"
 
-    # Step 2: Wipe the eval/ staging area and rebuild from scratch
-    eval_staging = fixture_base / "eval"
-    if eval_staging.exists():
-        shutil.rmtree(eval_staging)
-    eval_staging.mkdir()
-
-    CONFIGURATIONS = ["with_skill", "without_skill"]
-    fixture_paths: dict[str, dict[str, str]] = {}
-
-    for eval_def in evals_data.get("evals", []):
-        fixture_name = eval_def.get("fixture")
-        if not fixture_name:
-            continue
-
-        eval_id = str(eval_def["id"])
-        source = fixture_base / fixture_name
-
-        if not source.exists():
+        if fixture_repo:
+            git_clone_or_pull(fixture_repo, fixture_staging)
+        elif not fixture_staging.exists():
             print(
-                f"Error: fixture '{fixture_name}' not found at {source} (referenced by eval id={eval_id})",
+                f"Error: fixture_base_path {fixture_staging} does not exist and no fixture_repo is defined to clone from",
                 file=sys.stderr,
             )
             sys.exit(1)
+    else:
+        fixture_staging = None
 
-        fixture_paths[eval_id] = {}
+    # Run directory root (separate from fixture staging)
+    run_root = Path(tempfile.gettempdir()) / f"{skill_name}-eval-runs"
+    if run_root.exists():
+        shutil.rmtree(run_root)
+    run_root.mkdir()
+
+    CONFIGURATIONS = ["with_skill", "without_skill"]
+    run_paths: dict[str, dict[str, str]] = {}
+
+    for eval_def in evals_data.get("evals", []):
+        eval_id = str(eval_def["id"])
+        fixture_name = eval_def.get("fixture")
+
+        run_paths[eval_id] = {}
         for config in CONFIGURATIONS:
-            dest = eval_staging / f"eval-{eval_id}" / config / fixture_name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source, dest)
-            fixture_paths[eval_id][config] = str(dest)
+            run_dir = run_root / f"eval-{eval_id}" / config
+            run_dir.mkdir(parents=True, exist_ok=True)
 
-    print(json.dumps(fixture_paths, indent=2))
+            # Copy fixture into run directory if this eval has one
+            if fixture_name and fixture_staging:
+                source = fixture_staging / fixture_name
+                if not source.exists():
+                    print(
+                        f"Error: fixture '{fixture_name}' not found at {source} (referenced by eval id={eval_id})",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                shutil.copytree(source, run_dir / fixture_name)
+
+            # Copy skill into with_skill run directories
+            if config == "with_skill":
+                copy_skill(skill_path, run_dir, skill_name)
+
+            run_paths[eval_id][config] = str(run_dir)
+
+    print(json.dumps(run_paths, indent=2))
 
 
 if __name__ == "__main__":
