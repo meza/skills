@@ -435,6 +435,12 @@ def main():
              "If omitted, all evals in evals.json are run.",
     )
     parser.add_argument(
+        "--configs", default=None,
+        help="Comma-separated list of configurations to run "
+             "(e.g. 'with_skill' or 'without_skill' or both). "
+             "If omitted, both configurations are run.",
+    )
+    parser.add_argument(
         "--force-skill", action="store_true",
         help="Prepend an instruction telling the agent to read and follow the "
              "skill file. Only applies to with_skill runs. Can also be set "
@@ -447,6 +453,19 @@ def main():
     workspace = args.workspace.expanduser().resolve()
 
     provider = get_provider(args.provider)
+
+    if args.configs:
+        configs = [c.strip() for c in args.configs.split(",")]
+        invalid = [c for c in configs if c not in CONFIGURATIONS]
+        if invalid:
+            print(
+                f"Error: unknown configs: {invalid}. "
+                f"Available: {CONFIGURATIONS}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        configs = list(CONFIGURATIONS)
 
     evals_json_path = skill_path / "evals" / "evals.json"
     if not evals_json_path.exists():
@@ -500,7 +519,7 @@ def main():
     for eval_def in evals_list:
         eval_id = str(eval_def["id"])
         paths = run_paths.get(eval_id, {})
-        for config in CONFIGURATIONS:
+        for config in configs:
             entry = paths.get(config)
             if not entry:
                 print(
@@ -519,7 +538,7 @@ def main():
             jobs.append((eval_def, config, run_dir, fixture_path, skill_file))
 
     total_jobs = len(jobs)
-    print(f"Launching {total_jobs} runs ({len(evals_list)} evals x {len(CONFIGURATIONS)} configs)")
+    print(f"Launching {total_jobs} runs ({len(evals_list)} evals x {len(configs)} configs: {', '.join(configs)})")
     print(f"Max parallel: {args.max_parallel}, timeout per turn: {args.timeout}s")
     if args.total_timeout:
         print(f"Total timeout: {args.total_timeout}s")
