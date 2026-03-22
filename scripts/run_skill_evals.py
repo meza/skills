@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Run all skill evals using claude -p for proper skill isolation.
+Run all skill evals using a pluggable LLM provider.
 
-Each eval runs as its own claude -p process with its own working directory.
-Skill discovery works through normal Claude Code mechanisms: the with_skill
-run directory has the skill in .claude/skills/<name>/, the without_skill
-directory does not. This is the only difference between the two runs.
+Each eval runs as its own CLI process with its own working directory.
+The default provider (claude) uses Claude Code's skill discovery: the
+with_skill run directory has the skill in .claude/skills/<name>/, the
+without_skill directory does not. Providers that lack automatic skill
+discovery get the skill content prepended to every prompt.
 
 Usage:
     python run_skill_evals.py \
         --skill-path /path/to/skill \
         --workspace /path/to/workspace \
         --iteration 1 \
+        [--provider claude] \
         [--model claude-opus-4-6] \
         [--max-parallel 4] \
         [--timeout 300] \
@@ -43,14 +45,36 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
+from providers import Provider
+from providers.claude import ClaudeProvider
+
 
 CONFIGURATIONS = ["with_skill", "without_skill"]
 
+PROVIDERS = {
+    "claude": ClaudeProvider,
+}
 
-def run_prepare_fixture(skill_path: Path, run_root: Path) -> dict:
+
+def get_provider(name: str) -> Provider:
+    """Look up a provider by name."""
+    cls = PROVIDERS.get(name)
+    if cls is None:
+        available = ", ".join(sorted(PROVIDERS))
+        print(f"Error: unknown provider '{name}'. Available: {available}", file=sys.stderr)
+        sys.exit(1)
+    return cls()
+
+
+def run_prepare_fixture(skill_path: Path, run_root: Path, skill_root: str = ".claude") -> dict:
     """Call prepare_fixture.py and return the run paths mapping."""
     script = Path(__file__).parent / "prepare_fixture.py"
-    cmd = [sys.executable, str(script), "--skill-path", str(skill_path), "--run-root", str(run_root)]
+    cmd = [
+        sys.executable, str(script),
+        "--skill-path", str(skill_path),
+        "--run-root", str(run_root),
+        "--skill-root", skill_root,
+    ]
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -61,78 +85,6 @@ def run_prepare_fixture(skill_path: Path, run_root: Path) -> dict:
         sys.exit(1)
 
     return json.loads(result.stdout)
-
-
-def parse_stream_json(raw_output: str) -> list[dict]:
-    """Parse newline-delimited stream-json output into a list of events."""
-    events = []
-    for line in raw_output.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
-    return events
-
-
-def extract_response(events: list[dict]) -> str:
-    """Extract text-only responses from stream-json events."""
-    parts = []
-    for event in events:
-        if event.get("type") != "assistant":
-            continue
-        message = event.get("message", {})
-        for block in message.get("content", []):
-            if block.get("type") == "text":
-                parts.append(block["text"])
-    return "\n\n".join(parts)
-
-
-def extract_transcript(events: list[dict], prompt: str) -> str:
-    """Build a readable transcript from stream-json events.
-
-    Format matches what the grader expects:
-    [USER INPUT], [TOOL CALL], [TOOL RESULT], [ASSISTANT TEXT]
-    """
-    sections = []
-    sections.append(f"[USER INPUT]\n{prompt}")
-
-    for event in events:
-        etype = event.get("type")
-
-        if etype == "assistant":
-            message = event.get("message", {})
-            for block in message.get("content", []):
-                if block.get("type") == "text":
-                    sections.append(f"[ASSISTANT TEXT]\n{block['text']}")
-                elif block.get("type") == "tool_use":
-                    name = block.get("name", "?")
-                    inp = block.get("input", {})
-                    formatted_input = json.dumps(inp, indent=2)
-                    sections.append(f"[TOOL CALL] {name}\n{formatted_input}")
-
-        elif etype == "user":
-            message = event.get("message", {})
-            for block in message.get("content", []):
-                if block.get("type") == "tool_result":
-                    content = block.get("content", "")
-                    if isinstance(content, list):
-                        content = "\n".join(
-                            c.get("text", "") for c in content if isinstance(c, dict)
-                        )
-                    sections.append(f"[TOOL RESULT]\n{content}")
-
-    return "\n\n".join(sections)
-
-
-def get_result_event(events: list[dict]) -> dict:
-    """Find the result event from stream-json output."""
-    for event in reversed(events):
-        if event.get("type") == "result":
-            return event
-    return {}
 
 
 def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, skill_file: str | None = None) -> str:
@@ -146,8 +98,6 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
     if fixture_path and "{{FIXTURE_PATH}}" in prompt:
         prompt = prompt.replace("{{FIXTURE_PATH}}", fixture_path)
     elif fixture_path and eval_def.get("fixture_in_workdir", True):
-        # Only auto-prepend if the fixture is in the working directory.
-        # External fixtures must use explicit {{FIXTURE_PATH}} in the turn prompt.
         has_placeholder_in_any_turn = any(
             "{{FIXTURE_PATH}}" in t.get("prompt", "")
             for t in eval_def.get("turns", [])
@@ -161,13 +111,17 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
     return prompt
 
 
+# ---------------------------------------------------------------------------
+# Cross-platform process management
+# ---------------------------------------------------------------------------
+
 _IS_WINDOWS = sys.platform == "win32"
 
 
 def _kill_process_tree(pid):
     """Kill a process and all its children.
 
-    On Unix uses process group kill (SIGTERM then SIGKILL).
+    On Unix uses process group kill (SIGTERM).
     On Windows uses taskkill /F /T which kills the entire tree.
     """
     if _IS_WINDOWS:
@@ -197,8 +151,8 @@ def _force_kill_process_tree(pid):
         pass
 
 
-def run_claude_with_timeout(cmd, prompt, cwd, timeout):
-    """Run a claude -p command with timeout and full process tree cleanup.
+def run_with_timeout(cmd, prompt, cwd, timeout):
+    """Run a CLI command with timeout and full process tree cleanup.
 
     On Unix spawns the process in its own session so the entire process
     group can be killed on timeout. On Windows uses CREATE_NEW_PROCESS_GROUP
@@ -229,7 +183,6 @@ def run_claude_with_timeout(cmd, prompt, cwd, timeout):
         nonlocal timed_out
         timed_out = True
         _kill_process_tree(process.pid)
-        # Force kill after 5 seconds if still alive (Unix only)
         force_timer = threading.Timer(5.0, _force_kill_process_tree, args=[process.pid])
         force_timer.daemon = True
         force_timer.start()
@@ -253,12 +206,17 @@ def run_claude_with_timeout(cmd, prompt, cwd, timeout):
     return stdout, stderr, process.returncode, timed_out
 
 
+# ---------------------------------------------------------------------------
+# Job runner
+# ---------------------------------------------------------------------------
+
 def run_single_job(
     eval_def: dict,
     config: str,
     run_dir: str,
     fixture_path: str | None,
     iteration_dir: Path,
+    provider: Provider,
     model: str | None,
     timeout: int,
     deadline: float | None = None,
@@ -320,7 +278,6 @@ def run_single_job(
                     flush=True,
                 )
                 break
-            # Cap to the remaining total time
             effective_timeout = min(turn_timeout, remaining)
         else:
             effective_timeout = turn_timeout
@@ -328,43 +285,31 @@ def run_single_job(
         prompt = build_prompt(turn["prompt"], eval_def, fixture_path, skill_file=skill_file)
 
         session_name = f"eval-{eval_id}-{config}"
-        cmd = ["claude", "-p", "--effort", "medium"]
-
-        if turn_idx == 0:
-            cmd.extend(["--session-id", session_id, "--name", session_name])
-        else:
-            cmd.extend(["--resume", session_id])
-
-        cmd.extend([
-            "--output-format", "stream-json",
-            "--verbose",
-            "--permission-mode", "bypassPermissions",
-        ])
-
-        if model:
-            cmd.extend(["--model", model])
+        cmd = provider.build_command(
+            session_id=session_id,
+            session_name=session_name,
+            turn_index=turn_idx,
+            model=model,
+        )
 
         print(
             f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} starting...",
             flush=True,
         )
 
-        stdout, stderr, returncode, timed_out = run_claude_with_timeout(
+        stdout, stderr, returncode, timed_out = run_with_timeout(
             cmd, prompt, run_dir, effective_timeout
         )
 
-        events = parse_stream_json(stdout)
+        turn_result = provider.parse_output(stdout, prompt)
 
         if timed_out:
-            # Save partial output when available
-            if events:
-                all_events.extend(events)
-                response_text = extract_response(events)
-                transcript_text = extract_transcript(events, prompt)
+            if turn_result.events:
+                all_events.extend(turn_result.events)
                 turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
                 turn_dir.mkdir(parents=True, exist_ok=True)
-                (turn_dir / "response.md").write_text(response_text)
-                (turn_dir / "transcript.md").write_text(transcript_text)
+                (turn_dir / "response.md").write_text(turn_result.response)
+                (turn_dir / "transcript.md").write_text(turn_result.transcript)
 
             status = "timeout"
             error_message = (
@@ -387,29 +332,21 @@ def run_single_job(
             )
             break
 
-        all_events.extend(events)
-
-        response_text = extract_response(events)
-        transcript_text = extract_transcript(events, prompt)
+        all_events.extend(turn_result.events)
 
         turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
         turn_dir.mkdir(parents=True, exist_ok=True)
-        (turn_dir / "response.md").write_text(response_text)
-        (turn_dir / "transcript.md").write_text(transcript_text)
+        (turn_dir / "response.md").write_text(turn_result.response)
+        (turn_dir / "transcript.md").write_text(turn_result.transcript)
 
-        result_event = get_result_event(events)
-        total_duration_ms += result_event.get("duration_ms", 0)
-        total_cost_usd += result_event.get("total_cost_usd", 0.0)
-
-        usage = result_event.get("usage", {})
-        total_input_tokens += usage.get("input_tokens", 0)
-        total_input_tokens += usage.get("cache_read_input_tokens", 0)
-        total_input_tokens += usage.get("cache_creation_input_tokens", 0)
-        total_output_tokens += usage.get("output_tokens", 0)
+        total_duration_ms += turn_result.duration_ms
+        total_cost_usd += turn_result.cost_usd
+        total_input_tokens += turn_result.input_tokens
+        total_output_tokens += turn_result.output_tokens
 
         print(
             f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} done "
-            f"({result_event.get('duration_ms', 0)}ms)",
+            f"({turn_result.duration_ms}ms)",
             flush=True,
         )
 
@@ -444,9 +381,13 @@ def run_single_job(
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Run skill evals using claude -p for proper skill isolation"
+        description="Run skill evals using a pluggable LLM provider"
     )
     parser.add_argument(
         "--skill-path", required=True, type=Path,
@@ -461,8 +402,13 @@ def main():
         help="Iteration number (creates iteration-N/ subdirectory)",
     )
     parser.add_argument(
+        "--provider", default="claude",
+        help="LLM provider to use (default: claude). "
+             f"Available: {', '.join(sorted(PROVIDERS))}",
+    )
+    parser.add_argument(
         "--model", default=None,
-        help="Model to use (e.g. claude-opus-4-6). Defaults to session default.",
+        help="Model to use (e.g. claude-opus-4-6). Defaults to provider default.",
     )
     parser.add_argument(
         "--max-parallel", type=int, default=4,
@@ -480,8 +426,8 @@ def main():
     )
     parser.add_argument(
         "--run-root", required=True, type=Path,
-        help="Directory to create run directories in. Claude Code only discovers "
-             "skills in non-temp paths so this must be a real directory.",
+        help="Directory to create run directories in. Providers with skill "
+             "discovery may require a non-temp path.",
     )
     parser.add_argument(
         "--eval-ids", default=None,
@@ -492,12 +438,15 @@ def main():
         "--force-skill", action="store_true",
         help="Prepend an instruction telling the agent to read and follow the "
              "skill file. Only applies to with_skill runs. Can also be set "
-             "per-eval via \"force_skill\": true in evals.json.",
+             "per-eval via \"force_skill\": true in evals.json. Providers "
+             "without skill discovery always behave as if this is set.",
     )
 
     args = parser.parse_args()
     skill_path = args.skill_path.expanduser().resolve()
     workspace = args.workspace.expanduser().resolve()
+
+    provider = get_provider(args.provider)
 
     evals_json_path = skill_path / "evals" / "evals.json"
     if not evals_json_path.exists():
@@ -523,10 +472,11 @@ def main():
             sys.exit(1)
 
     print(f"Running {len(evals_list)} evals from {evals_json_path}")
+    print(f"Provider: {args.provider}")
     print(f"Preparing fixtures...")
 
     run_root = args.run_root.expanduser().resolve()
-    run_paths = run_prepare_fixture(skill_path, run_root)
+    run_paths = run_prepare_fixture(skill_path, run_root, provider.skill_root)
 
     iteration_dir = workspace / f"iteration-{args.iteration}"
     iteration_dir.mkdir(parents=True, exist_ok=True)
@@ -543,6 +493,9 @@ def main():
         }
         (eval_dir / "eval_metadata.json").write_text(json.dumps(metadata, indent=2))
 
+    # Providers without skill discovery always force-inject the skill
+    force_skill_global = args.force_skill or not provider.supports_skill_discovery
+
     jobs = []
     for eval_def in evals_list:
         eval_id = str(eval_def["id"])
@@ -555,15 +508,13 @@ def main():
                     file=sys.stderr,
                 )
                 continue
-            # prepare_fixture.py returns {"path": "...", "fixture_path": "..."}
             if isinstance(entry, str):
-                # Backwards compat with old format (plain string)
                 run_dir = entry
                 fixture_path = None
             else:
                 run_dir = entry["path"]
                 fixture_path = entry.get("fixture_path")
-            force = args.force_skill or eval_def.get("force_skill", False)
+            force = force_skill_global or eval_def.get("force_skill", False)
             skill_file = entry.get("skill_file") if force else None
             jobs.append((eval_def, config, run_dir, fixture_path, skill_file))
 
@@ -581,7 +532,6 @@ def main():
     progress_path = iteration_dir / "progress.json"
 
     def write_progress():
-        """Write current progress so the runner agent can poll it."""
         elapsed = time.time() - start_time
         completed = len(summaries)
         succeeded = sum(1 for s in summaries if s.get("status") == "success")
@@ -614,6 +564,7 @@ def main():
                 run_dir,
                 fixture_path,
                 iteration_dir,
+                provider,
                 args.model,
                 args.timeout,
                 deadline,
@@ -645,6 +596,7 @@ def main():
         "skill_name": evals_data.get("skill_name", skill_path.name),
         "skill_path": str(skill_path),
         "iteration": args.iteration,
+        "provider": args.provider,
         "model": args.model or "default",
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "total_elapsed_seconds": round(elapsed, 1),

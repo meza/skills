@@ -86,9 +86,14 @@ def git_clone_or_pull(repo_url: str, dest: Path) -> None:
             sys.exit(1)
 
 
-def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str) -> None:
-    """Copy the skill under test into the run directory's .claude/skills/ folder."""
-    skill_dest = dest_run_dir / ".claude" / "skills" / skill_name
+def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str = ".claude") -> None:
+    """Copy the skill under test into the run directory's skill discovery folder.
+
+    The destination follows the convention <run_dir>/<skill_root>/skills/<skill_name>/
+    where skill_root varies by provider (.claude, .codex, .github, .agents, etc.)
+    and skills/<skill_name>/ is standard across all providers.
+    """
+    skill_dest = dest_run_dir / skill_root / "skills" / skill_name
     skill_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         skill_path,
@@ -109,8 +114,15 @@ def main():
     parser.add_argument(
         "--run-root",
         required=True,
-        help="Directory to create run directories in. Claude Code only discovers "
-             "skills in non-temp paths so this must be a real directory.",
+        help="Directory to create run directories in. Providers with skill "
+             "discovery may require a non-temp path.",
+    )
+    parser.add_argument(
+        "--skill-root",
+        default=".claude",
+        help="Provider-specific root directory for skill placement. "
+             "Skills are copied to <run-dir>/<skill-root>/skills/<name>/. "
+             "Examples: .claude, .codex, .github, .agents (default: .claude)",
     )
     args = parser.parse_args()
 
@@ -199,11 +211,15 @@ def main():
 
             # Copy skill into with_skill run directories
             if config == "with_skill":
-                copy_skill(skill_path, run_dir, skill_name)
+                copy_skill(skill_path, run_dir, skill_name, args.skill_root)
 
             entry = {"path": str(run_dir)}
             if fixture_path:
                 entry["fixture_path"] = fixture_path
+            if config == "with_skill":
+                entry["skill_file"] = str(
+                    run_dir / args.skill_root / "skills" / skill_name / "SKILL.md"
+                )
             run_paths[eval_id][config] = entry
 
     print(json.dumps(run_paths, indent=2))
