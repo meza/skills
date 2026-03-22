@@ -143,6 +143,27 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
         .swatch-negative { background: #141413; border-bottom: 3px solid #c44; }
         .swatch-test { background: #6a9bcc; }
         .swatch-train { background: #141413; }
+
+        @media (prefers-color-scheme: dark) {
+            body { background: #1a1a1a; color: #e0e0e0; }
+            h1 { color: #e0e0e0; }
+            .explainer { background: #252525; border-color: #333; color: #888; }
+            .summary { background: #252525; border-color: #333; }
+            table { background: #252525; border-color: #333; }
+            th, td { border-color: #333; }
+            th { background: #2a2a2a; color: #e0e0e0; }
+            th.test-col { background: #1e3a5f; }
+            td.test-result { background: #1a2a3a; }
+            tr:hover { background: #2a2a2a; }
+            .best-row { background: #1a2a1a; }
+            .rate { color: #666; }
+            .score-good { background: #1a2a1a; color: #8aaa6a; }
+            .score-ok { background: #2a2510; color: #d4a030; }
+            .score-bad { background: #2a1515; color: #e55; }
+            .swatch-train { background: #e0e0e0; }
+            .swatch-positive { background: #e0e0e0; border-bottom-color: #8aaa6a; }
+            .swatch-negative { background: #e0e0e0; border-bottom-color: #e55; }
+        }
     </style>
 </head>
 <body>

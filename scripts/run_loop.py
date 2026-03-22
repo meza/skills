@@ -7,20 +7,70 @@ overfitting.
 """
 
 import argparse
+import http.server
 import json
+import os
 import random
+import socket
 import sys
 import tempfile
+import threading
 import time
 import webbrowser
 from pathlib import Path
-
-import anthropic
 
 from scripts.generate_report import generate_html
 from scripts.improve_description import improve_description
 from scripts.run_eval import find_project_root, run_eval
 from scripts.utils import parse_skill_md
+
+
+def _is_ssh() -> bool:
+    """Return True if the current session is over SSH."""
+    return bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
+
+
+def _get_local_ip() -> str:
+    """Return the machine's LAN IP address."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return socket.gethostname()
+
+
+def _serve_report(report_path: Path, port: int = 3118) -> str:
+    """Start a background HTTP server that serves a single file.
+
+    Any request returns the report file contents. The file is re-read on
+    each request so live updates from the loop are visible.
+    Returns the URL to access the report.
+    """
+    file_path = str(report_path.resolve())
+
+    class SingleFileHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            try:
+                content = Path(file_path).read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except FileNotFoundError:
+                self.send_error(404)
+        def log_message(self, format, *args):
+            pass
+
+    server = http.server.HTTPServer(("0.0.0.0", port), SingleFileHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    ip = _get_local_ip()
+    return f"http://{ip}:{port}"
 
 
 def split_eval_set(eval_set: list[dict], holdout: float, seed: int = 42) -> tuple[list[dict], list[dict]]:
@@ -75,7 +125,6 @@ def run_loop(
         train_set = eval_set
         test_set = []
 
-    client = anthropic.Anthropic()
     history = []
     exit_reason = "unknown"
 
@@ -200,7 +249,6 @@ def run_loop(
             for h in history
         ]
         new_description = improve_description(
-            client=client,
             skill_name=name,
             skill_content=content,
             current_description=current_description,
@@ -272,15 +320,20 @@ def main():
     name, _, _ = parse_skill_md(skill_path)
 
     # Set up live report path
+    over_ssh = _is_ssh()
     if args.report != "none":
         if args.report == "auto":
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             live_report_path = Path(tempfile.gettempdir()) / f"skill_description_report_{skill_path.name}_{timestamp}.html"
         else:
             live_report_path = Path(args.report)
-        # Open the report immediately so the user can watch
+        # Write placeholder and make it available
         live_report_path.write_text("<html><body><h1>Starting optimization loop...</h1><meta http-equiv='refresh' content='5'></body></html>")
-        webbrowser.open(str(live_report_path))
+        if over_ssh:
+            report_url = _serve_report(live_report_path)
+            print(f"Report: {report_url}", file=sys.stderr)
+        else:
+            webbrowser.open(str(live_report_path))
     else:
         live_report_path = None
 
@@ -319,7 +372,11 @@ def main():
     # Write final HTML report (without auto-refresh)
     if live_report_path:
         live_report_path.write_text(generate_html(output, auto_refresh=False, skill_name=name))
-        print(f"\nReport: {live_report_path}", file=sys.stderr)
+        if over_ssh:
+            ip = _get_local_ip()
+            print(f"\nReport: http://{ip}:3118", file=sys.stderr)
+        else:
+            print(f"\nReport: {live_report_path}", file=sys.stderr)
 
     if results_dir and live_report_path:
         (results_dir / "report.html").write_text(generate_html(output, auto_refresh=False, skill_name=name))

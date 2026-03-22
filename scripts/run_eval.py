@@ -73,6 +73,7 @@ def run_single_query(
             "--output-format", "stream-json",
             "--verbose",
             "--include-partial-messages",
+            "--effort", "medium",
         ]
         if model:
             cmd.extend(["--model", model])
@@ -125,7 +126,10 @@ def run_single_query(
                     except json.JSONDecodeError:
                         continue
 
-                    # Early detection via stream events
+                    # Early detection via stream events.
+                    # The model may call other tools (Agent, Glob, Bash)
+                    # before invoking the skill. Keep listening until we
+                    # see a Skill/Read call or the message ends.
                     if event.get("type") == "stream_event":
                         se = event.get("event", {})
                         se_type = se.get("type", "")
@@ -138,7 +142,10 @@ def run_single_query(
                                     pending_tool_name = tool_name
                                     accumulated_json = ""
                                 else:
-                                    return False
+                                    # Not a skill call. Reset pending state
+                                    # but keep listening for later calls.
+                                    pending_tool_name = None
+                                    accumulated_json = ""
 
                         elif se_type == "content_block_delta" and pending_tool_name:
                             delta = se.get("delta", {})
@@ -147,11 +154,17 @@ def run_single_query(
                                 if clean_name in accumulated_json:
                                     return True
 
-                        elif se_type in ("content_block_stop", "message_stop"):
+                        elif se_type == "content_block_stop":
                             if pending_tool_name:
-                                return clean_name in accumulated_json
-                            if se_type == "message_stop":
-                                return False
+                                if clean_name in accumulated_json:
+                                    return True
+                                # This Skill/Read call was for a different
+                                # skill. Reset and keep listening.
+                                pending_tool_name = None
+                                accumulated_json = ""
+
+                        elif se_type == "message_stop":
+                            return triggered
 
                     # Fallback: full assistant message
                     elif event.get("type") == "assistant":
@@ -165,7 +178,8 @@ def run_single_query(
                                 triggered = True
                             elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
                                 triggered = True
-                            return triggered
+                        # Don't return here. The model may produce multiple
+                        # assistant messages. Wait for the result event.
 
                     elif event.get("type") == "result":
                         return triggered
