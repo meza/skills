@@ -11,7 +11,7 @@ At a high level, the process of creating a skill goes like this:
 
 - Decide what you want the skill to do and roughly how it should do it
 - Write a draft of the skill
-- Create a few test prompts and spawn subagents (via the Agent tool) to run them
+- Create a few test prompts and run them via `run_skill_evals.py`
 - Help the user evaluate the results both qualitatively and quantitatively
   - While the runs happen in the background, draft some quantitative evals if there aren't any (if there are some, you can either use as is or modify if you feel something needs to change about them). Then explain them to the user (or if they already existed, explain the ones that already exist)
   - Use the `eval-viewer/generate_review.py` script to show the user the results for them to look at, and also let them look at the quantitative metrics
@@ -204,145 +204,49 @@ Key placement rules:
 - **timing.json**: at the config directory level.
 - **Eval directory names**: use the numeric ID from evals.json prefixed with `eval-` (e.g., `eval-1/`, `eval-2/`). Put the human-readable name in `eval_name` inside eval_metadata.json. The aggregation script requires the `eval-` prefix.
 
-### Step 1: Prepare run directories, then spawn all runs in the same turn
+### Step 1: Run all evals
 
-Use the **Agent tool** to spawn subagents for each eval run. For eval runs the mechanism is always the Agent tool.
-
-**Always run fixture preparation first — before spawning any agents:**
+One script handles everything: fixture preparation, running `claude -p` for each eval and configuration, multi-turn sessions, output extraction, and timing capture.
 
 ```bash
-RUN_PATHS=$(python3 <skill-creator-path>/scripts/prepare_fixture.py --skill-path <path-to-skill>)
+python <skill-creator-path>/scripts/run_skill_evals.py \
+  --skill-path <path-to-skill> \
+  --workspace <workspace-path> \
+  --iteration <N> \
+  --model <model-id> \
+  --max-parallel 4 \
+  --timeout 300
 ```
 
-This script creates an isolated run directory for every eval in every configuration (with_skill and without_skill). Each run directory is a self-contained project root in the system temp directory. The script handles three things:
+Run this in the **background** (via Bash `run_in_background`) because it takes a while. The script prints progress as each run starts and finishes.
 
-1. If the skill defines a `fixture_repo`, clones (or resets) it into a staging area.
-2. For each eval, creates `<temp>/eval-<id>/with_skill/` and `<temp>/eval-<id>/without_skill/`. If the eval has a `fixture` field, copies the fixture into the run directory.
-3. For `with_skill` directories, copies the skill under test into `.claude/skills/<skill-name>/` so Claude Code discovers it through normal mechanisms. `without_skill` directories get no skill. This is what makes baselines true baselines.
+**How it works:** Each eval runs as its own `claude -p` process. The process starts in an isolated temp directory. For `with_skill` runs, the skill under test is in that directory's `.claude/skills/<name>/` so Claude Code discovers it through normal skill resolution. For `without_skill` runs, no skill is present. The prompts are identical. The only difference is whether the skill is discoverable.
 
-The output is a JSON map. Capture it:
+Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent turns. Each turn's prompt is piped via stdin to avoid shell escaping issues.
 
-```bash
-# Output shape:
-# {
-#   "1": {
-#     "with_skill":    "/tmp/.../eval-1/with_skill",
-#     "without_skill": "/tmp/.../eval-1/without_skill"
-#   },
-#   "2": { ... }
-# }
-```
+**What it produces:** The full iteration directory structure, ready for grading:
 
-Every eval appears in the output, including pure-prompt evals without fixtures. The path points to the run directory root (the agent's working directory). If the eval has a fixture, it lives at `<run_dir>/<fixture-name>/` inside the run directory.
-
-**Now spawn all runs.** For each test case, spawn two subagents in the same turn — one with the skill, one without. This is important: don't spawn the with-skill runs first and then come back for baselines later. Launch everything at once so it all finishes around the same time.
-
-#### Prompt design principle
-
-The agent under test must not know it is being evaluated. Its prompt should look like a normal user message. All eval scaffolding (output capture, transcript extraction, file organization) happens post-hoc by the parent agent, not by the agent under test.
-
-The skill is never mentioned in the prompt. The agent discovers it through Claude Code's normal skill resolution because the run directory contains `.claude/skills/<skill-name>/`. This prevents the agent from narrating "I'll read the skill" or citing the skill by name. The agent just behaves differently because the skill is present.
-
-The Agent tool already captures everything you need. When a background agent completes, you receive a task notification with `total_tokens`, `duration_ms`, and an `output_file` path. That output file is a full JSONL transcript of every tool call, every result, and every text response the agent produced. You extract response.md and transcript.md from it after the run finishes. The agent never has to know.
-
-Every eval uses `turns[]`. Each turn is an object with `prompt` and `expectations`. A one-turn eval has one entry. The handling is the same regardless of how many turns there are.
-
-**Spawning:** For each eval, spawn one agent per configuration (with_skill and without_skill). The agent receives `turns[0].prompt` as its prompt. All turn-1 agents across all evals can be spawned in parallel.
-
-**Prompt construction:**
-```
-<if fixture and no {{FIXTURE_PATH}} in prompt>The codebase is at <run_dir>/<fixture-name>.
-</if>
-<turns[0].prompt — the user's actual words>
-```
-
-If the turn prompt contains `{{FIXTURE_PATH}}`, replace it with the absolute path to the fixture inside the run directory (`<run_dir>/<fixture-name>`). If the eval has a `fixture` field but no turn prompt contains `{{FIXTURE_PATH}}`, prepend the fixture path to the first turn.
-
-Both with_skill and without_skill prompts look identical. The only difference is which run directory the agent works in. The with_skill directory has the skill. The without_skill directory does not.
+- `eval_metadata.json` for each eval
+- `turn-N/outputs/response.md` and `turn-N/outputs/transcript.md` for every turn
+- `timing.json` with tokens, duration, and cost
+- `raw_output.jsonl` with the full `stream-json` transcript for debugging
+- `run_manifest.json` summarizing all runs (status, timing, costs)
 
 **Baseline notes:**
-- **Creating a new skill**: the without_skill directory has no skill at all. True baseline.
-- **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Use prepare_fixture.py with the snapshot as the skill path to build baseline run directories containing the old version.
-
-**Subsequent turns (if `turns[]` has more than one entry):** Each agent progresses through its turns independently. When agent A finishes turn 1, send it turn 2 immediately via SendMessage. Do not wait for agents B, C, or D to also finish turn 1. Every agent advances on its own timeline the moment it completes a turn.
-
-```
-SendMessage(to: "<agent-name>", message: "<turns[i].prompt — with {{FIXTURE_PATH}} replaced if applicable>")
-```
-
-The agent stays blind to future turns because it never receives `turns[i+1]` until after it has responded to `turns[i]`. No meta-language. No turn numbers. Just the user's words.
-
-#### Post-run extraction
-
-When each agent completes (including after each turn of a multi-turn eval), run the extraction script immediately. Do not wait for all agents to finish. The output file path comes from the task notification.
-
-```bash
-python <skill-creator-path>/scripts/extract_transcript.py \
-  --output-file <output_file_path> \
-  --dest-dir <workspace>/iteration-N/eval-<id>/<config> \
-  --num-turns <number_of_turns>
-```
-
-The script handles a known structural property of resumed agents: when an agent is resumed via SendMessage, the output file replays the full prior conversation before the new turn. The script detects replayed content and splits cleanly at turn boundaries.
-
-For each turn it produces two files in `turn-N/outputs/`:
-- `response.md`: the agent's text responses only
-- `transcript.md`: the full interaction including `[USER INPUT]`, `[TOOL CALL]`, `[TOOL RESULT]`, and `[ASSISTANT TEXT]` sections
-
-The transcript includes the raw user input at each turn so reviewers can see exactly what the agent received. The grader uses these files to verify process assertions.
-
-For batch extraction after all runs complete, the script also accepts a mapping file:
-
-```bash
-python <skill-creator-path>/scripts/extract_transcript.py \
-  --mapping <workspace>/iteration-N/agent_mapping.json \
-  --evals-json <path-to-skill>/evals/evals.json \
-  --iteration-dir <workspace>/iteration-N \
-  --task-dir <tasks-directory>
-```
-
-The mapping file maps agent names (e.g. `e1-ws`, `e1-bl`) to agent IDs. The script derives eval_id, config, and num_turns from the name and evals.json.
-
-#### eval_metadata.json
-
-Write an `eval_metadata.json` for each test case at the eval directory level (e.g., `eval-1/eval_metadata.json`). Use the numeric ID for the directory name (`eval-1/`, `eval-2/`). The `eval_name` comes from `evals.json`. Do not invent names.
-
-```json
-{
-  "eval_id": 1,
-  "eval_name": "name-from-evals-json",
-  "turns": [
-    {"prompt": "First user message", "expectations": []},
-    {"prompt": "Second user message", "expectations": []}
-  ]
-}
-```
+- **Creating a new skill**: the `without_skill` directory has no skill at all. True baseline.
+- **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Pass the snapshot path as `--skill-path` to build baseline directories containing the old version.
 
 ### Step 2: While runs are in progress, draft expectations
 
-Don't just wait for the runs to finish — you can use this time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
+The script takes a while to finish. Use that time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
 
-Good expectations are objectively verifiable and have descriptive names — they should read clearly in the benchmark viewer so someone glancing at the results immediately understands what each one checks. Subjective skills (writing style, design quality) are better evaluated qualitatively — don't force expectations onto things that need human judgment.
+Good expectations are objectively verifiable and have descriptive names. They should read clearly in the benchmark viewer so someone glancing at the results immediately understands what each one checks. Subjective skills (writing style, design quality) are better evaluated qualitatively. Do not force expectations onto things that need human judgment.
 
 Update the `eval_metadata.json` files and `evals/evals.json` with the expectations. Each expectation goes inside the turn object it applies to. Explain to the user what they will see in the viewer.
 
-### Step 3: As runs complete, capture timing data
+### Step 3: Grade, then aggregate and launch the viewer
 
-When each subagent task completes, you receive a notification containing `total_tokens` and `duration_ms`. Save this data immediately to `timing.json` in the run directory:
-
-```json
-{
-  "total_tokens": 84852,
-  "duration_ms": 23332,
-  "total_duration_seconds": 23.3
-}
-```
-
-This is the only opportunity to capture this data — it comes through the task notification and isn't persisted elsewhere. Process each notification as it arrives rather than trying to batch them.
-
-### Step 4: Grade as runs complete, then aggregate and launch the viewer
-
-Do not wait for all runs to finish before grading. As each run completes and its transcript is extracted, spawn a grader subagent for that run immediately. One grader per run (not one for the whole batch).
+Once `run_skill_evals.py` finishes, spawn grader subagents for each run. One grader per run (not one for the whole batch). You can spawn all graders in parallel.
 
 1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
@@ -392,7 +296,7 @@ The "Benchmark" tab shows the stats summary: pass rates, timing, and token usage
 
 Navigation is via prev/next buttons or arrow keys. When done, they click "Submit All Reviews" which saves all feedback to `feedback.json`.
 
-### Step 5: Read the feedback
+### Step 4: Read the feedback
 
 When the user tells you they're done, read `feedback.json`:
 
@@ -440,7 +344,7 @@ This task is pretty important (we are trying to create billions a year in econom
 After improving the skill:
 
 1. Apply your improvements to the skill
-2. Go back to **Step 1** and follow it from the top. This means re-running `prepare_fixture.py` to get fresh run directories and then spawning new agents. You cannot reuse run directories from a previous iteration because agents modify them during their work. Skipping fixture prep means agents will find code left behind by previous runs and produce misleading results. Put the new results into `iteration-<N+1>/`. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
+2. Run `run_skill_evals.py` again with `--iteration <N+1>`. The script creates fresh run directories every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
 3. Launch the reviewer with `--previous-workspace` pointing at the previous iteration
 4. Wait for the user to review and tell you they're done
 5. Read the new feedback, improve again, repeat
@@ -597,7 +501,7 @@ Repeating one more time the core loop here for emphasis:
 
 - Figure out what the skill is about
 - Draft or edit the skill
-- Spawn subagents (via the Agent tool) to run the test prompts
+- Run the test prompts via `run_skill_evals.py`
 - With the user, evaluate the outputs:
   - Create benchmark.json and run `eval-viewer/generate_review.py` to help the user review them
   - Run quantitative evals
