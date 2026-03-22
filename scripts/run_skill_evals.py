@@ -33,6 +33,7 @@ import argparse
 import json
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -367,6 +368,32 @@ def main():
 
     start_time = time.time()
     summaries = []
+    progress_lock = threading.Lock()
+    progress_path = iteration_dir / "progress.json"
+
+    def write_progress():
+        """Write current progress so the runner agent can poll it."""
+        elapsed = time.time() - start_time
+        completed = len(summaries)
+        succeeded = sum(1 for s in summaries if s.get("status") == "success")
+        failed = completed - succeeded
+        cost_so_far = sum(s.get("cost_usd", 0) for s in summaries)
+        progress = {
+            "total": total_jobs,
+            "completed": completed,
+            "succeeded": succeeded,
+            "failed": failed,
+            "running": total_jobs - completed,
+            "elapsed_seconds": round(elapsed, 1),
+            "cost_usd": round(cost_so_far, 6),
+            "completed_runs": [
+                f"eval-{s.get('eval_id')}/{s.get('config')}: {s.get('status')}"
+                for s in summaries
+            ],
+        }
+        progress_path.write_text(json.dumps(progress, indent=2))
+
+    write_progress()
 
     with ThreadPoolExecutor(max_workers=args.max_parallel) as executor:
         futures = {}
@@ -386,15 +413,19 @@ def main():
             eval_id, config = futures[future]
             try:
                 summary = future.result()
-                summaries.append(summary)
+                with progress_lock:
+                    summaries.append(summary)
+                    write_progress()
             except Exception as e:
                 print(f"  [{config}] eval-{eval_id} EXCEPTION: {e}", file=sys.stderr)
-                summaries.append({
-                    "eval_id": eval_id,
-                    "config": config,
-                    "status": "exception",
-                    "error": str(e),
-                })
+                with progress_lock:
+                    summaries.append({
+                        "eval_id": eval_id,
+                        "config": config,
+                        "status": "exception",
+                        "error": str(e),
+                    })
+                    write_progress()
 
     elapsed = time.time() - start_time
 
