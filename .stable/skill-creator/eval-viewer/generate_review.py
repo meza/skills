@@ -22,7 +22,6 @@ import signal
 import subprocess
 import sys
 import time
-import webbrowser
 from functools import partial
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -47,6 +46,8 @@ MIME_OVERRIDES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
+
+_IS_WINDOWS = sys.platform == "win32"
 
 
 def get_mime_type(path: Path) -> str:
@@ -97,7 +98,7 @@ def build_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> dict | None:
     for candidate in [run_dir / "eval_metadata.json", run_dir.parent / "eval_metadata.json"]:
         if candidate.exists():
             try:
-                metadata = json.loads(candidate.read_text())
+                metadata = json.loads(candidate.read_text(encoding="utf-8"))
                 raw_turns = metadata.get("turns", [])
                 # Handle both new format (list of {prompt, expectations})
                 # and legacy format (list of strings)
@@ -137,7 +138,10 @@ def build_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> dict | None:
         for f in sorted(outputs_dir.iterdir()):
             if f.is_file() and f.name == "transcript.md":
                 try:
-                    transcript_parts.append(f"## {turn_dir.name}\n\n" + f.read_text(errors="replace"))
+                    transcript_parts.append(
+                        f"## {turn_dir.name}\n\n"
+                        + f.read_text(encoding="utf-8", errors="replace")
+                    )
                 except OSError:
                     pass
             elif f.is_file() and f.name not in METADATA_FILES:
@@ -162,7 +166,7 @@ def build_run(root: Path, run_dir: Path, turn_dirs: list[Path]) -> dict | None:
     for candidate in grading_candidates:
         if candidate.exists():
             try:
-                grading = json.loads(candidate.read_text())
+                grading = json.loads(candidate.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
             if grading:
@@ -188,7 +192,7 @@ def embed_file(path: Path) -> dict:
 
     if ext in TEXT_EXTENSIONS:
         try:
-            content = path.read_text(errors="replace")
+            content = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             content = "(Error reading file)"
         return {
@@ -257,7 +261,7 @@ def load_previous_iteration(workspace: Path) -> dict[str, dict]:
     feedback_path = workspace / "feedback.json"
     if feedback_path.exists():
         try:
-            data = json.loads(feedback_path.read_text())
+            data = json.loads(feedback_path.read_text(encoding="utf-8"))
             feedback_map = {
                 r["run_id"]: r["feedback"]
                 for r in data.get("reviews", [])
@@ -290,7 +294,7 @@ def generate_html(
 ) -> str:
     """Generate the complete standalone HTML page with embedded data."""
     template_path = Path(__file__).parent / "viewer.html"
-    template = template_path.read_text()
+    template = template_path.read_text(encoding="utf-8")
 
     # Build previous_feedback and previous_outputs maps for the template
     previous_feedback: dict[str, str] = {}
@@ -325,22 +329,49 @@ def generate_html(
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for pid_str in result.stdout.strip().split("\n"):
-            if pid_str.strip():
-                try:
-                    os.kill(int(pid_str.strip()), signal.SIGTERM)
-                except (ProcessLookupError, ValueError):
-                    pass
-        if result.stdout.strip():
-            time.sleep(0.5)
-    except subprocess.TimeoutExpired:
+        if _IS_WINDOWS:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    pid_str = parts[-1]
+                    try:
+                        _kill_pid(int(pid_str))
+                    except ValueError:
+                        pass
+        else:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for pid_str in result.stdout.strip().split("\n"):
+                if pid_str.strip():
+                    try:
+                        _kill_pid(int(pid_str.strip()))
+                    except ValueError:
+                        pass
+        time.sleep(0.5)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
-    except FileNotFoundError:
-        print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
+
+
+def _kill_pid(pid: int) -> None:
+    """Terminate a process by PID on the current platform."""
+    if _IS_WINDOWS:
+        subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            capture_output=True,
+            timeout=5,
+        )
+    else:
+        os.kill(pid, signal.SIGTERM)
 
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
@@ -378,7 +409,9 @@ class ReviewHandler(BaseHTTPRequestHandler):
             benchmark = None
             if self.benchmark_path and self.benchmark_path.exists():
                 try:
-                    benchmark = json.loads(self.benchmark_path.read_text())
+                    benchmark = json.loads(
+                        self.benchmark_path.read_text(encoding="utf-8")
+                    )
                 except (json.JSONDecodeError, OSError):
                     pass
             html = generate_html(runs, self.skill_name, self.previous, benchmark)
@@ -408,7 +441,10 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 if not isinstance(data, dict) or "reviews" not in data:
                     raise ValueError("Expected JSON object with 'reviews' key")
-                self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
+                self.feedback_path.write_text(
+                    json.dumps(data, indent=2) + "\n",
+                    encoding="utf-8",
+                )
                 resp = b'{"ok":true}'
                 self.send_response(200)
             except (json.JSONDecodeError, OSError, ValueError) as e:
@@ -466,14 +502,14 @@ def main() -> None:
     benchmark = None
     if benchmark_path and benchmark_path.exists():
         try:
-            benchmark = json.loads(benchmark_path.read_text())
+            benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
 
     if args.static:
         html = generate_html(runs, skill_name, previous, benchmark)
         args.static.parent.mkdir(parents=True, exist_ok=True)
-        args.static.write_text(html)
+        args.static.write_text(html, encoding="utf-8")
         print(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 
@@ -488,7 +524,7 @@ def main() -> None:
         server = HTTPServer(("0.0.0.0", 0), handler)
         port = server.server_address[1]
 
-    url = f"http://0.0.0.0:{port}"
+    url = f"http://127.0.0.1:{port}"
     print(f"\n  Eval Viewer")
     print(f"  ─────────────────────────────────")
     print(f"  URL:       {url}")

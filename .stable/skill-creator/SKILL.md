@@ -206,26 +206,27 @@ Key placement rules:
 
 ### Step 1: Run all evals
 
-One script handles everything: fixture preparation, running `claude -p` for each eval and configuration, multi-turn sessions, output extraction, and timing capture.
+One script handles everything: fixture preparation, running the selected provider CLI for each eval and configuration, multi-turn sessions, output extraction, and timing capture.
 
 ```bash
 python <skill-creator-path>/scripts/run_skill_evals.py \
   --skill-path <path-to-skill> \
   --workspace <workspace-path> \
   --iteration <N> \
+  --provider <claude|codex> \
   --model <model-id> \
   --max-parallel 4 \
   --timeout 900 \
   --run-root /path/to/run-root
 ```
 
-**Run root (required):** A directory where the script does all its work: staging fixtures and creating isolated run directories. Claude Code does not discover skills in temp directories so this must be a real path. The script creates everything it needs inside it.
+**Run root (required):** A directory where the script does all its work: staging fixtures and creating isolated run directories. Providers with local discovery may require a real path rather than an anonymous temp directory. The script creates everything it needs inside it.
 
 **Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
 
-Run this in the **background** (via Bash `run_in_background`) because it takes a while.
+Run this in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
 
-**How it works:** Each eval runs as its own `claude -p` process. The process starts in an isolated temp directory. For `with_skill` runs, the skill under test is in that directory's `.claude/skills/<name>/` so Claude Code discovers it through normal skill resolution. For `without_skill` runs, no skill is present. The prompts are identical. The only difference is whether the skill is discoverable.
+**How it works:** Each eval runs as its own provider CLI process. The process starts in an isolated run directory. For providers with native skill discovery, `with_skill` copies the skill into the provider-specific discovery folder. Providers without discovery support get an explicit instruction to read the copied skill file. For `without_skill` runs, no skill is injected. The prompts are otherwise identical.
 
 Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent turns. Each turn's prompt is piped via stdin to avoid shell escaping issues.
 
@@ -251,7 +252,7 @@ After launching the script in the background, do two things in parallel:
 python <skill-creator-path>/scripts/poll_progress.py \
   <workspace>/iteration-<N>/progress.json --interval 30
 ```
-Run this with `run_in_background`. It prints a status line each time a run completes and exits when all runs are done. You will get a notification when it finishes. Do not use `sleep` commands to poll manually. If runs are failing, investigate early rather than waiting for the full batch to finish.
+Run this in the background using whatever process-launching mechanism your environment supports. It prints a status line each time a run completes and exits when all runs are done. Do not use `sleep` commands to poll manually. If runs are failing, investigate early rather than waiting for the full batch to finish.
 
 **Draft expectations.** Use the time productively. Draft quantitative expectations for each test case and explain them to the user. If expectations already exist in `evals/evals.json`, review them and explain what they check.
 
@@ -433,9 +434,9 @@ Present the eval set to the user for review using the HTML template:
    - `__EVAL_DATA_PLACEHOLDER__` → the JSON array of eval items (no quotes around it — it's a JS variable assignment)
    - `__SKILL_NAME_PLACEHOLDER__` → the skill's name
    - `__SKILL_DESCRIPTION_PLACEHOLDER__` → the skill's current description
-3. Write to a temp file (e.g., `/tmp/eval_review_<skill-name>.html`) and open it: `open /tmp/eval_review_<skill-name>.html`
+3. Write to a temp file (for example `/tmp/eval_review_<skill-name>.html` on Unix or `%TEMP%\\eval_review_<skill-name>.html` on Windows) and open it with your platform opener (`open`, `xdg-open`, or `Start-Process`)
 4. The user can edit queries, toggle should-trigger, add/remove entries, then click "Export Eval Set"
-5. The file downloads to `~/Downloads/eval_set.json` — check the Downloads folder for the most recent version in case there are multiple (e.g., `eval_set (1).json`)
+5. The file downloads to the user's Downloads folder (for example `~/Downloads/eval_set.json` on Unix or `%USERPROFILE%\\Downloads\\eval_set.json` on Windows) — check for the most recent version in case there are multiple (e.g., `eval_set (1).json`)
 
 This step matters — bad eval queries lead to bad descriptions.
 

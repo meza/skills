@@ -133,7 +133,7 @@ def main():
         print(f"Error: evals.json not found at {evals_json_path}", file=sys.stderr)
         sys.exit(1)
 
-    with open(evals_json_path) as f:
+    with open(evals_json_path, encoding="utf-8") as f:
         evals_data = json.load(f)
 
     fixture_repo = evals_data.get("fixture_repo")

@@ -15,11 +15,14 @@ class ClaudeProvider(Provider):
 
     def build_command(
         self,
-        session_id: str,
+        session_id: str | None,
         session_name: str,
         turn_index: int,
         model: str | None,
     ) -> list[str]:
+        if not session_id:
+            raise ValueError("ClaudeProvider requires a session_id")
+
         cmd = ["claude", "-p", "--effort", "medium"]
 
         if turn_index == 0:

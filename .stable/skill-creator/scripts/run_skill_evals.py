@@ -47,12 +47,14 @@ from pathlib import Path
 
 from providers import Provider
 from providers.claude import ClaudeProvider
+from providers.codex import CodexProvider
 
 
 CONFIGURATIONS = ["with_skill", "without_skill"]
 
 PROVIDERS = {
     "claude": ClaudeProvider,
+    "codex": CodexProvider,
 }
 
 
@@ -302,14 +304,21 @@ def run_single_job(
         )
 
         turn_result = provider.parse_output(stdout, prompt)
+        session_id = turn_result.session_id or session_id
 
         if timed_out:
             if turn_result.events:
                 all_events.extend(turn_result.events)
                 turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
                 turn_dir.mkdir(parents=True, exist_ok=True)
-                (turn_dir / "response.md").write_text(turn_result.response)
-                (turn_dir / "transcript.md").write_text(turn_result.transcript)
+                (turn_dir / "response.md").write_text(
+                    turn_result.response,
+                    encoding="utf-8",
+                )
+                (turn_dir / "transcript.md").write_text(
+                    turn_result.transcript,
+                    encoding="utf-8",
+                )
 
             status = "timeout"
             error_message = (
@@ -336,8 +345,14 @@ def run_single_job(
 
         turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
         turn_dir.mkdir(parents=True, exist_ok=True)
-        (turn_dir / "response.md").write_text(turn_result.response)
-        (turn_dir / "transcript.md").write_text(turn_result.transcript)
+        (turn_dir / "response.md").write_text(
+            turn_result.response,
+            encoding="utf-8",
+        )
+        (turn_dir / "transcript.md").write_text(
+            turn_result.transcript,
+            encoding="utf-8",
+        )
 
         total_duration_ms += turn_result.duration_ms
         total_cost_usd += turn_result.cost_usd
@@ -360,10 +375,16 @@ def run_single_job(
         "total_duration_seconds": round(total_duration_ms / 1000.0, 1),
         "cost_usd": round(total_cost_usd, 6),
     }
-    (config_dir / "timing.json").write_text(json.dumps(timing, indent=2))
+    (config_dir / "timing.json").write_text(
+        json.dumps(timing, indent=2),
+        encoding="utf-8",
+    )
 
     raw_lines = [json.dumps(e) for e in all_events]
-    (config_dir / "raw_output.jsonl").write_text("\n".join(raw_lines))
+    (config_dir / "raw_output.jsonl").write_text(
+        "\n".join(raw_lines),
+        encoding="utf-8",
+    )
 
     summary = {
         "eval_id": eval_id,
@@ -472,7 +493,7 @@ def main():
         print(f"Error: {evals_json_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    with open(evals_json_path) as f:
+    with open(evals_json_path, encoding="utf-8") as f:
         evals_data = json.load(f)
 
     evals_list = evals_data.get("evals", [])
@@ -510,7 +531,10 @@ def main():
             "eval_name": eval_def.get("eval_name", f"eval-{eval_id}"),
             "turns": eval_def.get("turns", []),
         }
-        (eval_dir / "eval_metadata.json").write_text(json.dumps(metadata, indent=2))
+        (eval_dir / "eval_metadata.json").write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        )
 
     # Providers without skill discovery always force-inject the skill
     force_skill_global = args.force_skill or not provider.supports_skill_discovery
@@ -569,7 +593,7 @@ def main():
                 for s in summaries
             ],
         }
-        progress_path.write_text(json.dumps(progress, indent=2))
+        progress_path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
 
     write_progress()
 
@@ -622,7 +646,7 @@ def main():
         "runs": summaries,
     }
     manifest_path = iteration_dir / "run_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     succeeded = sum(1 for s in summaries if s.get("status") == "success")
     failed = total_jobs - succeeded

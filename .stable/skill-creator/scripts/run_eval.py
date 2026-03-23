@@ -8,15 +8,19 @@ for a set of queries. Outputs results as JSON.
 import argparse
 import json
 import os
-import select
+import queue
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from scripts.utils import parse_skill_md
+
+
+_READER_SENTINEL = object()
 
 
 def find_project_root() -> Path:
@@ -65,7 +69,7 @@ def run_single_query(
             f"# {skill_name}\n\n"
             f"This skill handles: {skill_description}\n"
         )
-        command_file.write_text(command_content)
+        command_file.write_text(command_content, encoding="utf-8")
 
         cmd = [
             "claude",
@@ -89,110 +93,154 @@ def run_single_query(
             stderr=subprocess.DEVNULL,
             cwd=project_root,
             env=env,
+            text=True,
+            bufsize=1,
         )
 
         triggered = False
         start_time = time.time()
-        buffer = ""
         # Track state for stream event detection
         pending_tool_name = None
         accumulated_json = ""
+        stdout_queue: queue.Queue[object] = queue.Queue()
+        stdout_thread = threading.Thread(
+            target=_enqueue_stream_lines,
+            args=(process.stdout, stdout_queue),
+            daemon=True,
+        )
+        stdout_thread.start()
 
         try:
-            while time.time() - start_time < timeout:
-                if process.poll() is not None:
-                    remaining = process.stdout.read()
-                    if remaining:
-                        buffer += remaining.decode("utf-8", errors="replace")
+            while True:
+                remaining = timeout - (time.time() - start_time)
+                if remaining <= 0:
                     break
 
-                ready, _, _ = select.select([process.stdout], [], [], 1.0)
-                if not ready:
+                try:
+                    line = stdout_queue.get(timeout=min(1.0, remaining))
+                except queue.Empty:
+                    if process.poll() is not None and not stdout_thread.is_alive():
+                        break
                     continue
 
-                chunk = os.read(process.stdout.fileno(), 8192)
-                if not chunk:
+                if line is _READER_SENTINEL:
                     break
-                buffer += chunk.decode("utf-8", errors="replace")
 
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
+                line = line.strip()
+                if not line:
+                    continue
 
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-                    # Early detection via stream events.
-                    # The model may call other tools (Agent, Glob, Bash)
-                    # before invoking the skill. Keep listening until we
-                    # see a Skill/Read call or the message ends.
-                    if event.get("type") == "stream_event":
-                        se = event.get("event", {})
-                        se_type = se.get("type", "")
-
-                        if se_type == "content_block_start":
-                            cb = se.get("content_block", {})
-                            if cb.get("type") == "tool_use":
-                                tool_name = cb.get("name", "")
-                                if tool_name in ("Skill", "Read"):
-                                    pending_tool_name = tool_name
-                                    accumulated_json = ""
-                                else:
-                                    # Not a skill call. Reset pending state
-                                    # but keep listening for later calls.
-                                    pending_tool_name = None
-                                    accumulated_json = ""
-
-                        elif se_type == "content_block_delta" and pending_tool_name:
-                            delta = se.get("delta", {})
-                            if delta.get("type") == "input_json_delta":
-                                accumulated_json += delta.get("partial_json", "")
-                                if clean_name in accumulated_json:
-                                    return True
-
-                        elif se_type == "content_block_stop":
-                            if pending_tool_name:
-                                if clean_name in accumulated_json:
-                                    return True
-                                # This Skill/Read call was for a different
-                                # skill. Reset and keep listening.
-                                pending_tool_name = None
-                                accumulated_json = ""
-
-                        elif se_type == "message_stop":
-                            return triggered
-
-                    # Fallback: full assistant message
-                    elif event.get("type") == "assistant":
-                        message = event.get("message", {})
-                        for content_item in message.get("content", []):
-                            if content_item.get("type") != "tool_use":
-                                continue
-                            tool_name = content_item.get("name", "")
-                            tool_input = content_item.get("input", {})
-                            if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
-                                triggered = True
-                            elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
-                                triggered = True
-                        # Don't return here. The model may produce multiple
-                        # assistant messages. Wait for the result event.
-
-                    elif event.get("type") == "result":
-                        return triggered
+                decision, triggered, pending_tool_name, accumulated_json = _process_stream_event(
+                    event=event,
+                    clean_name=clean_name,
+                    triggered=triggered,
+                    pending_tool_name=pending_tool_name,
+                    accumulated_json=accumulated_json,
+                )
+                if decision is not None:
+                    return decision
         finally:
             # Clean up process on any exit path (return, exception, timeout)
             if process.poll() is None:
                 process.kill()
-                process.wait()
+            process.wait()
 
         return triggered
     finally:
         if command_file.exists():
             command_file.unlink()
+
+
+def _enqueue_stream_lines(stream, stdout_queue: queue.Queue[object]) -> None:
+    """Read subprocess stdout line-by-line into a queue.
+
+    This avoids `select.select()` on pipes, which does not work on Windows.
+    """
+    if stream is None:
+        stdout_queue.put(_READER_SENTINEL)
+        return
+
+    try:
+        for line in iter(stream.readline, ""):
+            stdout_queue.put(line)
+    finally:
+        stream.close()
+        stdout_queue.put(_READER_SENTINEL)
+
+
+def _process_stream_event(
+    event: dict,
+    clean_name: str,
+    triggered: bool,
+    pending_tool_name: str | None,
+    accumulated_json: str,
+) -> tuple[bool | None, bool, str | None, str]:
+    """Update trigger-detection state from one Claude stream-json event."""
+    # Early detection via stream events.
+    # The model may call other tools (Agent, Glob, Bash)
+    # before invoking the skill. Keep listening until we
+    # see a Skill/Read call or the message ends.
+    if event.get("type") == "stream_event":
+        se = event.get("event", {})
+        se_type = se.get("type", "")
+
+        if se_type == "content_block_start":
+            cb = se.get("content_block", {})
+            if cb.get("type") == "tool_use":
+                tool_name = cb.get("name", "")
+                if tool_name in ("Skill", "Read"):
+                    pending_tool_name = tool_name
+                    accumulated_json = ""
+                else:
+                    # Not a skill call. Reset pending state
+                    # but keep listening for later calls.
+                    pending_tool_name = None
+                    accumulated_json = ""
+
+        elif se_type == "content_block_delta" and pending_tool_name:
+            delta = se.get("delta", {})
+            if delta.get("type") == "input_json_delta":
+                accumulated_json += delta.get("partial_json", "")
+                if clean_name in accumulated_json:
+                    return True, triggered, pending_tool_name, accumulated_json
+
+        elif se_type == "content_block_stop" and pending_tool_name:
+            if clean_name in accumulated_json:
+                return True, triggered, pending_tool_name, accumulated_json
+            # This Skill/Read call was for a different skill.
+            pending_tool_name = None
+            accumulated_json = ""
+
+        elif se_type == "message_stop":
+            return triggered, triggered, pending_tool_name, accumulated_json
+
+        return None, triggered, pending_tool_name, accumulated_json
+
+    # Fallback: full assistant message
+    if event.get("type") == "assistant":
+        message = event.get("message", {})
+        for content_item in message.get("content", []):
+            if content_item.get("type") != "tool_use":
+                continue
+            tool_name = content_item.get("name", "")
+            tool_input = content_item.get("input", {})
+            if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
+                triggered = True
+            elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
+                triggered = True
+        # Don't return here. The model may produce multiple
+        # assistant messages. Wait for the result event.
+        return None, triggered, pending_tool_name, accumulated_json
+
+    if event.get("type") == "result":
+        return triggered, triggered, pending_tool_name, accumulated_json
+
+    return None, triggered, pending_tool_name, accumulated_json
 
 
 def run_eval(
@@ -283,7 +331,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")
     args = parser.parse_args()
 
-    eval_set = json.loads(Path(args.eval_set).read_text())
+    eval_set = json.loads(Path(args.eval_set).read_text(encoding="utf-8"))
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():

@@ -19,6 +19,7 @@ class TurnResult:
     response: str = ""
     transcript: str = ""
     events: list[dict] = field(default_factory=list)
+    session_id: str | None = None
     duration_ms: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -36,7 +37,7 @@ class Provider(ABC):
     @abstractmethod
     def build_command(
         self,
-        session_id: str,
+        session_id: str | None,
         session_name: str,
         turn_index: int,
         model: str | None,
@@ -46,7 +47,8 @@ class Provider(ABC):
         The runner pipes the prompt via stdin and captures stdout/stderr.
 
         Args:
-            session_id: Unique ID for this eval run (for multi-turn continuity).
+            session_id: Session/thread ID for multi-turn continuity. This may be
+                None on the first turn for providers whose CLI creates the ID.
             session_name: Human-readable session label.
             turn_index: Zero-based turn number. Turn 0 starts a new session.
                 Subsequent turns resume the existing session.
@@ -65,7 +67,8 @@ class Provider(ABC):
             prompt: The prompt that was sent (needed for transcript building).
 
         Returns:
-            A TurnResult with response text, transcript, events, and metrics.
+            A TurnResult with response text, transcript, events, metrics, and
+            the session/thread ID observed for this turn when available.
         """
 
     @property

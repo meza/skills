@@ -41,7 +41,7 @@ def main():
             continue
 
         try:
-            data = json.loads(args.progress_file.read_text())
+            data = json.loads(args.progress_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             time.sleep(args.interval)
             continue

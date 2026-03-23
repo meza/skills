@@ -118,7 +118,7 @@ def cmd_stop(_args=None, quiet: bool = False) -> None:
         return
 
     try:
-        data = json.loads(PIDFILE.read_text())
+        data = json.loads(PIDFILE.read_text(encoding="utf-8"))
         pid = data.get("pid")
         port = data.get("port", DEFAULT_PORT)
     except (json.JSONDecodeError, OSError):
@@ -186,7 +186,7 @@ def cmd_start(args) -> None:
 
     proc = subprocess.Popen(cmd, **popen_kwargs)
 
-    PIDFILE.write_text(json.dumps({"pid": proc.pid, "port": port}))
+    PIDFILE.write_text(json.dumps({"pid": proc.pid, "port": port}), encoding="utf-8")
 
     ip = _get_local_ip()
     url = f"http://{ip}:{port}"
