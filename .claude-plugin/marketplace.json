@@ -14,7 +14,7 @@
       "description": "Meza's skill creator",
       "strict": false,
       "skills": [
-        "./.stable/skills/skill-creator"
+        "./skills/.stable/skill-creator"
       ]
     }
   ]
