@@ -204,9 +204,22 @@ Key placement rules:
 - **timing.json**: at the config directory level.
 - **Eval directory names**: use the numeric ID from evals.json prefixed with `eval-` (e.g., `eval-1/`, `eval-2/`). Put the human-readable name in `eval_name` inside eval_metadata.json. The aggregation script requires the `eval-` prefix.
 
-### Step 1: Run all evals
+### Step 1: Prepare fixtures, then run all evals
 
-One script handles everything: fixture preparation, running the selected provider CLI for each eval and configuration, multi-turn sessions, output extraction, and timing capture.
+This workflow is now split into two steps. `prepare_fixture.py` creates the isolated run root first. `run_skill_evals.py` then executes against that prepared run root without recreating it.
+
+First prepare the run directories:
+
+```bash
+python <skill-creator-path>/scripts/prepare_fixture.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex>
+```
+
+This prints a JSON mapping of eval ids to prepared `with_skill` and `without_skill` directories. The actual prepared run root will be a unique subdirectory under `--run-root`, typically named something like `<skill>-eval-runs-xxxxxxx/`, and it contains `eval-1/`, `eval-2/`, and so on.
+
+Then run the evals against that prepared run root:
 
 ```bash
 python <skill-creator-path>/scripts/run_skill_evals.py \
@@ -220,14 +233,14 @@ python <skill-creator-path>/scripts/run_skill_evals.py \
   --run-root <path-to-run-root>
 ```
 
-**Run root (required):** A directory where the script does all its work: staging fixtures and creating isolated run directories. Providers with local discovery may require a real path rather than an anonymous temp directory. The script creates everything it needs inside it.
-Examples: `F:\dev\skills\tmp\skill-evals` on Windows or `/tmp/skill-evals` on Unix.
+**Run root (required):** For `prepare_fixture.py`, this is the base directory where the script stages fixtures and creates a unique prepared run root. For `run_skill_evals.py`, this must be the specific prepared run root that already contains `eval-<id>/with_skill` and `eval-<id>/without_skill`.
+Examples: run `prepare_fixture.py` with `F:\dev\skills\tmp\skill-evals`, then pass the returned prepared run root such as `F:\dev\skills\tmp\skill-evals\my-skill-eval-runs-ab12cd34` to `run_skill_evals.py`.
 
 **Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
 
-Run this in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
+Run `run_skill_evals.py` in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
 
-**How it works:** Each eval runs as its own provider CLI process. The process starts in an isolated run directory. For providers with native skill discovery, `with_skill` copies the skill into the provider-specific discovery folder. Providers without discovery support get an explicit instruction to read the copied skill file. For `without_skill` runs, no skill is injected. The prompts are otherwise identical.
+**How it works:** `prepare_fixture.py` creates the isolated run root ahead of time. Each eval run then starts as its own provider CLI process in one of the prepared directories under that run root. For providers with native skill discovery, `with_skill` already contains the skill in the provider-specific discovery folder. Providers without discovery support get an explicit instruction to read the copied skill file. For `without_skill` runs, no skill is injected. The prompts are otherwise identical.
 
 Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent turns. Each turn's prompt is piped via stdin to avoid shell escaping issues.
 
@@ -381,7 +394,7 @@ This task is pretty important (we are trying to create billions a year in econom
 After improving the skill:
 
 1. Apply your improvements to the skill
-2. Run `run_skill_evals.py` again with `--iteration <N+1>`. The script creates fresh run directories every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
+2. Run `prepare_fixture.py` again, then run `run_skill_evals.py` with `--iteration <N+1>`. Preparation creates a fresh run tree every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
 3. Launch the reviewer with `--previous-workspace` pointing at the previous iteration
 4. Wait for the user to review and tell you they're done
 5. Read the new feedback, improve again, repeat

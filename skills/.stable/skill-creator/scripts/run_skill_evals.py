@@ -13,6 +13,7 @@ Usage:
         --skill-path <path-to-skill> \
         --workspace <path-to-workspace> \
         --iteration 1 \
+        --run-root <path-to-run-root> \
         [--provider claude] \
         [--model claude-opus-4-6] \
         [--max-parallel 4] \
@@ -53,25 +54,75 @@ from providers.registry import PROVIDERS, get_provider
 CONFIGURATIONS = ["with_skill", "without_skill"]
 
 
-def run_prepare_fixture(skill_path: Path, run_root: Path, provider_name: str) -> dict:
-    """Call prepare_fixture.py and return the run paths mapping."""
-    script = Path(__file__).parent / "prepare_fixture.py"
-    cmd = [
-        sys.executable, str(script),
-        "--skill-path", str(skill_path),
-        "--run-root", str(run_root),
-        "--provider", provider_name,
-    ]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        print(f"prepare_fixture.py failed:\n{result.stderr}", file=sys.stderr)
+def build_run_paths(run_root: Path, provider: Provider, evals_list: list[dict], skill_name: str) -> dict:
+    """Resolve run directories from a prepared run root created by prepare_fixture.py."""
+    run_root = run_root.expanduser().resolve()
+    if not run_root.exists():
+        print(
+            f"Error: prepared run root {run_root} does not exist. "
+            "Run prepare_fixture.py first.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    return json.loads(result.stdout)
+    run_paths: dict[str, dict] = {}
+    for eval_def in evals_list:
+        eval_id = str(eval_def["id"])
+        eval_dir = run_root / f"eval-{eval_id}"
+        if not eval_dir.exists():
+                print(
+                    f"Error: prepared eval directory not found at {eval_dir}. "
+                    "Run prepare_fixture.py first or point --run-root at the correct prepared run root.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        fixture_name = eval_def.get("fixture")
+        fixture_in_workdir = eval_def.get("fixture_in_workdir", True)
+        run_paths[eval_id] = {}
+
+        for config in CONFIGURATIONS:
+            run_dir = eval_dir / config
+            if not run_dir.exists():
+                print(
+                    f"Error: prepared run directory not found at {run_dir}. "
+                    "Run prepare_fixture.py first or point --run-root at the correct prepared run root.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            entry = {"path": str(run_dir)}
+
+            if fixture_name:
+                if fixture_in_workdir:
+                    fixture_path = run_dir / fixture_name
+                else:
+                    fixture_path = eval_dir / f"{config}_fixtures" / fixture_name
+
+                if not fixture_path.exists():
+                    print(
+                        f"Error: fixture '{fixture_name}' for eval {eval_id} config {config} "
+                        f"not found at {fixture_path}. Run prepare_fixture.py first.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+
+                entry["fixture_path"] = str(fixture_path)
+
+            if config == "with_skill":
+                skill_file = run_dir / provider.skill_root / "skills" / skill_name / "SKILL.md"
+                if not skill_file.exists():
+                    print(
+                        f"Error: skill file not found at {skill_file}. "
+                        "Run prepare_fixture.py first or use the matching provider.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                entry["skill_file"] = str(skill_file)
+
+            run_paths[eval_id][config] = entry
+
+    return run_paths
 
 
 def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, skill_file: str | None = None) -> str:
@@ -435,8 +486,9 @@ def main():
     )
     parser.add_argument(
         "--run-root", required=True, type=Path,
-        help="Directory to create run directories in. Providers with skill "
-             "discovery may require a non-temp path.",
+        help="Path to the prepared run root created by prepare_fixture.py. "
+             "This directory must contain eval-<id>/with_skill and "
+             "eval-<id>/without_skill subdirectories.",
     )
     parser.add_argument(
         "--eval-ids", default=None,
@@ -501,10 +553,15 @@ def main():
 
     print(f"Running {len(evals_list)} evals from {evals_json_path}")
     print(f"Provider: {args.provider}")
-    print(f"Preparing fixtures...")
-
     run_root = args.run_root.expanduser().resolve()
-    run_paths = run_prepare_fixture(skill_path, run_root, args.provider)
+    print(f"Using prepared run root {run_root}")
+
+    run_paths = build_run_paths(
+        run_root,
+        provider,
+        evals_list,
+        evals_data.get("skill_name", skill_path.name),
+    )
 
     iteration_dir = workspace / f"iteration-{args.iteration}"
     iteration_dir.mkdir(parents=True, exist_ok=True)
