@@ -69,7 +69,7 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `evals[].timeout`: Optional integer (seconds). Overrides the CLI `--timeout` for all turns in this eval. Individual turns can override further with their own `timeout` field.
 - `evals[].turns[].timeout`: Optional integer (seconds). Overrides both the eval-level and CLI timeout for this specific turn. Use lower values for turns that ask a simple question and higher values for turns that require implementation work.
 - `evals[].force_skill`: Optional boolean (default `false`). When `true`, the with_skill run wraps the prompt with a system notification telling the agent to use the skill file. Useful for evals where normal skill discovery is unreliable. The CLI `--force-skill` flag acts as a global override that enables this for all evals.
-- `evals[].files`: Optional list of input file paths (relative to skill root)
+- `evals[].files`: Optional list of input file paths (relative to skill root). Each listed file is copied into both the `with_skill` and `without_skill` run directories, preserving its relative path under the run directory so the agent can access it naturally during the eval.
 
 When both `fixture_repo` and `fixture_ref` are set, the harness clones or updates the repo, resolves the pinned ref, resets the staged checkout to that exact commit, and then copies fixtures from there into each run directory.
 

@@ -17,7 +17,8 @@ Three-step process:
      optionally pinned to fixture_ref.
   2. For EVERY eval in evals.json, create a run directory per configuration
      (with_skill, without_skill). If the eval has a fixture, copy it into
-     the run directory.
+     the run directory. If the eval has files[], copy those into the run
+     directory as well.
   3. For with_skill configurations, copy the skill under test into the run
      directory at the provider-specific skill root so the chosen runner
      discovers it naturally. without_skill directories get no skill.
@@ -175,6 +176,47 @@ def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root
     )
 
 
+def copy_eval_files(skill_path: Path, dest_run_dir: Path, files: list[str], eval_id: str) -> None:
+    """Copy eval input files into the run directory, preserving relative paths.
+
+    File paths are relative to the skill root. They are copied into both
+    with_skill and without_skill working directories so the agent can access
+    them naturally by browsing the run directory.
+    """
+    skill_root = skill_path.resolve()
+
+    for raw_path in files:
+        relative_path = Path(raw_path)
+        source = (skill_path / relative_path).resolve()
+
+        try:
+            source.relative_to(skill_root)
+        except ValueError:
+            print(
+                f"Error: eval file '{raw_path}' escapes the skill root (referenced by eval id={eval_id})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        if not source.exists():
+            print(
+                f"Error: eval file '{raw_path}' not found at {source} (referenced by eval id={eval_id})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        if not source.is_file():
+            print(
+                f"Error: eval file '{raw_path}' is not a file at {source} (referenced by eval id={eval_id})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        destination = dest_run_dir / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Prepare isolated run directories for eval runs."
@@ -259,6 +301,7 @@ def main():
         eval_id = str(eval_def["id"])
         fixture_name = eval_def.get("fixture")
         fixture_in_workdir = eval_def.get("fixture_in_workdir", True)
+        eval_files = eval_def.get("files", [])
 
         run_paths[eval_id] = {}
         for config in CONFIGURATIONS:
@@ -290,6 +333,9 @@ def main():
                     if not dest.exists():
                         shutil.copytree(source, dest)
                     fixture_path = str(dest)
+
+            if eval_files:
+                copy_eval_files(skill_path, run_dir, eval_files, eval_id)
 
             # Copy skill into with_skill run directories
             if config == "with_skill":
