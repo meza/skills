@@ -7,7 +7,7 @@ Everything is created under --run-root:
   ├── fixtures/               # cloned/staged fixture repo (if any)
   └── <skill>-eval-runs-xxx/  # unique per invocation
       ├── eval-1/
-      │   ├── with_skill/     # has .claude/skills/<name>/
+      │   ├── with_skill/     # has provider-specific skills/<name>/
       │   └── without_skill/  # no skill
       └── eval-2/
           └── ...
@@ -19,14 +19,15 @@ Three-step process:
      (with_skill, without_skill). If the eval has a fixture, copy it into
      the run directory.
   3. For with_skill configurations, copy the skill under test into the run
-     directory at .claude/skills/<skill-name>/ so Claude Code discovers it
-     naturally. without_skill directories get no skill.
+     directory at the provider-specific skill root so the chosen runner
+     discovers it naturally. without_skill directories get no skill.
 
-Claude Code does not discover skills in temp directories. The caller must
-provide a --run-root that points to a real (non-temp) path.
+Providers with native skill discovery may not discover skills in temp
+directories. The caller must provide a --run-root that points to a real
+(non-temp) path.
 
 Usage:
-    python -m scripts.prepare_fixture --skill-path /path/to/skill --run-root /path/to/run-root
+    python -m scripts.prepare_fixture --skill-path <path-to-skill> --run-root <path-to-run-root> [--provider codex]
 
 Output (stdout): JSON mapping eval id -> {configuration -> entry}.
     Each entry has "path" (the agent's working directory) and optionally
@@ -34,12 +35,12 @@ Output (stdout): JSON mapping eval id -> {configuration -> entry}.
 
     {
       "1": {
-        "with_skill":    {"path": "/run-root/.../eval-1/with_skill", "fixture_path": "/run-root/.../eval-1/with_skill/my-fixture"},
-        "without_skill": {"path": "/run-root/.../eval-1/without_skill", "fixture_path": "/run-root/.../eval-1/without_skill/my-fixture"}
+        "with_skill":    {"path": "<run-root>/.../eval-1/with_skill", "fixture_path": "<run-root>/.../eval-1/with_skill/my-fixture"},
+        "without_skill": {"path": "<run-root>/.../eval-1/without_skill", "fixture_path": "<run-root>/.../eval-1/without_skill/my-fixture"}
       },
       "2": {
-        "with_skill":    {"path": "/run-root/.../eval-2/with_skill"},
-        "without_skill": {"path": "/run-root/.../eval-2/without_skill"}
+        "with_skill":    {"path": "<run-root>/.../eval-2/with_skill"},
+        "without_skill": {"path": "<run-root>/.../eval-2/without_skill"}
       }
     }
 """
@@ -51,6 +52,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from providers.registry import PROVIDERS, get_provider
 
 
 def run_git(cmd: list[str], error_prefix: str) -> str:
@@ -188,13 +191,21 @@ def main():
              "discovery may require a non-temp path.",
     )
     parser.add_argument(
+        "--provider",
+        default="claude",
+        help="LLM provider to prepare fixtures for (default: claude). "
+             f"Available: {', '.join(sorted(PROVIDERS))}",
+    )
+    parser.add_argument(
         "--skill-root",
-        default=".claude",
-        help="Provider-specific root directory for skill placement. "
-             "Skills are copied to <run-dir>/<skill-root>/skills/<name>/. "
-             "Examples: .claude, .codex, .github, .agents (default: .claude)",
+        default=None,
+        help="Override the provider-specific root directory for skill placement. "
+             "When omitted, this is derived from --provider.",
     )
     args = parser.parse_args()
+
+    provider = get_provider(args.provider)
+    skill_root = args.skill_root or provider.skill_root
 
     skill_path = Path(args.skill_path).expanduser().resolve()
     evals_json_path = skill_path / "evals" / "evals.json"
@@ -212,8 +223,8 @@ def main():
     skill_name = evals_data.get("skill_name", skill_path.name)
 
     # Everything lives under --run-root: fixture staging, run directories, etc.
-    # Claude Code does not discover skills in temp directories so this must be
-    # a real path provided by the caller.
+    # Providers with native skill discovery may not discover skills in temp
+    # directories so this must be a real path provided by the caller.
     base = Path(args.run_root).expanduser().resolve()
     base.mkdir(parents=True, exist_ok=True)
 
@@ -282,14 +293,14 @@ def main():
 
             # Copy skill into with_skill run directories
             if config == "with_skill":
-                copy_skill(skill_path, run_dir, skill_name, args.skill_root)
+                copy_skill(skill_path, run_dir, skill_name, skill_root)
 
             entry = {"path": str(run_dir)}
             if fixture_path:
                 entry["fixture_path"] = fixture_path
             if config == "with_skill":
                 entry["skill_file"] = str(
-                    run_dir / args.skill_root / "skills" / skill_name / "SKILL.md"
+                    run_dir / skill_root / "skills" / skill_name / "SKILL.md"
                 )
             run_paths[eval_id][config] = entry
 

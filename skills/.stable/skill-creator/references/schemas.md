@@ -58,7 +58,7 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `skill_name`: Name matching the skill's frontmatter
 - `fixture_repo`: Optional git repository URL or path to clone fixture directories from before eval setup.
 - `fixture_ref`: Optional git ref to pin `fixture_repo` to. Supports branch names, tags, and commit SHAs. When omitted, fixture setup uses the remote default branch head.
-- `fixture_base_path`: Optional existing local path to use as the fixture source instead of `<run-root>/fixtures`. This is useful when you want to pin or pre-stage fixtures outside the eval harness.
+- `fixture_base_path`: Optional existing local path to use as the fixture source instead of `<run-root>/fixtures`. This is useful when you want to pin or pre-stage fixtures outside the eval harness. Use a normal platform-native path such as `F:\dev\fixtures` on Windows or `/srv/fixtures` on Unix.
 - `evals[].id`: Unique integer identifier
 - `evals[].eval_name`: Human-readable name for the eval. Displayed in the viewer and benchmark tab. This is the source of truth. The eval_metadata.json and aggregation scripts read it from here.
 - `evals[].turns`: Array of turn objects. One entry for a single-turn eval. Multiple for a conversation. The agent is blind to future turns.
@@ -293,7 +293,7 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
 {
   "metadata": {
     "skill_name": "pdf",
-    "skill_path": "/path/to/pdf",
+    "skill_path": "<path-to-skill>",
     "executor_model": "claude-sonnet-4-20250514",
     "analyzer_model": "most-capable-model",
     "timestamp": "2026-01-15T10:30:00Z",

@@ -10,8 +10,8 @@ discovery get the skill content prepended to every prompt.
 
 Usage:
     python run_skill_evals.py \
-        --skill-path /path/to/skill \
-        --workspace /path/to/workspace \
+        --skill-path <path-to-skill> \
+        --workspace <path-to-workspace> \
         --iteration 1 \
         [--provider claude] \
         [--model claude-opus-4-6] \
@@ -46,36 +46,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from providers import Provider
-from providers.claude import ClaudeProvider
-from providers.codex import CodexProvider
+from providers.registry import PROVIDERS, get_provider
 
 
 CONFIGURATIONS = ["with_skill", "without_skill"]
 
-PROVIDERS = {
-    "claude": ClaudeProvider,
-    "codex": CodexProvider,
-}
 
-
-def get_provider(name: str) -> Provider:
-    """Look up a provider by name."""
-    cls = PROVIDERS.get(name)
-    if cls is None:
-        available = ", ".join(sorted(PROVIDERS))
-        print(f"Error: unknown provider '{name}'. Available: {available}", file=sys.stderr)
-        sys.exit(1)
-    return cls()
-
-
-def run_prepare_fixture(skill_path: Path, run_root: Path, skill_root: str = ".claude") -> dict:
+def run_prepare_fixture(skill_path: Path, run_root: Path, provider_name: str) -> dict:
     """Call prepare_fixture.py and return the run paths mapping."""
     script = Path(__file__).parent / "prepare_fixture.py"
     cmd = [
         sys.executable, str(script),
         "--skill-path", str(skill_path),
         "--run-root", str(run_root),
-        "--skill-root", skill_root,
+        "--provider", provider_name,
     ]
     result = subprocess.run(
         cmd,
@@ -516,7 +500,7 @@ def main():
     print(f"Preparing fixtures...")
 
     run_root = args.run_root.expanduser().resolve()
-    run_paths = run_prepare_fixture(skill_path, run_root, provider.skill_root)
+    run_paths = run_prepare_fixture(skill_path, run_root, args.provider)
 
     iteration_dir = workspace / f"iteration-{args.iteration}"
     iteration_dir.mkdir(parents=True, exist_ok=True)
