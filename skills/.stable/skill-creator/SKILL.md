@@ -239,6 +239,8 @@ Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent tur
 - `run_manifest.json` summarizing all runs (status, timing, costs)
 - `progress.json` with live progress (updates after each run completes)
 
+**Fixture sources:** `evals/evals.json` can define a top-level `fixture_repo` and optional `fixture_ref` so eval fixtures come from a shared repository at a pinned commit, tag, or branch. If you already have a local pinned checkout, use `fixture_base_path` instead.
+
 **Baseline notes:**
 - **Creating a new skill**: the `without_skill` directory has no skill at all. True baseline.
 - **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Pass the snapshot path as `--skill-path` to build baseline directories containing the old version.

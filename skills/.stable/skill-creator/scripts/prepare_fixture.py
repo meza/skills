@@ -13,7 +13,8 @@ Everything is created under --run-root:
           └── ...
 
 Three-step process:
-  1. If fixture_repo is defined, clone (or reset) it into <run-root>/fixtures/.
+  1. If fixture_repo is defined, clone (or reset) it into <run-root>/fixtures/,
+     optionally pinned to fixture_ref.
   2. For EVERY eval in evals.json, create a run directory per configuration
      (with_skill, without_skill). If the eval has a fixture, copy it into
      the run directory.
@@ -52,7 +53,71 @@ import tempfile
 from pathlib import Path
 
 
-def git_clone_or_pull(repo_url: str, dest: Path) -> None:
+def run_git(cmd: list[str], error_prefix: str) -> str:
+    """Run a git command and return stdout, exiting with context on failure."""
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(
+            f"{error_prefix}:\n{result.stderr}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return result.stdout.strip()
+
+
+def resolve_ref(dest: Path, ref: str | None) -> str:
+    """Resolve a fixture ref to a concrete commit.
+
+    Supports branch names, tags, commit SHAs, and any rev parse expression
+    reachable after fetch. When no ref is provided, use origin/HEAD.
+    """
+    if not ref:
+        return run_git(
+            ["git", "-C", str(dest), "rev-parse", "origin/HEAD"],
+            "Error: could not resolve origin/HEAD for fixture repo",
+        )
+
+    candidates = [
+        ref,
+        f"{ref}^{{commit}}",
+        f"origin/{ref}",
+        f"origin/{ref}^{{commit}}",
+        f"refs/tags/{ref}",
+        f"refs/tags/{ref}^{{commit}}",
+    ]
+
+    for candidate in candidates:
+        result = subprocess.run(
+            ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+    fetch_result = subprocess.run(
+        ["git", "-C", str(dest), "fetch", "origin", ref],
+        capture_output=True,
+        text=True,
+    )
+    if fetch_result.returncode == 0:
+        for candidate in candidates:
+            result = subprocess.run(
+                ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+
+    print(
+        f"Error: could not resolve fixture_ref '{ref}' in {dest}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None:
     """Clone the repo or, if it already exists, reset it to a clean remote state.
 
     Uses fetch + reset --hard + clean rather than pull so that untracked or
@@ -61,29 +126,34 @@ def git_clone_or_pull(repo_url: str, dest: Path) -> None:
     """
     git_dir = dest / ".git"
     if git_dir.exists():
-        steps = [
-            ["git", "-C", str(dest), "fetch", "origin"],
-            ["git", "-C", str(dest), "reset", "--hard", "origin/HEAD"],
-            ["git", "-C", str(dest), "clean", "-fd"],
-        ]
-        for cmd in steps:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(
-                    f"Error: '{' '.join(cmd)}' failed:\n{result.stderr}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+        run_git(
+            ["git", "-C", str(dest), "fetch", "--tags", "origin"],
+            "Error: fixture repo fetch failed",
+        )
     else:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(
+        clone_result = subprocess.run(
             ["git", "clone", repo_url, str(dest)],
             capture_output=True,
             text=True,
         )
-        if result.returncode != 0:
-            print(f"Error: git clone failed:\n{result.stderr}", file=sys.stderr)
+        if clone_result.returncode != 0:
+            print(f"Error: git clone failed:\n{clone_result.stderr}", file=sys.stderr)
             sys.exit(1)
+        run_git(
+            ["git", "-C", str(dest), "fetch", "--tags", "origin"],
+            "Error: fixture repo tag fetch failed",
+        )
+
+    resolved_ref = resolve_ref(dest, ref)
+    run_git(
+        ["git", "-C", str(dest), "reset", "--hard", resolved_ref],
+        "Error: fixture repo reset failed",
+    )
+    run_git(
+        ["git", "-C", str(dest), "clean", "-fd"],
+        "Error: fixture repo clean failed",
+    )
 
 
 def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str = ".claude") -> None:
@@ -137,6 +207,7 @@ def main():
         evals_data = json.load(f)
 
     fixture_repo = evals_data.get("fixture_repo")
+    fixture_ref = evals_data.get("fixture_ref")
     fixture_base_raw = evals_data.get("fixture_base_path")
     skill_name = evals_data.get("skill_name", skill_path.name)
 
@@ -156,7 +227,7 @@ def main():
             fixture_staging = base / "fixtures"
 
         if fixture_repo:
-            git_clone_or_pull(fixture_repo, fixture_staging)
+            git_clone_or_pull(fixture_repo, fixture_staging, fixture_ref)
         elif not fixture_staging.exists():
             print(
                 f"Error: fixture_base_path {fixture_staging} does not exist and no fixture_repo is defined to clone from",

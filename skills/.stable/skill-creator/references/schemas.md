@@ -13,6 +13,8 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 ```json
 {
   "skill_name": "example-skill",
+  "fixture_repo": "https://github.com/example/eval-fixtures.git",
+  "fixture_ref": "2c4d9a8",
   "evals": [
     {
       "id": 1,
@@ -54,6 +56,9 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 
 **Fields:**
 - `skill_name`: Name matching the skill's frontmatter
+- `fixture_repo`: Optional git repository URL or path to clone fixture directories from before eval setup.
+- `fixture_ref`: Optional git ref to pin `fixture_repo` to. Supports branch names, tags, and commit SHAs. When omitted, fixture setup uses the remote default branch head.
+- `fixture_base_path`: Optional existing local path to use as the fixture source instead of `<run-root>/fixtures`. This is useful when you want to pin or pre-stage fixtures outside the eval harness.
 - `evals[].id`: Unique integer identifier
 - `evals[].eval_name`: Human-readable name for the eval. Displayed in the viewer and benchmark tab. This is the source of truth. The eval_metadata.json and aggregation scripts read it from here.
 - `evals[].turns`: Array of turn objects. One entry for a single-turn eval. Multiple for a conversation. The agent is blind to future turns.
@@ -65,6 +70,8 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `evals[].turns[].timeout`: Optional integer (seconds). Overrides both the eval-level and CLI timeout for this specific turn. Use lower values for turns that ask a simple question and higher values for turns that require implementation work.
 - `evals[].force_skill`: Optional boolean (default `false`). When `true`, the with_skill run prepends an instruction telling the agent to read and follow the skill file. Useful for evals where normal skill discovery is unreliable. The CLI `--force-skill` flag acts as a global override that enables this for all evals.
 - `evals[].files`: Optional list of input file paths (relative to skill root)
+
+When both `fixture_repo` and `fixture_ref` are set, the harness clones or updates the repo, resolves the pinned ref, resets the staged checkout to that exact commit, and then copies fixtures from there into each run directory.
 
 ---
 
