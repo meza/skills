@@ -8,6 +8,7 @@ the runner force-injects the skill path into the prompt for with_skill runs.
 import json
 import shutil
 
+from prompt_format import extract_prompt_sections
 from . import Provider, TurnResult
 
 
@@ -109,7 +110,7 @@ def _extract_response(events: list[dict]) -> str:
 
 def _extract_transcript(events: list[dict], prompt: str) -> str:
     """Build a readable transcript from Codex JSON events."""
-    sections = [f"[USER INPUT]\n{prompt}"]
+    sections = [f"{label}\n{content}" for label, content in extract_prompt_sections(prompt)]
 
     for event in events:
         if event.get("type") != "item.completed":

@@ -7,6 +7,7 @@ through .claude/skills/ in the working directory.
 
 import json
 
+from prompt_format import extract_prompt_sections
 from . import Provider, TurnResult
 
 
@@ -104,8 +105,7 @@ def _extract_transcript(events: list[dict], prompt: str) -> str:
     Format matches what the grader expects:
     [USER INPUT], [TOOL CALL], [TOOL RESULT], [ASSISTANT TEXT]
     """
-    sections = []
-    sections.append(f"[USER INPUT]\n{prompt}")
+    sections = [f"{label}\n{content}" for label, content in extract_prompt_sections(prompt)]
 
     for event in events:
         etype = event.get("type")

@@ -45,6 +45,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
+from prompt_format import format_prompt_sections
 from providers import Provider
 from providers.registry import PROVIDERS, get_provider
 
@@ -77,7 +78,7 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
     """Build the prompt for a turn, handling fixture path and skill file substitution.
 
     If skill_file is set (absolute path to SKILL.md in the run directory),
-    prepend an instruction telling the agent to read and follow that skill.
+    wrap the prompt with a system notification telling the agent to use it.
     """
     prompt = turn_prompt
 
@@ -92,7 +93,10 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
             prompt = f"The codebase is at {fixture_path}.\n\n{prompt}"
 
     if skill_file:
-        prompt = f"Read and follow the skill at {skill_file} to complete this task.\n\n{prompt}"
+        prompt = format_prompt_sections(
+            prompt,
+            f"Use this skill at {skill_file} to complete this task.",
+        )
 
     return prompt
 
@@ -447,8 +451,8 @@ def main():
     )
     parser.add_argument(
         "--force-skill", action="store_true",
-        help="Prepend an instruction telling the agent to read and follow the "
-             "skill file. Only applies to with_skill runs. Can also be set "
+        help="Wrap the prompt with a system notification telling the agent to "
+             "use the skill file. Only applies to with_skill runs. Can also be set "
              "per-eval via \"force_skill\": true in evals.json. Providers "
              "without skill discovery always behave as if this is set.",
     )
