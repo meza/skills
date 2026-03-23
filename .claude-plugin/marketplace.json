@@ -1,0 +1,21 @@
+{
+  "name": "meza's skills",
+  "owner": {
+    "name": "meza"
+  },
+  "metadata": {
+    "description": "Meza's agent skills",
+    "version": "0.0.1"
+  },
+  "plugins": [
+    {
+      "name": "skill-creator",
+      "source": "./",
+      "description": "Meza's skill creator",
+      "strict": false,
+      "skills": [
+        "./.stable/skills/skill-creator"
+      ]
+    }
+  ]
+}
