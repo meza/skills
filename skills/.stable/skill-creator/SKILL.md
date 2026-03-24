@@ -280,11 +280,19 @@ Update the `eval_metadata.json` files and `evals/evals.json` with the expectatio
 
 Once `run_skill_evals.py` finishes, spawn grader subagents for each run. One grader per run (not one for the whole batch). You can spawn all graders in parallel.
 
+The graders are not optional bookkeeping. They are the primary qualitative review pass for the loop, and they exist in part to save your context window. Do not start reading transcripts and outputs run-by-run to form your own qualitative judgments before the graders do. That defeats the point of parallel grading and burns context on work the graders are already supposed to do. Before the graders finish, your job is orchestration: confirm the expected files exist, launch graders, and fix pipeline breakage if something is missing or obviously malformed. Do not substitute your own intermediary review for the graders' review.
+
 1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
-**Wait for every grader to finish before continuing.** Aggregating with incomplete grading data produces wrong benchmark numbers. Do not aggregate, analyze, or launch the viewer until all graders have reported back.
+   After each grader finishes, validate its artifact before you move on:
+   ```bash
+   python <skill-creator-path>/scripts/validate_grading.py <run-dir>/grading.json
+   ```
+   If validation fails, treat that grader run as incomplete. Re-run or fix it before aggregating. Do not let malformed grading output flow downstream into benchmark generation or the viewer.
+
+**Wait for every grader to finish before continuing.** Aggregating with incomplete grading data produces wrong benchmark numbers. Do not aggregate, analyze, or launch the viewer until all graders have reported back. Do not "fill the gap" by reading raw outputs yourself and narrating provisional conclusions to the user. If you need to inspect something before then, keep it strictly to debugging why a run or grader failed to produce the required artifacts.
 
 2. **Aggregate into benchmark** — run the aggregation script:
    ```bash
@@ -314,7 +322,7 @@ Put each with_skill version before its baseline counterpart.
 
 Note: please use `serve_viewer.py` to create the viewer; there's no need to write custom HTML.
 
-5. **Present a debrief to the user.** After the viewer is live, your final message should be a substantive summary the user can discuss with you before opening the viewer. Include:
+5. **Present a debrief to the user.** After the viewer is live, your final message should be a substantive summary the user can discuss with you before opening the viewer. Build this debrief from the graders' `grading.json` outputs, the aggregated benchmark, and the analyst notes. Do not replace that synthesis with a fresh top-to-bottom manual review of every transcript unless you are drilling into a specific discrepancy the graders surfaced. Include:
    - The headline numbers (with_skill vs without_skill pass rates and the delta)
    - What worked well (evals where the skill clearly helped)
    - What did not work (evals that failed or regressed)

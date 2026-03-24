@@ -227,6 +227,8 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
 - `user_notes_summary`: Issues flagged by the executor
 - `eval_feedback`: Always included with substantive content. Powers the "AI Summary" panel in the viewer. Must contain a real analysis of what worked, what didn't, and what the expectations missed. Never use a dismissive placeholder.
 
+Use `scripts/validate_grading.py` to validate grader output before aggregation or viewer launch.
+
 ---
 
 ## metrics.json

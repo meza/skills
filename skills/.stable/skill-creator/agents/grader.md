@@ -87,6 +87,14 @@ Specific eval issues worth flagging:
 
 Save results to `{outputs_dir}/../grading.json` (sibling to outputs_dir).
 
+Before you consider the task done, reopen the JSON you wrote and verify that it still matches the required shape. The hard requirements are:
+- top-level `expectations`, `summary`, and `eval_feedback`
+- every expectation has `text`, `passed`, and `evidence`
+- `summary` has `passed`, `failed`, `total`, and `pass_rate`
+- `eval_feedback` has `suggestions` and `overall`
+
+If any required field is missing, malformed, or left as an empty placeholder, fix the file before finishing. A malformed `grading.json` is a failed grading run even if your analysis was otherwise correct.
+
 ## Grading Criteria
 
 **PASS when**:
