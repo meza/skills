@@ -38,36 +38,36 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
 """ + refresh_tag + """    <title>""" + title_prefix + """Skill Description Optimization</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Lora', Georgia, serif;
+            font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
             max-width: 100%;
             margin: 0 auto;
             padding: 20px;
-            background: #faf9f5;
-            color: #141413;
+            background: #f4f7fb;
+            color: #17212b;
         }
-        h1 { font-family: 'Poppins', sans-serif; color: #141413; }
+        h1 { font-family: 'Space Grotesk', 'Segoe UI', sans-serif; color: #17212b; }
         .explainer {
             background: white;
             padding: 15px;
-            border-radius: 6px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            border: 1px solid #e8e6dc;
-            color: #b0aea5;
+            border: 1px solid #d8e0ea;
+            color: #5d6b7d;
             font-size: 0.875rem;
             line-height: 1.6;
         }
         .summary {
             background: white;
             padding: 15px;
-            border-radius: 6px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            border: 1px solid #e8e6dc;
+            border: 1px solid #d8e0ea;
         }
         .summary p { margin: 5px 0; }
-        .best { color: #788c5d; font-weight: bold; }
+        .best { color: #166534; font-weight: bold; }
         .table-container {
             overflow-x: auto;
             width: 100%;
@@ -75,26 +75,26 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
         table {
             border-collapse: collapse;
             background: white;
-            border: 1px solid #e8e6dc;
-            border-radius: 6px;
+            border: 1px solid #d8e0ea;
+            border-radius: 10px;
             font-size: 12px;
             min-width: 100%;
         }
         th, td {
             padding: 8px;
             text-align: left;
-            border: 1px solid #e8e6dc;
+            border: 1px solid #d8e0ea;
             white-space: normal;
             word-wrap: break-word;
         }
         th {
-            font-family: 'Poppins', sans-serif;
-            background: #141413;
-            color: #faf9f5;
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            background: #17212b;
+            color: #f8fbff;
             font-weight: 500;
         }
         th.test-col {
-            background: #6a9bcc;
+            background: #0f766e;
         }
         th.query-col { min-width: 200px; }
         td.description {
@@ -109,16 +109,16 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
             min-width: 40px;
         }
         td.test-result {
-            background: #f0f6fc;
+            background: #eef6f5;
         }
-        .pass { color: #788c5d; }
-        .fail { color: #c44; }
+        .pass { color: #166534; }
+        .fail { color: #b91c1c; }
         .rate {
             font-size: 9px;
-            color: #b0aea5;
+            color: #5d6b7d;
             display: block;
         }
-        tr:hover { background: #faf9f5; }
+        tr:hover { background: #f8fbff; }
         .score {
             display: inline-block;
             padding: 2px 6px;
@@ -126,50 +126,50 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
             font-weight: bold;
             font-size: 11px;
         }
-        .score-good { background: #eef2e8; color: #788c5d; }
-        .score-ok { background: #fef3c7; color: #d97706; }
-        .score-bad { background: #fceaea; color: #c44; }
-        .train-label { color: #b0aea5; font-size: 10px; }
-        .test-label { color: #6a9bcc; font-size: 10px; font-weight: bold; }
-        .best-row { background: #f5f8f2; }
-        th.positive-col { border-bottom: 3px solid #788c5d; }
-        th.negative-col { border-bottom: 3px solid #c44; }
-        th.test-col.positive-col { border-bottom: 3px solid #788c5d; }
-        th.test-col.negative-col { border-bottom: 3px solid #c44; }
-        .legend { font-family: 'Poppins', sans-serif; display: flex; gap: 20px; margin-bottom: 10px; font-size: 13px; align-items: center; }
+        .score-good { background: #ecfdf3; color: #166534; }
+        .score-ok { background: #ecfeff; color: #0f766e; }
+        .score-bad { background: #fef2f2; color: #b91c1c; }
+        .train-label { color: #5d6b7d; font-size: 10px; }
+        .test-label { color: #0f766e; font-size: 10px; font-weight: bold; }
+        .best-row { background: #f1f8ff; }
+        th.positive-col { border-bottom: 3px solid #166534; }
+        th.negative-col { border-bottom: 3px solid #b91c1c; }
+        th.test-col.positive-col { border-bottom: 3px solid #166534; }
+        th.test-col.negative-col { border-bottom: 3px solid #b91c1c; }
+        .legend { font-family: 'Space Grotesk', 'Segoe UI', sans-serif; display: flex; gap: 20px; margin-bottom: 10px; font-size: 13px; align-items: center; }
         .legend-item { display: flex; align-items: center; gap: 6px; }
         .legend-swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
-        .swatch-positive { background: #141413; border-bottom: 3px solid #788c5d; }
-        .swatch-negative { background: #141413; border-bottom: 3px solid #c44; }
-        .swatch-test { background: #6a9bcc; }
-        .swatch-train { background: #141413; }
+        .swatch-positive { background: #17212b; border-bottom: 3px solid #166534; }
+        .swatch-negative { background: #17212b; border-bottom: 3px solid #b91c1c; }
+        .swatch-test { background: #0f766e; }
+        .swatch-train { background: #17212b; }
 
         @media (prefers-color-scheme: dark) {
-            body { background: #1a1a1a; color: #e0e0e0; }
-            h1 { color: #e0e0e0; }
-            .explainer { background: #252525; border-color: #333; color: #888; }
-            .summary { background: #252525; border-color: #333; }
-            table { background: #252525; border-color: #333; }
-            th, td { border-color: #333; }
-            th { background: #2a2a2a; color: #e0e0e0; }
-            th.test-col { background: #1e3a5f; }
-            td.test-result { background: #1a2a3a; }
-            tr:hover { background: #2a2a2a; }
-            .best-row { background: #1a2a1a; }
-            .rate { color: #666; }
-            .score-good { background: #1a2a1a; color: #8aaa6a; }
-            .score-ok { background: #2a2510; color: #d4a030; }
-            .score-bad { background: #2a1515; color: #e55; }
-            .swatch-train { background: #e0e0e0; }
-            .swatch-positive { background: #e0e0e0; border-bottom-color: #8aaa6a; }
-            .swatch-negative { background: #e0e0e0; border-bottom-color: #e55; }
+            body { background: #0f1720; color: #e5eef8; }
+            h1 { color: #e5eef8; }
+            .explainer { background: #17212b; border-color: #263545; color: #8fa0b5; }
+            .summary { background: #17212b; border-color: #263545; }
+            table { background: #17212b; border-color: #263545; }
+            th, td { border-color: #263545; }
+            th { background: #09111b; color: #e5eef8; }
+            th.test-col { background: #134e4a; }
+            td.test-result { background: #122c31; }
+            tr:hover { background: #1b2836; }
+            .best-row { background: #13273d; }
+            .rate { color: #8fa0b5; }
+            .score-good { background: #122318; color: #86efac; }
+            .score-ok { background: #10272c; color: #67e8f9; }
+            .score-bad { background: #2a1619; color: #fca5a5; }
+            .swatch-train { background: #e5eef8; }
+            .swatch-positive { background: #e5eef8; border-bottom-color: #86efac; }
+            .swatch-negative { background: #e5eef8; border-bottom-color: #fca5a5; }
         }
     </style>
 </head>
 <body>
     <h1>""" + title_prefix + """Skill Description Optimization</h1>
     <div class="explainer">
-        <strong>Optimizing your skill's description.</strong> This page updates automatically as Claude tests different versions of your skill's description. Each row is an iteration — a new description attempt. The columns show test queries: green checkmarks mean the skill triggered correctly (or correctly didn't trigger), red crosses mean it got it wrong. The "Train" score shows performance on queries used to improve the description; the "Test" score shows performance on held-out queries the optimizer hasn't seen. When it's done, Claude will apply the best-performing description to your skill.
+        <strong>Optimizing your skill's description.</strong> This page updates automatically as the optimizer tests different versions of your skill's description. Each row is an iteration — a new description attempt. The columns show test queries: green checkmarks mean the skill triggered correctly (or correctly didn't trigger), red crosses mean it got it wrong. The "Train" score shows performance on queries used to improve the description; the "Test" score shows performance on held-out queries the optimizer hasn't seen. When the run finishes, the best-performing description is highlighted below.
     </div>
 """]
 

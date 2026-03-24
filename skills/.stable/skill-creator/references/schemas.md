@@ -225,7 +225,7 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
 - `timing`: Wall clock timing (from timing.json)
 - `claims`: Extracted and verified claims from the output
 - `user_notes_summary`: Issues flagged by the executor
-- `eval_feedback`: Always included with substantive content. Powers the "Claude's Notes" panel in the viewer. Must contain a real analysis of what worked, what didn't, and what the expectations missed. Never use a dismissive placeholder.
+- `eval_feedback`: Always included with substantive content. Powers the "AI Summary" panel in the viewer. Must contain a real analysis of what worked, what didn't, and what the expectations missed. Never use a dismissive placeholder.
 
 ---
 

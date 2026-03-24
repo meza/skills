@@ -67,7 +67,7 @@ If `{outputs_dir}/user_notes.md` exists:
 
 ### Step 6: Analyze What Worked and What Didn't
 
-After grading, write a substantive analysis of the run. This is not optional. The analysis powers the "Claude's Notes" panel in the viewer. The user reads it to understand what happened beyond pass/fail scores.
+After grading, write a substantive analysis of the run. This is not optional. The analysis powers the "AI Summary" panel in the viewer. The user reads it to understand what happened beyond pass/fail scores.
 
 Cover these angles:
 
@@ -214,7 +214,7 @@ Write a JSON file with this structure:
   - **uncertainties**: Things the executor wasn't sure about
   - **needs_review**: Items requiring human attention
   - **workarounds**: Places where the skill didn't work as expected
-- **eval_feedback**: Always include this field with substantive content. It powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user loses critical context.
+- **eval_feedback**: Always include this field with substantive content. It powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user loses critical context.
   - **suggestions**: List of concrete suggestions, each with a `reason` and optionally an `assertion` it relates to. Include observations about what worked well too, not just problems.
   - **overall**: A brief narrative of what worked, what didn't, and what the expectations missed. Never use a dismissive placeholder like "looks good." The user is reading this to understand the run.
 

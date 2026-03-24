@@ -31,7 +31,7 @@ Cool? Cool.
 
 ## Communicating with the user
 
-The skill creator is liable to be used by people across a wide range of familiarity with coding jargon. If you haven't heard (and how could you, it's only very recently that it started), there's a trend now where the power of Claude is inspiring plumbers to open up their terminals, parents and grandparents to google "how to install npm". On the other hand, the bulk of users are probably fairly computer-literate.
+The skill creator is liable to be used by people across a wide range of familiarity with coding jargon. There is a broader trend now where coding agents are inspiring plumbers to open up their terminals, parents and grandparents to google "how to install npm". On the other hand, the bulk of users are probably fairly computer-literate.
 
 So please pay attention to context cues to understand how to phrase your communication! In the default case, just to give you some idea:
 
@@ -48,7 +48,7 @@ It's OK to briefly explain terms if you're in doubt, and feel free to clarify te
 
 Start by understanding the user's intent. The current conversation might already contain a workflow the user wants to capture (e.g., they say "turn this into a skill"). If so, extract answers from the conversation history first — the tools used, the sequence of steps, corrections the user made, input/output formats observed. The user may need to fill the gaps, and should confirm before proceeding to the next step.
 
-1. What should this skill enable Claude to do?
+1. What should this skill enable the agent to do?
 2. When should this skill trigger? (what user phrases/contexts)
 3. What's the expected output format?
 4. Should we set up test cases to verify the skill works? Skills with objectively verifiable outputs (file transforms, data extraction, code generation, fixed workflow steps) benefit from test cases. Skills with subjective outputs (writing style, art) often don't need them. Suggest the appropriate default based on the skill type, but let the user decide.
@@ -64,7 +64,7 @@ Check available MCPs - if useful for research (searching docs, finding similar s
 Based on the user interview, fill in these components:
 
 - **name**: Skill identifier
-- **description**: When to trigger, what it does. This is the primary triggering mechanism - include both what the skill does AND specific contexts for when to use it. All "when to use" info goes here, not in the body. Note: currently Claude has a tendency to "undertrigger" skills -- to not use them when they'd be useful. To combat this, please make the skill descriptions a little bit "pushy". So for instance, instead of "How to build a simple fast dashboard to display internal Anthropic data.", you might write "How to build a simple fast dashboard to display internal Anthropic data. Make sure to use this skill whenever the user mentions dashboards, data visualization, internal metrics, or wants to display any kind of company data, even if they don't explicitly ask for a 'dashboard.'"
+- **description**: When to trigger, what it does. This is the primary triggering mechanism - include both what the skill does AND specific contexts for when to use it. All "when to use" info goes here, not in the body. Note: skills can "undertrigger" -- not getting used when they would be useful. To combat this, please make the skill descriptions a little bit "pushy". So for instance, instead of "How to build a simple fast dashboard to display internal company data.", you might write "How to build a simple fast dashboard to display internal company data. Make sure to use this skill whenever the user mentions dashboards, data visualization, internal metrics, or wants to display any kind of company data, even if they don't explicitly ask for a 'dashboard.'"
 - **compatibility**: Required tools, dependencies (optional, rarely needed)
 - **the rest of the skill :)**
 
@@ -106,7 +106,7 @@ cloud-deploy/
     ├── gcp.md
     └── azure.md
 ```
-Claude reads only the relevant reference file.
+The agent reads only the relevant reference file.
 
 #### Principle of Lack of Surprise
 
@@ -280,7 +280,7 @@ Update the `eval_metadata.json` files and `evals/evals.json` with the expectatio
 
 Once `run_skill_evals.py` finishes, spawn grader subagents for each run. One grader per run (not one for the whole batch). You can spawn all graders in parallel.
 
-1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "Claude's Notes" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
+1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
@@ -308,9 +308,9 @@ Put each with_skill version before its baseline counterpart.
 
    The script backgrounds the server, writes a PID file, and health-checks the port before reporting success. There is no need for `nohup`, `&`, or PID capture.
 
-   By default, `--open` is on and the script opens the viewer in the user's browser. If the user has asked you not to open browsers automatically, pass `--no-open` instead. On the first run of a session, ask the user whether they want the browser opened automatically. Remember their answer for the rest of the session.
+   The script defaults to opening the viewer in the user's browser for local interactive sessions, and defaults to `--no-open` over SSH. Use `--open` or `--no-open` explicitly if you need to override that behavior. On the first run of a session, ask the user whether they want the browser opened automatically, then use `--open` or `--no-open` to honor that preference for the rest of the session.
 
-   **Cowork / headless environments:** If there is no display, pass `--no-open` and use `--static <output_path>` to write a standalone HTML file instead of starting a server. Feedback will be downloaded as a `feedback.json` file when the user clicks "Submit All Reviews". After download, copy `feedback.json` into the workspace directory for the next iteration to pick up.
+   **Cowork / headless environments:** If there is no display, use `--static <output_path>` to write a standalone HTML file instead of starting a server. Add `--no-open` if you want to make that intent explicit. Feedback will be downloaded as a `feedback.json` file when the user clicks "Submit All Reviews". After download, copy `feedback.json` into the workspace directory for the next iteration to pick up.
 
 Note: please use `serve_viewer.py` to create the viewer; there's no need to write custom HTML.
 
@@ -505,13 +505,13 @@ After packaging, direct the user to the resulting `.skill` file path so they can
 
 In Claude.ai, the core workflow is the same (draft → test → review → improve → repeat), but because Claude.ai doesn't have subagents, some mechanics change. Here's what to adapt:
 
-**Running test cases**: No subagents means no parallel execution. For each test case, read the skill's SKILL.md, then follow its instructions to accomplish the test prompt yourself. Do them one at a time. This is less rigorous than independent subagents (you wrote the skill and you're also running it, so you have full context), but it's a useful sanity check — and the human review step compensates. Skip the baseline runs — just use the skill to complete the task as requested.
+**Running test cases**: No subagents means no parallel execution. For each test case, read the skill's SKILL.md, then follow its instructions to accomplish the test prompt yourself. Do them one at a time. This is less rigorous than independent subagents (you wrote the skill and you're also running it, so you have full context), but it's a useful sanity check — and the human review step compensates. Skip the `without_skill` baseline runs — just use the skill to complete the task as requested.
 
-**Reviewing results**: If you can't open a browser (e.g., Claude.ai's VM has no display, or you're on a remote server), skip the browser reviewer entirely. Instead, present results directly in the conversation. For each test case, show the prompt and the output. If the output is a file the user needs to see (like a .docx or .xlsx), save it to the filesystem and tell them where it is so they can download and inspect it. Ask for feedback inline: "How does this look? Anything you'd change?"
+**Reviewing results**: If you can't open a browser (e.g., Claude.ai's VM has no display, or you're on a remote server), skip the eval viewer entirely. Instead, present results directly in the conversation. Mirror the same qualitative review the viewer would normally support: show the prompt, show the output, and ask for feedback inline. If the output is a file the user needs to see (like a .docx or .xlsx), save it to the filesystem and tell them where it is so they can download and inspect it. There is no `feedback.json` in this mode, so treat the user's inline comments as the review record for the next iteration.
 
 **Benchmarking**: Skip the quantitative benchmarking — it relies on baseline comparisons which aren't meaningful without subagents. Focus on qualitative feedback from the user.
 
-**The iteration loop**: Same as before — improve the skill, rerun the test cases, ask for feedback — just without the browser reviewer in the middle. You can still organize results into iteration directories on the filesystem if you have one.
+**The iteration loop**: Same as before — improve the skill, rerun the test cases, ask for feedback — just without the eval viewer in the middle. You can still organize results into iteration directories on the filesystem if you have one.
 
 **Description optimization**: This section requires the `run_loop.py` script which is only available in Claude Code. Skip it if you're on Claude.ai.
 
@@ -526,13 +526,12 @@ In Claude.ai, the core workflow is the same (draft → test → review → impro
 If you're in Cowork, the main things to know are:
 
 - You have subagents, so the main workflow (spawn test cases in parallel, run baselines, grade, etc.) all works. (However, if you run into severe problems with timeouts, it's OK to run the test prompts in series rather than parallel.)
-- You don't have a browser or display, so when generating the eval viewer, use `--static <output_path>` to write a standalone HTML file instead of starting a server. Then proffer a link that the user can click to open the HTML in their browser.
-- For whatever reason, the Cowork setup seems to disincline Claude from generating the eval viewer after running the tests, so just to reiterate: whether you're in Cowork or in Claude Code, after running tests, you should always generate the eval viewer for the human to look at examples before revising the skill yourself and trying to make corrections, using `serve_viewer.py` (not writing your own boutique html code). Sorry in advance but I'm gonna go all caps here: GENERATE THE EVAL VIEWER *BEFORE* evaluating inputs yourself. You want to get them in front of the human ASAP!
-- Feedback works differently: since there's no running server, the viewer's "Submit All Reviews" button will download `feedback.json` as a file. You can then read it from there (you may have to request access first).
+- You don't have a browser or display, so when generating the eval viewer, use `--no-open` with `--static <output_path>` to write a standalone HTML file instead of starting a server. Then proffer a link that the user can click to open the HTML in their browser.
+- For whatever reason, the Cowork setup seems to disincline the agent from generating the eval viewer after running the tests, so just to reiterate: whether you're in Cowork or in another interactive coding runtime, after running tests, you should always generate the eval viewer for the human to look at examples before revising the skill yourself and trying to make corrections, using `serve_viewer.py` (not writing your own boutique html code). Sorry in advance but I'm gonna go all caps here: GENERATE THE EVAL VIEWER *BEFORE* evaluating inputs yourself. You want to get them in front of the human ASAP!
+- Feedback works differently: since there's no running server, the viewer's "Submit All Reviews" button will download `feedback.json` as a file. Copy that file into the workspace directory so the next iteration can pick it up, then read it from there. You may have to request access first.
+- Because you are using static output rather than a running server, there is no viewer process to stop after review.
 - Packaging works — `package_skill.py` just needs Python and a filesystem.
 - Description optimization (`run_loop.py` / `run_eval.py`) should work in Cowork just fine since it runs as a subprocess, not a browser, but please save it until you've fully finished making the skill and the user agrees it's in good shape.
-
----
 
 ## Reference files
 

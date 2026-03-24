@@ -6,46 +6,46 @@
   <title>Eval Review</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
   <style>
     :root {
-      --bg: #faf9f5;
+      --bg: #f4f7fb;
       --surface: #ffffff;
-      --border: #e8e6dc;
-      --text: #141413;
-      --text-muted: #b0aea5;
-      --claude-notes-bg: #f5f3ff;
-      --claude-notes-border: #d4c8f0;
-      --claude-notes-accent: #7c5cbf;
-      --accent: #d97757;
-      --accent-hover: #c4613f;
-      --green: #788c5d;
-      --green-bg: #eef2e8;
-      --red: #c44;
-      --red-bg: #fceaea;
-      --header-bg: #141413;
-      --header-text: #faf9f5;
+      --border: #d8e0ea;
+      --text: #17212b;
+      --text-muted: #5d6b7d;
+      --ai-summary-bg: #eef4fb;
+      --ai-summary-border: #c4d6eb;
+      --ai-summary-accent: #2563eb;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --green: #166534;
+      --green-bg: #ecfdf3;
+      --red: #b91c1c;
+      --red-bg: #fef2f2;
+      --header-bg: #17212b;
+      --header-text: #f8fbff;
       --radius: 6px;
     }
 
     html.dark {
-      --bg: #1a1a18;
-      --surface: #242420;
-      --border: #38382e;
-      --text: #e8e6dc;
-      --text-muted: #6b6960;
-      --claude-notes-bg: #1e1a2e;
-      --claude-notes-border: #3d3060;
-      --claude-notes-accent: #a98edd;
-      --accent: #e8845e;
-      --accent-hover: #d97757;
-      --green: #8fa870;
-      --green-bg: #1f2a14;
-      --red: #e06060;
-      --red-bg: #2a1414;
-      --header-bg: #0f0f0e;
-      --header-text: #e8e6dc;
+      --bg: #0f1720;
+      --surface: #17212b;
+      --border: #263545;
+      --text: #e5eef8;
+      --text-muted: #8fa0b5;
+      --ai-summary-bg: #13273d;
+      --ai-summary-border: #234466;
+      --ai-summary-accent: #7dd3fc;
+      --accent: #60a5fa;
+      --accent-hover: #3b82f6;
+      --green: #86efac;
+      --green-bg: #122318;
+      --red: #fca5a5;
+      --red-bg: #2a1619;
+      --header-bg: #09111b;
+      --header-text: #e5eef8;
     }
 
     .dark-toggle {
@@ -64,7 +64,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Lora', Georgia, serif;
+      font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
@@ -83,7 +83,7 @@
       flex-shrink: 0;
     }
     .header h1 {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       font-size: 1.25rem;
       font-weight: 600;
     }
@@ -116,7 +116,7 @@
       flex-shrink: 0;
     }
     .section-header {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       padding: 0.75rem 1rem;
       font-size: 0.75rem;
       font-weight: 500;
@@ -135,7 +135,7 @@
       display: inline-block;
       padding: 0.2rem 0.625rem;
       border-radius: 9999px;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       font-size: 0.6875rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -187,7 +187,7 @@
       letter-spacing: 0.04em;
       color: var(--text-muted);
       margin-bottom: 0.375rem;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
     }
     .chat-user-text {
       font-size: 0.9375rem;
@@ -307,43 +307,43 @@
     }
 
     /* ---- Feedback ---- */
-    .claude-notes {
-      background: var(--claude-notes-bg);
-      border: 1px solid var(--claude-notes-border);
+    .ai-summary {
+      background: var(--ai-summary-bg);
+      border: 1px solid var(--ai-summary-border);
       border-radius: 4px;
       padding: 0.75rem;
       font-size: 0.875rem;
       color: var(--text);
       line-height: 1.55;
     }
-    .claude-notes-label {
+    .ai-summary-label {
       font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       margin-bottom: 0.5rem;
-      color: var(--claude-notes-accent);
+      color: var(--ai-summary-accent);
     }
-    .claude-notes-overall {
+    .ai-summary-overall {
       margin-bottom: 0.5rem;
     }
-    .claude-notes-suggestions {
+    .ai-summary-suggestions {
       margin-top: 0.5rem;
       padding-left: 0;
       list-style: none;
     }
-    .claude-notes-suggestions li {
+    .ai-summary-suggestions li {
       padding: 0.35rem 0;
       padding-left: 1rem;
       position: relative;
       color: var(--text-muted);
       font-size: 0.8125rem;
     }
-    .claude-notes-suggestions li::before {
+    .ai-summary-suggestions li::before {
       content: "\2192";
       position: absolute;
       left: 0;
-      color: var(--claude-notes-accent);
+      color: var(--ai-summary-accent);
     }
     .prev-feedback {
       background: var(--bg);
@@ -398,25 +398,25 @@
       font-family: monospace;
     }
     .transcript-tool-call {
-      background: rgba(99, 102, 241, 0.08);
-      border-left: 3px solid #6366f1;
+      background: rgba(37, 99, 235, 0.08);
+      border-left: 3px solid #2563eb;
       padding: 0.5rem 0.75rem;
       border-radius: 0 4px 4px 0;
       margin-bottom: 0.75rem;
     }
     html.dark .transcript-tool-call {
-      background: rgba(99, 102, 241, 0.15);
-      border-left-color: #818cf8;
+      background: rgba(96, 165, 250, 0.14);
+      border-left-color: #60a5fa;
     }
     .transcript-tool-call-header {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       font-weight: 600;
       font-size: 0.75rem;
-      color: #4338ca;
+      color: #1d4ed8;
       margin-bottom: 0.25rem;
     }
     html.dark .transcript-tool-call-header {
-      color: #a5b4fc;
+      color: #93c5fd;
     }
     .transcript-tool-result {
       background: var(--bg);
@@ -513,7 +513,7 @@
       flex-shrink: 0;
     }
     .view-tab {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       padding: 0.625rem 1.25rem;
       font-size: 0.8125rem;
       font-weight: 500;
@@ -553,7 +553,7 @@
       border: 1px solid var(--border);
     }
     .benchmark-table th {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       background: var(--header-bg);
       color: var(--header-text);
       font-weight: 500;
@@ -578,7 +578,7 @@
       padding: 1rem;
     }
     .benchmark-notes h3 {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       font-size: 0.875rem;
       margin-bottom: 0.75rem;
     }
@@ -609,7 +609,7 @@
       flex-shrink: 0;
     }
     .nav-btn {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       padding: 0.5rem 1.25rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -629,7 +629,7 @@
       cursor: not-allowed;
     }
     .done-btn {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       padding: 0.5rem 1.5rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -725,7 +725,7 @@
     <div class="header">
       <div>
         <h1>Eval Review: <span id="skill-name"></span></h1>
-        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback back into your current session.</div>
       </div>
       <div style="display:flex; align-items:center; gap:1rem;">
         <div class="progress" id="progress"></div>
@@ -743,7 +743,7 @@
     <div class="view-panel active" id="panel-outputs">
     <div class="main">
       <!-- Eval title -->
-      <div id="eval-title" style="font-family: Poppins, sans-serif; font-size: 1.125rem; font-weight: 600; padding: 0.75rem 0 0.25rem; color: var(--text); display: none;"></div>
+      <div id="eval-title" style="font-family: 'Space Grotesk', 'Segoe UI', sans-serif; font-size: 1.125rem; font-weight: 600; padding: 0.75rem 0 0.25rem; color: var(--text); display: none;"></div>
 
       <!-- Conversation -->
       <div class="section">
@@ -785,11 +785,10 @@
         <div class="grades-content" id="grades-content"></div>
       </div>
 
-      <!-- Claude's Notes -->
-      <div class="section" id="claude-notes-section" style="display:none;">
-        <div class="section-header">Claude's Notes</div>
+      <div class="section" id="ai-summary-section" style="display:none;">
+        <div class="section-header">AI Summary</div>
         <div class="section-body">
-          <div class="claude-notes" id="claude-notes-content"></div>
+          <div class="ai-summary" id="ai-summary-content"></div>
         </div>
       </div>
 
@@ -830,7 +829,7 @@
   <div class="done-overlay" id="done-overlay">
     <div class="done-card">
       <h2>Review Complete</h2>
-      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <p>Your feedback has been saved. Return to your session and tell the agent you are done reviewing.</p>
       <div class="btn-row">
         <button onclick="closeDoneDialog()">OK</button>
       </div>
@@ -957,8 +956,8 @@
       // Grades
       renderGrades(run);
 
-      // Claude's notes
-      renderClaudeNotes(run);
+      // AI summary
+      renderAiSummary(run);
 
       // Previous feedback
       const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
@@ -1182,9 +1181,9 @@
       content.innerHTML = html;
     }
 
-    function renderClaudeNotes(run) {
-      const section = document.getElementById("claude-notes-section");
-      const content = document.getElementById("claude-notes-content");
+    function renderAiSummary(run) {
+      const section = document.getElementById("ai-summary-section");
+      const content = document.getElementById("ai-summary-content");
 
       const ef = run.grading && run.grading.eval_feedback;
       if (!ef || (!ef.overall && !(ef.suggestions && ef.suggestions.length))) {
@@ -1193,15 +1192,15 @@
       }
 
       section.style.display = "block";
-      let html = '<div class="claude-notes-label">Claude\'s Notes</div>';
+      let html = '<div class="ai-summary-label">AI Summary</div>';
 
       if (ef.overall) {
-        html += '<div class="claude-notes-overall">' + escapeHtml(ef.overall) + '</div>';
+        html += '<div class="ai-summary-overall">' + escapeHtml(ef.overall) + '</div>';
       }
 
       const suggestions = (ef.suggestions || []).filter(s => s.reason);
       if (suggestions.length) {
-        html += '<ul class="claude-notes-suggestions">';
+        html += '<ul class="ai-summary-suggestions">';
         for (const s of suggestions) {
           html += '<li>' + escapeHtml(s.reason) + '</li>';
         }
@@ -1491,7 +1490,7 @@
       let html = "";
 
       // Header
-      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<h2 style=\"font-family: 'Space Grotesk', 'Segoe UI', sans-serif; margin-bottom: 0.5rem;\">Benchmark Results</h2>";
       html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
       if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
       if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
@@ -1559,7 +1558,7 @@
       if (runs.length > 0) {
         const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
 
-        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+        html += "<h3 style=\"font-family: 'Space Grotesk', 'Segoe UI', sans-serif; margin-bottom: 0.75rem;\">Per-Eval Breakdown</h3>";
 
         const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
         const hasErrors = runs.some(r => r.result && r.result.errors > 0);
@@ -1568,7 +1567,7 @@
           const evalRuns = runs.filter(r => r.eval_id === evalId);
           const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
 
-          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += "<h4 style=\"font-family: 'Space Grotesk', 'Segoe UI', sans-serif; margin: 1rem 0 0.5rem; color: var(--text);\">" + escapeHtml(evalName) + "</h4>";
           html += '<table class="benchmark-table">';
           html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
           if (hasTime) html += "<th>Time (s)</th>";
