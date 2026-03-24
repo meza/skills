@@ -20,7 +20,9 @@ class ClaudeProvider(Provider):
         session_name: str,
         turn_index: int,
         model: str | None,
+        working_dir: str | None = None,
     ) -> list[str]:
+        del working_dir
         if not session_id:
             raise ValueError("ClaudeProvider requires a session_id")
 

@@ -526,7 +526,7 @@ def main() -> None:
 
     url = f"http://127.0.0.1:{port}"
     print(f"\n  Eval Viewer")
-    print(f"  ─────────────────────────────────")
+    print("  ---------------------------------")
     print(f"  URL:       {url}")
     print(f"  Workspace: {workspace}")
     print(f"  Feedback:  {feedback_path}")

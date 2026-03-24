@@ -21,12 +21,15 @@ class CodexProvider(Provider):
         session_name: str,
         turn_index: int,
         model: str | None,
+        working_dir: str | None = None,
     ) -> list[str]:
         del session_name  # Codex manages thread naming internally.
         executable = _find_codex_executable()
 
         if turn_index == 0:
             cmd = [executable, "exec", "--json", "--skip-git-repo-check", "-"]
+            if working_dir:
+                cmd.extend(["--cd", working_dir])
         else:
             if not session_id:
                 raise ValueError("Codex resume requires a session_id after turn 0")
@@ -95,8 +98,8 @@ def _extract_thread_id(events: list[dict]) -> str | None:
 
 
 def _extract_response(events: list[dict]) -> str:
-    """Collect completed assistant messages into one response string."""
-    parts = []
+    """Return the final completed assistant message for the turn."""
+    final_text = ""
     for event in events:
         if event.get("type") != "item.completed":
             continue
@@ -104,8 +107,8 @@ def _extract_response(events: list[dict]) -> str:
         if item.get("type") == "agent_message":
             text = item.get("text", "")
             if text:
-                parts.append(text)
-    return "\n\n".join(parts)
+                final_text = text
+    return final_text
 
 
 def _extract_transcript(events: list[dict], prompt: str) -> str:

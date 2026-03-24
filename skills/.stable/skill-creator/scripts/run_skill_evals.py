@@ -232,6 +232,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout):
     timer.daemon = True
     timer.start()
 
+    start = time.monotonic()
     try:
         stdout, stderr = process.communicate(input=prompt)
     except Exception:
@@ -244,7 +245,8 @@ def run_with_timeout(cmd, prompt, cwd, timeout):
     finally:
         timer.cancel()
 
-    return stdout, stderr, process.returncode, timed_out
+    duration_ms = int((time.monotonic() - start) * 1000)
+    return stdout, stderr, process.returncode, timed_out, duration_ms
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +333,7 @@ def run_single_job(
             session_name=session_name,
             turn_index=turn_idx,
             model=model,
+            working_dir=run_dir,
         )
 
         print(
@@ -338,11 +341,13 @@ def run_single_job(
             flush=True,
         )
 
-        stdout, stderr, returncode, timed_out = run_with_timeout(
+        stdout, stderr, returncode, timed_out, wall_clock_duration_ms = run_with_timeout(
             cmd, prompt, run_dir, effective_timeout
         )
 
         turn_result = provider.parse_output(stdout, prompt)
+        if turn_result.duration_ms <= 0:
+            turn_result.duration_ms = wall_clock_duration_ms
         session_id = turn_result.session_id or session_id
 
         if timed_out:
