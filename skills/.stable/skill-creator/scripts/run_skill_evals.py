@@ -39,6 +39,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -159,6 +160,90 @@ def build_prompt(turn_prompt: str, eval_def: dict, fixture_path: str | None, ski
 _IS_WINDOWS = sys.platform == "win32"
 
 
+def _resolve_existing_git_global_config(env: dict[str, str]) -> Path | None:
+    """Return the current global git config path if the environment defines one."""
+    configured = env.get("GIT_CONFIG_GLOBAL")
+    if configured:
+        path = Path(configured).expanduser()
+        if path.exists():
+            return path.resolve()
+
+    xdg_home = env.get("XDG_CONFIG_HOME")
+    if xdg_home:
+        path = Path(xdg_home).expanduser() / "git" / "config"
+        if path.exists():
+            return path.resolve()
+
+    for home_var in ("HOME", "USERPROFILE"):
+        home = env.get(home_var)
+        if not home:
+            continue
+        path = Path(home).expanduser() / ".gitconfig"
+        if path.exists():
+            return path.resolve()
+
+    return None
+
+
+def _safe_directory_variants(path: str | Path) -> list[str]:
+    """Return equivalent path strings Git may compare for safe.directory."""
+    resolved = Path(path).expanduser().resolve()
+    return [resolved.as_posix()]
+
+
+def _build_git_process_env(
+    base_env: dict[str, str],
+    trusted_repo_paths: list[str | None],
+) -> tuple[dict[str, str], Path | None]:
+    """Create a process-scoped git config that trusts the prepared repo paths."""
+    safe_directories: list[str] = []
+    for repo_path in trusted_repo_paths:
+        if not repo_path:
+            continue
+        git_dir = Path(repo_path).expanduser().resolve() / ".git"
+        if not git_dir.exists():
+            continue
+        for variant in _safe_directory_variants(repo_path):
+            if variant not in safe_directories:
+                safe_directories.append(variant)
+
+    env = dict(base_env)
+    if not safe_directories:
+        return env, None
+
+    existing_global = _resolve_existing_git_global_config(env)
+    lines: list[str] = []
+    if existing_global:
+        lines.extend(
+            [
+                "[include]",
+                f"\tpath = {existing_global.as_posix()}",
+                "",
+            ]
+        )
+
+    for safe_directory in safe_directories:
+        lines.extend(
+            [
+                "[safe]",
+                f"\tdirectory = {safe_directory}",
+                "",
+            ]
+        )
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        suffix=".gitconfig",
+        delete=False,
+    ) as temp_config:
+        temp_config.write("\n".join(lines))
+        temp_config_path = Path(temp_config.name)
+
+    env["GIT_CONFIG_GLOBAL"] = str(temp_config_path)
+    return env, temp_config_path
+
+
 def _kill_process_tree(pid):
     """Kill a process and all its children.
 
@@ -192,7 +277,7 @@ def _force_kill_process_tree(pid):
         pass
 
 
-def run_with_timeout(cmd, prompt, cwd, timeout):
+def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
     """Run a CLI command with timeout and full process tree cleanup.
 
     On Unix spawns the process in its own session so the entire process
@@ -209,6 +294,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
+        env=env,
         text=True,
     )
     if _IS_WINDOWS:
@@ -299,115 +385,127 @@ def run_single_job(
     total_cost_usd = 0.0
     status = "success"
     error_message = None
+    process_env, temp_git_config = _build_git_process_env(
+        os.environ,
+        [run_dir, fixture_path],
+    )
 
     # Eval-level timeout overrides the CLI default
     eval_timeout = eval_def.get("timeout", timeout)
 
-    for turn_idx, turn in enumerate(turns):
-        # Turn-level timeout overrides eval-level
-        turn_timeout = turn.get("timeout", eval_timeout)
+    try:
+        for turn_idx, turn in enumerate(turns):
+            # Turn-level timeout overrides eval-level
+            turn_timeout = turn.get("timeout", eval_timeout)
 
-        # Check total deadline before each turn
-        if deadline:
-            remaining = deadline - time.time()
-            if remaining <= 0:
+            # Check total deadline before each turn
+            if deadline:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    status = "timeout"
+                    error_message = (
+                        f"Total timeout exceeded before turn {turn_idx + 1}/{len(turns)}"
+                    )
+                    print(
+                        f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
+                        f"SKIPPED (total timeout)",
+                        flush=True,
+                    )
+                    break
+                effective_timeout = min(turn_timeout, remaining)
+            else:
+                effective_timeout = turn_timeout
+
+            prompt = build_prompt(turn["prompt"], eval_def, fixture_path, skill_file=skill_file)
+
+            session_name = f"eval-{eval_id}-{config}"
+            cmd = provider.build_command(
+                session_id=session_id,
+                session_name=session_name,
+                turn_index=turn_idx,
+                model=model,
+                working_dir=run_dir,
+            )
+
+            print(
+                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} starting...",
+                flush=True,
+            )
+
+            stdout, stderr, returncode, timed_out, wall_clock_duration_ms = run_with_timeout(
+                cmd,
+                prompt,
+                run_dir,
+                effective_timeout,
+                env=process_env,
+            )
+
+            turn_result = provider.parse_output(stdout, prompt)
+            if turn_result.duration_ms <= 0:
+                turn_result.duration_ms = wall_clock_duration_ms
+            session_id = turn_result.session_id or session_id
+
+            if timed_out:
+                if turn_result.events:
+                    all_events.extend(turn_result.events)
+                    turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
+                    turn_dir.mkdir(parents=True, exist_ok=True)
+                    (turn_dir / "response.md").write_text(
+                        turn_result.response,
+                        encoding="utf-8",
+                    )
+                    (turn_dir / "transcript.md").write_text(
+                        turn_result.transcript,
+                        encoding="utf-8",
+                    )
+
                 status = "timeout"
                 error_message = (
-                    f"Total timeout exceeded before turn {turn_idx + 1}/{len(turns)}"
+                    f"Turn {turn_idx + 1}/{len(turns)} timed out "
+                    f"after {int(effective_timeout)}s"
                 )
                 print(
-                    f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
-                    f"SKIPPED (total timeout)",
+                    f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} TIMEOUT",
                     flush=True,
                 )
                 break
-            effective_timeout = min(turn_timeout, remaining)
-        else:
-            effective_timeout = turn_timeout
 
-        prompt = build_prompt(turn["prompt"], eval_def, fixture_path, skill_file=skill_file)
-
-        session_name = f"eval-{eval_id}-{config}"
-        cmd = provider.build_command(
-            session_id=session_id,
-            session_name=session_name,
-            turn_index=turn_idx,
-            model=model,
-            working_dir=run_dir,
-        )
-
-        print(
-            f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} starting...",
-            flush=True,
-        )
-
-        stdout, stderr, returncode, timed_out, wall_clock_duration_ms = run_with_timeout(
-            cmd, prompt, run_dir, effective_timeout
-        )
-
-        turn_result = provider.parse_output(stdout, prompt)
-        if turn_result.duration_ms <= 0:
-            turn_result.duration_ms = wall_clock_duration_ms
-        session_id = turn_result.session_id or session_id
-
-        if timed_out:
-            if turn_result.events:
-                all_events.extend(turn_result.events)
-                turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
-                turn_dir.mkdir(parents=True, exist_ok=True)
-                (turn_dir / "response.md").write_text(
-                    turn_result.response,
-                    encoding="utf-8",
+            if returncode != 0 and not stdout.strip():
+                status = "error"
+                error_message = stderr[:500] if stderr else f"Exit code {returncode}"
+                print(
+                    f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
+                    f"ERROR: {error_message[:100]}",
+                    flush=True,
                 )
-                (turn_dir / "transcript.md").write_text(
-                    turn_result.transcript,
-                    encoding="utf-8",
-                )
+                break
 
-            status = "timeout"
-            error_message = (
-                f"Turn {turn_idx + 1}/{len(turns)} timed out "
-                f"after {int(effective_timeout)}s"
+            all_events.extend(turn_result.events)
+
+            turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
+            turn_dir.mkdir(parents=True, exist_ok=True)
+            (turn_dir / "response.md").write_text(
+                turn_result.response,
+                encoding="utf-8",
             )
+            (turn_dir / "transcript.md").write_text(
+                turn_result.transcript,
+                encoding="utf-8",
+            )
+
+            total_duration_ms += turn_result.duration_ms
+            total_cost_usd += turn_result.cost_usd
+            total_input_tokens += turn_result.input_tokens
+            total_output_tokens += turn_result.output_tokens
+
             print(
-                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} TIMEOUT",
+                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} done "
+                f"({turn_result.duration_ms}ms)",
                 flush=True,
             )
-            break
-
-        if returncode != 0 and not stdout.strip():
-            status = "error"
-            error_message = stderr[:500] if stderr else f"Exit code {returncode}"
-            print(
-                f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} "
-                f"ERROR: {error_message[:100]}",
-                flush=True,
-            )
-            break
-
-        all_events.extend(turn_result.events)
-
-        turn_dir = config_dir / f"turn-{turn_idx + 1}" / "outputs"
-        turn_dir.mkdir(parents=True, exist_ok=True)
-        (turn_dir / "response.md").write_text(
-            turn_result.response,
-            encoding="utf-8",
-        )
-        (turn_dir / "transcript.md").write_text(
-            turn_result.transcript,
-            encoding="utf-8",
-        )
-
-        total_duration_ms += turn_result.duration_ms
-        total_cost_usd += turn_result.cost_usd
-        total_input_tokens += turn_result.input_tokens
-        total_output_tokens += turn_result.output_tokens
-
-        print(
-            f"  [{config}] eval-{eval_id} turn {turn_idx + 1}/{len(turns)} done "
-            f"({turn_result.duration_ms}ms)",
-            flush=True,
-        )
+    finally:
+        if temp_git_config:
+            temp_git_config.unlink(missing_ok=True)
 
     total_tokens = total_input_tokens + total_output_tokens
 
