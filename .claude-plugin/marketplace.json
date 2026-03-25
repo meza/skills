@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Meza's agent skills",
-    "version": "0.0.3"
+    "version": "0.0.4"
   },
   "plugins": [
     {
@@ -15,6 +15,15 @@
       "strict": false,
       "skills": [
         "./skills/.stable/skill-creator"
+      ]
+    },
+    {
+      "name": "conventional-commit-message",
+      "source": "./",
+      "description": "Conventional Commit Message creator",
+      "strict": false,
+      "skills": [
+        "./skills/.stable/conventional-commit-message"
       ]
     }
   ]
