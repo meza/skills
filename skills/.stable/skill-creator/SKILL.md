@@ -166,7 +166,7 @@ See `references/schemas.md` for the full schema (including the `expectations` fi
 
 This section is one continuous sequence — don't stop partway through. Do NOT use `/skill-test` or any other testing skill.
 
-Put results in `<skill-name>-workspace/` as a sibling to the skill directory. Organize results by iteration (`iteration-1/`, `iteration-2/`, etc.). Within each iteration, create one directory per eval using its numeric ID from evals.json: `eval-1/`, `eval-2/`, etc. Create directories as you go.
+Put results in `<cwd>/<skill-name>-workspace/`, under the current working directory rather than adjacent to the skill directory. Organize results by iteration (`iteration-1/`, `iteration-2/`, etc.). Within each iteration, create one directory per eval using its numeric ID from evals.json: `eval-1/`, `eval-2/`, etc. Create directories as you go.
 
 #### Directory layout reference
 
@@ -233,8 +233,8 @@ python <skill-creator-path>/scripts/run_skill_evals.py \
   --run-root <path-to-run-root>
 ```
 
-**Run root (required):** For `prepare_fixture.py`, this is the base directory where the script stages fixtures and creates a unique prepared run root. For `run_skill_evals.py`, this must be the specific prepared run root that already contains `eval-<id>/with_skill` and `eval-<id>/without_skill`.
-Examples: run `prepare_fixture.py` with `F:\dev\skills\tmp\skill-evals`, then pass the returned prepared run root such as `F:\dev\skills\tmp\skill-evals\my-skill-eval-runs-ab12cd34` to `run_skill_evals.py`.
+**Run root (required):** For `prepare_fixture.py`, this is the base directory where the script stages fixtures and creates a unique prepared run root. Keep it under the current working directory so eval artifacts stay contained to the session. For `run_skill_evals.py`, this must be the specific prepared run root that already contains `eval-<id>/with_skill` and `eval-<id>/without_skill`.
+Examples: run `prepare_fixture.py` with a cwd-local directory such as `<cwd>/skill-evals`, then pass the returned prepared run root such as `<cwd>/skill-evals/<skill>-eval-runs-ab12cd34` to `run_skill_evals.py`.
 
 **Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
 
