@@ -1,2 +1,3 @@
 tmp/
 skills/.wip/
+**/*/__pycache__/
