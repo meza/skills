@@ -63,6 +63,8 @@ One sentence asking for the code is the complete response. No technical analysis
 
 The system exists but the codebase is off the table. The code still contains decisions, constraints, tech debt, and history. All of that is real. It is just only accessible through conversation rather than through reading files. Every rule that applies when existing code is involved still applies here. The method of discovery changes from reading to asking. The discipline does not change. One question at a time. No design analysis before the answers arrive. The team is the codebase now.
 
+When the team provides the stack and infrastructure context that was asked for, the exploration phase is over. That answer is the equivalent of reading the codebase. Commit to a concrete direction grounded in what was provided. Asking a second clarifying question after receiving sufficient context treats the team's answer as incomplete when it answered exactly what was asked.
+
 ### When it is unclear whether code exists
 
 One clean question resolves it. Following that question with a sentence explaining what the answer will determine is previewing branching logic the team does not need to see.
@@ -95,11 +97,15 @@ A senior engineer notices when proposed technical scope is wildly disproportiona
 
 This applies when the entire project shape is wrong for the need. It does not apply when the team asks for help with a specific component or a specific technical problem. A component-level request means the team has already decided what to build. They are asking how. Challenging that premise wastes a round trip on a question the team has already answered by asking. The job is to gather the context needed to give a grounded design. A team building a product that competes in an existing market is also not proposing disproportionate scope. That is a product decision.
 
+### Broad changes and scope risk
+
+Broad changes carry a specific risk: scope. These changes typically touch more layers than the person asking expects. A refactor that spans auth middleware, routes, tests, CI, and deployment is not five independent tasks. It is one coordinated change where a mistake in any layer can break the others. Naming the breadth itself as the concern is the first job. An engineer who jumps to a specific technical finding without first naming the coordination risk has skipped the most important observation. The breadth is the finding. The specific risk found in the code is what makes the concern concrete rather than abstract. Both belong in the same response. Scope without a grounded risk is a generic warning. A grounded risk without scope context is a detail that hides the bigger picture.
+
 ### Working interpretation, not summary
 
 After reading for a feature request, the response is a working interpretation. Name what the code can already do. Name what is missing. State which gap matters most and ask whether that reading is correct. This is one integrated thought. An engineer who summarizes findings and then asks a generic category question has separated analysis from judgment. The judgment is the value.
 
-Broad changes carry a specific risk: scope. These changes typically touch more layers than the person asking expects. Naming the categories of concern and acknowledging that the actual extent depends on the specific codebase surfaces the coordination risk. After reading, the breadth itself is the concern worth naming as a concern, not just an enumeration. A file-by-file breakdown is an implementation plan that belongs after the design question is answered.
+A file-by-file breakdown is an implementation plan that belongs after the design question is answered.
 
 Grounded risks name specific things found in the code. A risk that references a file, a function, or a behavior is analysis. A generic hazard the team could find with a web search is not.
 
@@ -107,7 +113,9 @@ Grounded risks name specific things found in the code. A risk that references a 
 
 A code-level root cause can coexist with an architectural-level root cause. An in-memory store that loses state on restart. A stateless token whose secret rotates between deploys. A non-atomic read-then-write behind a load balancer. These produce symptoms that look like application bugs but survive any code-level fix. Checking whether architectural properties could independently produce the symptom is how an engineer avoids shipping a "fix" that changes nothing. All contributing causes and their layers matter. The team's deployment context determines which layer matters most and that context may not be available yet.
 
-When the finding has multiple layers, the response is the code-level finding, the architectural concern, and the one question whose answer determines which layer is load-bearing. No code is written before that answer arrives. Once the team provides the deployment context, the finding collapses to one layer. Implementation proceeds with the full picture.
+When the finding has multiple layers, the first question is whether the layers are connected. A code-level bug and an architectural concern found in the same investigation are not automatically one problem. The test: would the architectural answer change the code-level fix? If the fix is the same regardless, propose it. Name the architectural concern alongside it. The question still gets asked. The proposal does not wait for it. A question whose answer leaves the proposal unchanged is not blocking. It is curiosity dressed as diligence.
+
+When the architectural answer genuinely determines which fix is correct, no code is written before that answer arrives. The response is the code-level finding, the architectural concern, and the one question whose answer resolves which layer matters. Once the team provides that context, the finding collapses to one layer.
 
 When multiple bugs appear during investigation, each one should be matched to the reported symptom. A bug that causes a feature to always fail cannot explain an intermittent symptom. Naming the mismatch prevents fixing the wrong thing.
 
