@@ -1,0 +1,513 @@
+{
+  "skill_name": "engineer",
+  "fixture_repo": "https://github.com/meza/engineering-agent-eval-fixtures",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "rate-limiter-with-codebase",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": false,
+      "turns": [
+        {
+          "prompt": "Can you help me add a rate limiter to our API? We've been getting traffic spikes and some endpoints are getting hammered.",
+          "expectations": [
+            "Turn 1 response asks for the codebase or project context before doing any technical analysis. The response is one or two sentences maximum",
+            "Turn 1 response does NOT enumerate algorithm options (fixed window, sliding window, token bucket), storage options (Redis, in-memory), or deployment topology considerations"
+          ]
+        },
+        {
+          "prompt": "Here's the codebase. It's at {{FIXTURE_PATH}}. Take a look and let me know how you'd approach it.",
+          "expectations": [
+            "Turn 2 response references specific artifacts from the codebase (file names, route patterns, middleware structure) indicating the code was actually read",
+            "Turn 2 response either proposes a concrete grounded design for the rate limiter OR presents the grounded option space for the relevant deployment scenarios and asks exactly one gating question before committing. Both patterns are valid when a blocking unknown (e.g. single-process vs multi-process deployment) determines the entire design",
+            "Turn 2 response covers at least one key design choice (algorithm, storage, or middleware placement) with a reason grounded in the specific codebase or context",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 2,
+      "eval_name": "magic-link-bug-investigation",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "We're getting reports from consultants that sometimes magic links just stop working even though the run is still supposed to be active. Can you investigate and fix this? The run state is definitely still ACTIVE when it happens.",
+          "expectations": [
+            "Turn 1 response names specific file paths or function names from the codebase discoverable only by reading the source",
+            "Turn 1 response identifies a root cause grounded in what the code actually shows. Not a category of likely causes, but a specific mechanism in a specific file",
+            "Turn 1 response either (a) asks exactly one focused question about deployment or persistence context before proposing a fix, OR (b) proposes a concrete fix grounded in the code evidence and asks whether to proceed. Both paths are valid when the root cause is clear from the code alone",
+            "Turn 1 response does NOT produce implementation code. Analysis and a proposed direction are acceptable. A full implementation with code changes is not"
+          ]
+        },
+        {
+          "prompt": "We're running on a Linux VPS. The app is behind Nginx. We can add a database if needed but we don't have one set up yet.",
+          "expectations": [
+            "Turn 2 response proposes a concrete fix grounded in the infrastructure context provided",
+            "Turn 2 response identifies at least two test invariants that should verify the fix",
+            "Turn 2 transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Turn 2 transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Turn 2 response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Turn 2 transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Turn 2 transcript shows per-unit TDD cycles. Each behavior gets its own red-green sequence. Multiple tests are not written in batch before implementation begins",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 3,
+      "eval_name": "jwt-refactor-broad-scope",
+      "fixture": "hmac-auth-api",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Let's refactor the whole auth system to use JWTs instead of HMAC tokens. Update all the tests, the CI config, and the deployment scripts while you're at it.",
+          "expectations": [
+            "Response does NOT begin implementation. Does not produce code, a migration plan with implementation steps, or a file change list",
+            "Response explicitly identifies the broad scope as a concern: touches auth middleware, routes, tests, CI secrets, and deployment scripts simultaneously",
+            "Response pauses naturally. Communicates what it was about to do, why it is pausing, and states its instinct or concern, without producing a formally structured schema with labeled sections",
+            "Response asks exactly one focused clarifying question. Does not produce a bullet list of multiple questions",
+            "Response identifies at least one specific risk grounded in the codebase (e.g. all outstanding tokens invalidated on key rotation, stateless tokens cannot be revoked, short expiry becomes load-bearing)",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 4,
+      "eval_name": "tdd-pushback-tests-later",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "The POST participant invite endpoint has a race condition where two simultaneous requests for the same email can both succeed. Can you just write the fix? We'll add the tests in a follow-up once we've verified it works.",
+          "expectations": [
+            "Response reads the codebase before responding. References specific file names or code patterns from the project",
+            "Response does NOT produce implementation code without accompanying tests or at minimum a test plan that precedes the implementation",
+            "Response explicitly pushes back on the 'tests in a follow-up' approach",
+            "Response explains WHY tests must precede implementation. Specifically the red-phase argument",
+            "Response proposes a TDD sequence: write the failing test first, then write minimum implementation to pass it",
+            "Response identifies at least one specific risk of the 'implement now, test later' pattern grounded in the actual code",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 5,
+      "eval_name": "participant-invite-flow-e2e",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "I need to implement the whole participant invite flow end-to-end. I need the InviteHandler Lambda, the email template, the magic link token generation, the PARTICIPANT record creation in DynamoDB, and all the tests.",
+          "expectations": [
+            "Turn 1 response does NOT produce implementation code, a design plan, or a breakdown of implementation units",
+            "Turn 1 response reads the existing codebase before responding",
+            "Turn 1 response asks exactly one focused question that is genuinely blocking. A question whose answer changes what gets built or how"
+          ]
+        },
+        {
+          "prompt": "It's a new Lambda alongside the existing Express app. DynamoDB will be the shared persistence layer for participants and runs going forward. Just the Lambda for this change. The Express app's migration to DynamoDB is a separate piece.",
+          "expectations": [
+            "Turn 2 response does NOT produce implementation code. Design, acceptance criteria, and architecture discussion are acceptable"
+          ]
+        },
+        {
+          "prompt": "We're using SES for email. Go ahead and implement it.",
+          "expectations": [
+            "Turn 3 response produces actual code files. Not a plan describing what would be built",
+            "Turn 3 response interleaves tests and implementation for each unit in dependency order. A failing test appears before the implementation that makes it pass",
+            "Turn 3 response does NOT produce all tests first followed by all implementations. Each unit's test and implementation are adjacent",
+            "Turn 3 transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Turn 3 transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Turn 3 response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Turn 3 transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 6,
+      "eval_name": "video-platform-build-vs-buy",
+      "turns": [
+        {
+          "prompt": "We need to build our own video platform. Like YouTube but for internal training videos. We'll need video upload, transcoding to multiple formats, adaptive streaming, a CDN, a recommendation engine, search, comments, and a mobile app. Let's get started.",
+          "expectations": [
+            "Response does NOT produce implementation code, a project structure, a sprint plan, or architecture diagrams to begin building",
+            "Response challenges whether building a custom platform is necessary. Asks what the actual underlying need is that existing tools don't solve",
+            "Response proposes at least one off-the-shelf alternative that might meet the real need (e.g. Vimeo, Loom, YouTube unlisted, Wistia, an LMS platform)",
+            "Response identifies at least two specific complexity or cost concerns with building this from scratch",
+            "Response treats this as collaborative exploration. Does not present a build plan as the default path",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 7,
+      "eval_name": "kubernetes-over-engineering",
+      "turns": [
+        {
+          "prompt": "We're launching a marketing website for our new startup. It'll mostly be static content with a contact form. We currently have about 5 users. Mostly the founding team testing things. Set it up with a Kubernetes cluster, service mesh, and auto-scaling so we're ready when we go viral.",
+          "expectations": [
+            "Response does NOT produce Kubernetes configuration, Helm charts, a cluster setup guide, or service mesh configuration",
+            "Response pushes back on Kubernetes as the wrong tool for this context. Makes clear it would create more work than it solves at this scale, without requiring the word 'over-engineering'",
+            "Response explains the carrying cost of Kubernetes at this scale. Operational overhead, cost, time to maintain. Not just that 'it's overkill'",
+            "Response proposes at least two simpler alternatives appropriate for the described use case (e.g. Netlify, Vercel, a single VPS, Fly.io, GitHub Pages)",
+            "Response distinguishes between current needs and future scaling needs, and explains how to bridge that gap without front-loading complexity",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 8,
+      "eval_name": "notifications-vague-request",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": false,
+      "turns": [
+        {
+          "prompt": "We need to add notifications to our app.",
+          "expectations": [
+            "Turn 1 response asks to see the codebase before doing anything else. The response is one or two sentences maximum",
+            "Turn 1 response does NOT enumerate notification channel types or their trade-offs"
+          ]
+        },
+        {
+          "prompt": "Here's our codebase. It's at {{FIXTURE_PATH}}.",
+          "expectations": [
+            "Turn 2 response references specific artifacts from the codebase (file names, models, events, or route patterns) indicating the code was actually read",
+            "Turn 2 response asks exactly one clarifying question. The question or its context references specific trigger points found in the code (events, state changes, model relationships) rather than asking a bare \"what kind of notifications?\" question with no code grounding. When the codebase has no existing notification infrastructure, naming delivery options from domain knowledge alongside code-grounded triggers is acceptable. A question joined by logical connectors (and, or, but) counts as one question",
+            "Turn 2 response does NOT produce implementation code or a full technical design before the clarifying question is answered",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 9,
+      "eval_name": "stripe-integration-verification",
+      "fixture": "saas-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "We need to integrate Stripe for payments. Use the latest Stripe Node.js SDK to implement a checkout flow with subscription support. Just go ahead and write the integration.",
+          "expectations": []
+        },
+        {
+          "prompt": "Use Stripe webhooks to handle subscription lifecycle. On renewal, update the subscription status in the database. On failure, mark it as past_due. Go ahead and implement it.",
+          "expectations": [
+            "Turn 2 response identifies specific things that need verification from current docs (e.g. SDK version, subscription API method signatures, webhook event handling, idempotency key patterns)",
+            "Turn 2 response does NOT produce a complete Stripe integration based purely on training knowledge without flagging that the API details need to be verified against current documentation",
+            "Turn 2 response acknowledges that Stripe's SDK and API evolve. Either by recommending version pinning, noting that cited details are current at time of writing, or flagging that the integration should be verified against current docs before production deployment",
+            "Turn 2 response either cites a specific source for verified API details (a URL, page name, or quoted return value from a fetch) OR clearly labels specific API details as unverified assumptions. A bare claim of having checked docs without source attribution does not satisfy this",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 10,
+      "eval_name": "greenfield-stack-decision",
+      "turns": [
+        {
+          "prompt": "We're starting a new SaaS product from scratch. I trust your judgement. Just pick the best tech stack and set it up. Use whatever you think is right.",
+          "expectations": [
+            "Turn 1 response does NOT unilaterally select a tech stack and begin scaffolding it",
+            "Turn 1 response identifies at least three factors that should inform the stack choice",
+            "Turn 1 response maps the decision space at category level without committing to specific products",
+            "Turn 1 response frames the decision as one for the team to make"
+          ]
+        },
+        {
+          "prompt": "Our team is mostly React and Go devs. We're building a B2B project management tool.",
+          "expectations": [
+            "Turn 2 response uses the React and Go context to give a grounded stack direction",
+            "Turn 2 response names what the React/Go direction gives up. The cost of that choice, not just the upside",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 11,
+      "eval_name": "auth-build-vs-buy",
+      "fixture": "saas-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "We need to add user authentication to our app. Email and password login, Google OAuth, and magic links. We're a team of three and we're moving fast. Should we build it ourselves or is there something we can use?",
+          "expectations": [
+            "Response recommends against building auth from scratch and explains why (security complexity, maintenance burden, or implementation time)",
+            "Response identifies the project's tech stack from the codebase before naming specific auth options. Does not ask for stack context it could read from the code",
+            "Response names specific auth options appropriate for the identified stack",
+            "Response presents a comparison of at least three auth service options covering two or more dimensions such as pricing model, licensing, or hosting model (self-hosted vs cloud-only). Not just a mention of each option in prose",
+            "Response identifies at least one concrete trade-off between the options",
+            "Response frames the final choice as a decision for the team to make based on their constraints",
+            "Response does not contain absolute time estimates (weeks, days, hours). If effort is compared, it uses relative sizing (T-shirt sizes or similar) rather than calendar time",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 12,
+      "eval_name": "magic-link-token-lookup-bug",
+      "fixture": "run-management-app-multi-turn",
+      "fixture_in_workdir": false,
+      "turns": [
+        {
+          "prompt": "We're seeing a bug where magic links sometimes fail to authenticate even when the link was just created. Can you investigate?",
+          "expectations": [
+            "Turn 1 response asks for the codebase or tries to locate it before producing any analysis",
+            "Turn 1 response is brief. It acknowledges the symptom and asks for the code without pre-explaining categories of investigation or what will be examined once the code is available"
+          ]
+        },
+        {
+          "prompt": "Here's the codebase. It's at {{FIXTURE_PATH}}.",
+          "expectations": [
+            "Turn 2 response identifies the core issue: getMagicLink is called with the raw token string but the link record is stored by its UUID id field, so the lookup fails",
+            "Turn 2 response proposes a concrete fix that resolves the key mismatch. Either by using the UUID-based identifier from the verified token payload as the lookup key, or by reindexing the map by token string so the lookup key matches what callers pass",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 13,
+      "eval_name": "jwt-refactor-with-context",
+      "fixture": "hmac-auth-api",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Let's refactor the whole auth system to use JWTs instead of HMAC tokens. Update all the tests, the CI config, and the deployment scripts while you're at it.",
+          "expectations": [
+            "Turn 1 response reads the codebase before responding. Identifies the scope (routes, middleware, tests, CI, deploy) from the code",
+            "Turn 1 response pauses and asks one focused question. Does not produce implementation code or a migration plan",
+            "Turn 1 response identifies the broad scope as a risk"
+          ]
+        },
+        {
+          "prompt": "It's for a mobile app. We need stateless auth and we have a 6-week runway.",
+          "expectations": [
+            "Turn 2 response uses the context given (mobile app, stateless auth, 6-week timeline) to give a grounded response",
+            "Turn 2 response names at least one concrete cost or limitation specific to the situation. Names what the recommended direction gives up, grounded in the specific context (mobile app, stateless auth, 6-week runway). A generic trade-off that ignores those constraints does not satisfy this",
+            "Response does not contain absolute time estimates (weeks, days, hours). If effort is compared, it uses relative sizing (T-shirt sizes or similar) rather than calendar time",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 14,
+      "eval_name": "rate-limiter-no-codebase",
+      "turns": [
+        {
+          "prompt": "Can you help me design a rate limiter for our API? I just need general guidance as I can't show you the code.",
+          "expectations": [
+            "Turn 1 response asks for context before proposing a design. Either asking whether this is going into an existing system or a new build, or asking for stack or infrastructure details",
+            "Turn 1 response is brief. It does not pre-explain design trade-offs, algorithm options, or enumerate infrastructure considerations before receiving the answer; the focus is the question"
+          ]
+        },
+        {
+          "prompt": "We're using Node and Express. We've also got Redis available.",
+          "expectations": [
+            "Turn 2 response uses the provided context (Node/Express, Redis available) to propose a concrete grounded design",
+            "Turn 2 response recommends using Redis given that it is already available. Performs a dependency-first check",
+            "Turn 2 response covers the sliding window vs fixed window trade-off",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 15,
+      "eval_name": "comment-quality-review",
+      "fixture": "comment-review-sample",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Review the code in UserService.ts for quality issues.",
+          "expectations": [
+            "Agent applies code quality guidelines in its review. Demonstrates awareness that comments should explain why, not what. Distinguishes between redundant comments and justified ones rather than treating all comments as bad or all as acceptable",
+            "Response identifies the class-level comment '// UserService manages user accounts' as redundant because the class name already conveys this",
+            "Response identifies the method-level comments '// Creates a new user in the system' and '// Finds a user by email address' as violations because they restate what the method names already say",
+            "Response identifies at least two inline what-comments ('// Check if email is valid', '// Hash the password', '// Build user object', '// Save to database', '// Query the database for the user') as redundant",
+            "Response correctly identifies the bcrypt work factor comment as justified. It explains a compliance requirement (OWASP ASVS L2) that the code cannot convey on its own",
+            "Response recommends removing the redundant comments rather than rewriting them with different wording. The code is self-explanatory without them"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 17,
+      "eval_name": "delete-endpoint-tdd",
+      "fixture": "task-tracker-api",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Add a DELETE /tasks/:id endpoint. It should return 204 on success and 404 if the task does not exist.",
+          "expectations": [
+            "Agent reads the existing test file before writing new tests. Identifies that tests use the client() builder from test/support/client.ts and never import supertest directly",
+            "New tests are written in the test/ directory with a .test.ts extension, matching the project convention",
+            "New tests use client() to make HTTP requests. No direct import of supertest appears in the new test code",
+            "describe block for the new route uses imperative naming matching the project convention. E.g. 'DELETE /tasks/:id'",
+            "Agent performed a complete red-green-refactor cycle. Transcript shows a failing test run before implementation was written, then a passing test run after; the delivery note or design section addresses whether any refactoring was warranted",
+            "Transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Transcript shows per-unit TDD cycles. Each behavior gets its own red-green sequence. Multiple tests are not written in batch before implementation begins",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 16,
+      "eval_name": "get-runs-endpoint-implementation",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Add a GET /runs endpoint that returns all runs. Include an optional ?state= query parameter to filter by run state (ACTIVE, COMPLETED, CANCELLED). Note any quality decisions in your implementation.",
+          "expectations": [
+            "Response reads the existing codebase before implementing. References specific file names or patterns from the project",
+            "Response demonstrates awareness that comments should explain why, not what. Either references quality principles explicitly or produces code that reflects them and explains the reasoning",
+            "Produced code contains no comments that restate what clearly-named code does. No '// filter by state', '// return runs', '// get all runs' style annotations",
+            "No comment appears that would be eliminated by the deletion test. Removing any comment that appears would leave the code less clear, not equally clear",
+            "Response mentions that tests were written for the new behavior",
+            "Response describes a red-green-refactor cycle. A failing test before implementation and passing tests after",
+            "Response explicitly reasons about at least one quality decision. Explains the 'why' behind a design choice, not just what was built",
+            "Response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Any post-implementation suggestions are framed as 'we could make this better by...' rather than as a generic next-steps list, and any workarounds or technical shortcuts are named explicitly as debt with an explanation of what was deferred",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm",
+            "Transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Transcript shows per-unit TDD cycles. Each behavior gets its own red-green sequence. Multiple tests are not written in batch before implementation begins"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 18,
+      "eval_name": "terminal-state-bug-fix",
+      "fixture": "run-management-app",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Users report they can set a cancelled run back to ACTIVE via the PATCH /runs/:id/state endpoint. That should not be possible. Cancelled and completed runs are terminal states. Can you fix this?",
+          "expectations": [
+            "Response reads the codebase before proposing a fix. References specific file names or functions from the project",
+            "Response identifies where the state transition logic lives and what it currently allows",
+            "Response proposes a concrete fix. Either code changes or a specific description of what to change and where. Not a question about what the intended behavior should be",
+            "Response does NOT ask a clarifying question about which transitions should be valid. The prompt already states that cancelled and completed are terminal. The agent should commit to the fix based on the stated requirement",
+            "Transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Transcript shows per-unit TDD cycles. Each behavior gets its own red-green sequence. Multiple tests are not written in batch before implementation begins",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 19,
+      "eval_name": "webhook-delivery-service-design",
+      "turns": [
+        {
+          "prompt": "We need to build a webhook delivery service for our platform. Customer-provided URLs, retries on failure, signature verification, and delivery logging. What should we think about?",
+          "expectations": [
+            "Turn 1 response does NOT propose an architecture before knowing the stack and infrastructure",
+            "Turn 1 response names relevant factors and asks for context. Brief framing, not a full analysis"
+          ]
+        },
+        {
+          "prompt": "We are running Go microservices on Kubernetes. Events come through a Kafka topic. Our SLA target is delivery within 30 seconds of the event.",
+          "expectations": [
+            "Turn 2 response uses the Go/Kubernetes/Kafka context to propose a concrete architectural direction",
+            "Turn 2 response names at least one working assumption explicitly. States what the agent is treating as true and what changes if the assumption is wrong. This is different from asking a bare question",
+            "Turn 2 response identifies at least one concrete risk or trade-off specific to the proposed direction",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ]
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    },
+    {
+      "id": 20,
+      "eval_name": "patch-endpoint-fourth-wall",
+      "fixture": "task-tracker-api",
+      "fixture_in_workdir": true,
+      "turns": [
+        {
+          "prompt": "Add a PATCH /tasks/:id endpoint that allows updating the task's status field. Valid statuses are 'todo', 'in-progress', and 'done'. Return 400 for invalid status values and 404 if the task does not exist.",
+          "expectations": [
+            "Response does NOT use the phrases 'engineer skill', 'owned complexity', 'dependency-first check', 'process loop', 'collaborative exploration', or 'focused execution' in conversational prose. The agent follows these principles but does not name them",
+            "Response reads the existing codebase and follows its conventions (client() builder, test/ directory, imperative describe naming)",
+            "Response implements the endpoint with tests. Actual code, not a plan",
+            "Response produces a Delivery Note. The heading '### Delivery Note' is acceptable as it names the deliverable, not the skill",
+            "Transcript shows coverage output and the agent cross-references uncovered line numbers against lines it wrote. Any uncovered lines that belong to the agent's changes are addressed with additional tests or explicitly justified",
+            "Transcript shows the agent wrote implementation code to files using Write or Edit tools. The code lives in the filesystem, not only in the response text",
+            "Response does not contain full function bodies or file contents as code blocks. The response describes what was done. Short illustrative snippets are acceptable. Pasting an entire file or function is not",
+            "Transcript shows the red phase is a behavioral assertion failure, not a structural error like 'module not found' or 'cannot resolve'. If a structural error occurred, the agent resolved it with a minimal stub before counting it as red",
+            "Transcript shows per-unit TDD cycles. Each behavior gets its own red-green sequence. Multiple tests are not written in batch before implementation begins",
+            "Response uses plain prose without smart punctuation or punctuation-driven rhythm"
+          ],
+          "timeout": 1800
+        }
+      ],
+      "files": [],
+      "force_skill": true
+    }
+  ]
+}
