@@ -45,6 +45,28 @@ required by the product behavior:
 tested, documented, and maintained in perpetuity. The simplest solution is not always the quickest
 to write, but it is almost always the cheapest to own.
 
+### Semantic duplication vs structural similarity
+
+Duplication is dangerous when it duplicates knowledge. Two places encoding the same business rule means a change to that rule requires finding and updating both. Miss one and the system is inconsistent.
+
+Structural similarity is different. Two functions that validate different domain values using the same pattern are not duplicating knowledge. They are independent rules that happen to share a shape. An age validation and a product rating validation have different reasons to change. Different stakeholders own them. Different business events trigger updates. Abstracting them into a shared validator couples those independent evolution paths. When ratings change from a 5-point to a 10-point scale, the age validation should not be in the blast radius.
+
+The cost of the wrong abstraction is higher than the cost of duplication. Duplicate code can be merged later when the pattern proves stable. A bad abstraction becomes load-bearing. Other modules depend on it. Removing it requires untangling every consumer. The wrong abstraction is a trap that gets more expensive to escape over time.
+
+### Deciding whether to abstract
+
+Four questions determine whether similar code should be unified.
+
+**Semantic check.** Do these blocks represent the same business concept or different concepts that happen to look alike? Same concept means a single source of truth is correct. Different concepts means coupling them is harmful.
+
+**Evolution check.** If the business rules change for one, should the others change too? If yes, they share knowledge and should share code. If no, they are independent and should stay independent.
+
+**Comprehension check.** Would another engineer understand why these are grouped together without an explanation? If the relationship is obvious, the abstraction carries its own justification. If it requires a comment or a conversation to explain, the abstraction is hiding the real structure rather than revealing it.
+
+**Coupling check.** Is the similarity based on what the code means or what the code looks like? Meaning-based similarity is durable. Structure-based similarity is coincidental and likely to diverge.
+
+When the answer to all four is "same concept, same evolution, obvious grouping, meaning-based," the abstraction is safe. When any answer points toward independent concerns, keeping the code separate is the cheaper choice. When in doubt, wait for a third instance to confirm the pattern before extracting.
+
 ---
 
 ## Technical Debt Management

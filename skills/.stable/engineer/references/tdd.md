@@ -90,6 +90,32 @@ Questions to ask after each green:
 
 If you find something worth changing, change it. Run the tests again. If the design is already sound, say so explicitly. Name what you examined and why you judged it sound. The refactor phase is not optional. It has two valid outcomes: a design improvement or a reasoned judgment that none is needed. Silence is not an outcome.
 
+### Refactoring triage
+
+Not every issue found in the refactor phase deserves immediate attention. The question is whether fixing it now produces enough value to justify the effort before moving to the next test.
+
+An immutability violation, a security concern, or duplicated business logic in two places are problems that get worse if left alone. They compound. Fixing them now is cheaper than fixing them after three more units depend on the current shape.
+
+An unclear variable name or a magic number used once is real but low-stakes. It can wait until the next natural pause or until a second use makes the constant worth extracting.
+
+Structural similarity between two functions that represent different business concepts is not a problem at all. Two functions that validate different domain values with the same shape are not duplication. They are independent rules that happen to look alike today. Abstracting them couples unrelated concerns. See the decision framework in `references/principles.md` for when structural similarity is and is not worth abstracting.
+
+An engineer who refactors everything after every green phase slows delivery without proportional benefit. An engineer who never refactors accumulates design debt that makes the next unit harder to write. The triage is the skill.
+
+### When refactoring is not needed
+
+The refactor phase has two valid outcomes. One is a design improvement. The other is a reasoned judgment that the code is already sound.
+
+A function with a clear name, a straightforward body, pure inputs and outputs, no magic values, and manageable complexity does not need refactoring. Saying so explicitly is the outcome. Changing code that is already clean is not discipline. It is busywork that risks introducing regressions without improving the design.
+
+The criteria worth checking: Are the names clear? Are constants extracted where a second use would require them? Is nesting shallow? Is knowledge (not just code) free of duplication? Are functions pure where possible? If all of these hold, the refactor phase is complete. Move to the next test.
+
+### Preserving external APIs
+
+Refactoring changes internal structure without changing external behavior. The test suite is the proof that behavior held. But tests only cover the behaviors they specify. When a function is exported or consumed by other modules, its signature, return shape, and error contract are all part of its external API.
+
+An engineer who renames a parameter, changes a return type, or alters an error message during a refactor has changed the contract. That change may break callers that no test covers. Refactoring that stays internal to the module is safe by definition. Refactoring that touches the boundary requires verifying that all consumers still work. The distinction between internal restructuring and contract changes is what separates a refactor from a redesign.
+
 ## Unit decomposition
 
 The order of units matters. Start with the unit that has the fewest dependencies. It is the easiest to test in isolation and the hardest to get wrong. Each subsequent unit can build on the ones already delivered.
