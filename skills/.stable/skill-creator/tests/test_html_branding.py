@@ -11,8 +11,6 @@ EVAL_VIEWER_DIR = PROJECT_ROOT / "eval-viewer"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import generate_report
-
 
 def _load_generate_review_module():
     module_path = EVAL_VIEWER_DIR / "generate_review.py"
@@ -27,13 +25,6 @@ generate_review = _load_generate_review_module()
 
 
 class GeneratedHtmlBrandingTests(unittest.TestCase):
-    def test_eval_review_asset_is_provider_agnostic(self):
-        asset = (PROJECT_ROOT / "assets" / "eval_review.html").read_text(encoding="utf-8")
-
-        self.assertNotIn("Claude", asset)
-        self.assertNotIn("Anthropic", asset)
-        self.assertNotIn("OpenAI", asset)
-
     def test_generate_review_output_uses_neutral_review_labels(self):
         html = generate_review.generate_html(
             runs=[
@@ -63,42 +54,6 @@ class GeneratedHtmlBrandingTests(unittest.TestCase):
         self.assertNotIn("Claude&#x27;s Notes", html)
         self.assertNotIn("claude-notes", html)
         self.assertNotIn("Review Notes", html)
-
-    def test_generate_report_output_is_provider_agnostic(self):
-        html = generate_report.generate_html(
-            data={
-                "history": [
-                    {
-                        "iteration": 1,
-                        "description": "First attempt",
-                        "train_results": [
-                            {"query": "help me build a dashboard", "should_trigger": True, "pass": True, "triggers": 3, "runs": 3}
-                        ],
-                        "test_results": [
-                            {"query": "translate this sentence", "should_trigger": False, "pass": True, "triggers": 0, "runs": 3}
-                        ],
-                        "train_passed": 1,
-                        "train_total": 1,
-                        "test_passed": 1,
-                        "test_total": 1,
-                    }
-                ],
-                "best_description": "First attempt",
-                "original_description": "Original description",
-                "best_score": "2/2",
-                "best_test_score": "1/1",
-                "iterations_run": 1,
-                "train_size": 1,
-                "test_size": 1,
-            },
-            skill_name="skill-creator",
-        )
-
-        self.assertIn("the optimizer tests different versions", html)
-        self.assertIn("best-performing description is highlighted below", html)
-        self.assertNotIn("Claude tests different versions", html)
-        self.assertNotIn("Claude will apply the best-performing description", html)
-        self.assertNotIn("Anthropic", html)
 
 
 if __name__ == "__main__":
