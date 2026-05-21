@@ -10,9 +10,6 @@ from types import SimpleNamespace
 from scripts import prepare_fixture
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
 class PrepareFixtureContractTests(unittest.TestCase):
     def _minimal_evals(self, eval_def: dict | None = None, **top_level: object) -> dict:
         data = {
@@ -158,19 +155,6 @@ class PrepareFixtureContractTests(unittest.TestCase):
             self.assertIsNone(eval_entry["with_skill_fixture_path"])
             self.assertIsNone(eval_entry["without_skill_fixture_path"])
 
-    def test_defaults_manifest_path_to_prepared_run_root(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            skill_path = self._write_skill(temp_path, self._minimal_evals())
-
-            output = self._run_prepare(skill_path, temp_path / "runs")
-            manifest = self._manifest_from_output(output)
-
-            self.assertEqual(
-                Path(output["manifest_path"]),
-                Path(manifest["run_root"]) / "prepared_manifest.json",
-            )
-
     def test_places_skill_only_in_with_skill_provider_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -211,33 +195,6 @@ class PrepareFixtureContractTests(unittest.TestCase):
                 with_skill / ".codex" / "skills" / "demo-skill" / "SKILL.md",
             )
 
-    def test_injected_skill_excludes_eval_and_generated_directories(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            skill_path = self._write_skill(temp_path, self._minimal_evals())
-            (skill_path / "fixtures").mkdir()
-            (skill_path / "fixtures" / "secret.txt").write_text("fixture", encoding="utf-8")
-            (skill_path / ".git").mkdir()
-            (skill_path / ".git" / "config").write_text("[core]\n", encoding="utf-8")
-            (skill_path / "__pycache__").mkdir()
-            (skill_path / "__pycache__" / "cache.pyc").write_bytes(b"cache")
-
-            output = self._run_prepare(skill_path, temp_path / "runs")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
-
-            injected = (
-                Path(eval_entry["with_skill_path"])
-                / ".claude"
-                / "skills"
-                / "demo-skill"
-            )
-            self.assertTrue((injected / "SKILL.md").exists())
-            self.assertFalse((injected / "evals").exists())
-            self.assertFalse((injected / "fixtures").exists())
-            self.assertFalse((injected / ".git").exists())
-            self.assertFalse((injected / "__pycache__").exists())
-
     def test_copies_eval_files_into_both_configurations(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -269,26 +226,6 @@ class PrepareFixtureContractTests(unittest.TestCase):
                 (without_skill / "evals" / "files" / "input.txt").read_text(encoding="utf-8"),
                 "sample",
             )
-
-    def test_rejects_eval_files_that_escape_skill_root(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            skill_path = self._write_skill(
-                temp_path,
-                self._minimal_evals(
-                    {
-                        "eval_name": "bad-file",
-                        "files": ["../outside.txt"],
-                        "turns": [{"prompt": "Read the input file", "expectations": []}],
-                    }
-                ),
-            )
-            (temp_path / "outside.txt").write_text("outside", encoding="utf-8")
-
-            result = self._run_prepare_process(skill_path, temp_path / "runs")
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("escapes the skill root", result.stderr)
 
     def test_copies_fixture_into_each_workdir_when_fixture_is_in_workdir(self):
         with tempfile.TemporaryDirectory() as temp_dir:

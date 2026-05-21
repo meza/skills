@@ -1,48 +1,53 @@
 #!/usr/bin/env python3
 """
-Prepare isolated run directories for each eval before an iteration's runs.
+Prepare isolated run directories for skill evals.
 
-Everything is created under --run-root:
-  <run-root>/
-  ├── fixtures/               # cloned/staged fixture repo (if any)
-  └── <skill>-eval-runs-xxx/  # unique per invocation
-      ├── eval-1/
-      │   ├── with_skill/     # has provider-specific skills/<name>/
-      │   └── without_skill/  # no skill
-      └── eval-2/
-          └── ...
+The caller provides a skill directory, a base run root, and a provider. The
+module reads <skill>/evals/evals.json, stages any shared fixture source, creates
+a fresh prepared run root, and prepares one working directory for each eval
+configuration:
 
-Three-step process:
-  1. If fixture_repo is defined, clone (or reset) it into <run-root>/fixtures/,
-     optionally pinned to fixture_ref.
-  2. For EVERY eval in evals.json, create a run directory per configuration
-     (with_skill, without_skill). If the eval has a fixture, copy it into
-     the run directory. If the eval has files[], copy those into the run
-     directory as well.
-  3. For with_skill configurations, copy the skill under test into the run
-     directory at the provider-specific skill root so the chosen runner
-     discovers it naturally. without_skill directories get no skill.
+    <run-root>/
+      fixtures/                 # cloned or reused fixture source, when needed
+      <skill>-eval-runs-xxxxxx/  # fresh prepared run root for this invocation
+        eval-1/
+          with_skill/            # provider-specific skills/<skill-name>/ copy
+          without_skill/         # no skill copy
 
-Providers with native skill discovery may not discover skills in temp
-directories. The caller must provide a --run-root that points to a real
-(non-temp) path.
+Each eval directory is isolated from every other eval directory. Within an eval,
+the with_skill and without_skill configurations receive separate fixture copies
+so changes made by one run cannot contaminate the other. Files listed in an
+eval's files[] entry are copied into both configurations.
 
-Usage:
-    python -m scripts.prepare_fixture --skill-path <path-to-skill> --run-root <path-to-run-root> [--provider codex]
-
-Output (stdout): JSON mapping eval id -> {configuration -> entry}.
-    Each entry has "path" (the agent's working directory) and optionally
-    "fixture_path" (only present when the eval defines a fixture).
+The prepared manifest is written to --manifest-path when provided. Otherwise it
+is written to <prepared-run-root>/prepared_manifest.json. The manifest is the
+durable handoff to the eval runner and has this shape:
 
     {
-      "1": {
-        "with_skill":    {"path": "<run-root>/.../eval-1/with_skill", "fixture_path": "<run-root>/.../eval-1/with_skill/my-fixture"},
-        "without_skill": {"path": "<run-root>/.../eval-1/without_skill", "fixture_path": "<run-root>/.../eval-1/without_skill/my-fixture"}
-      },
-      "2": {
-        "with_skill":    {"path": "<run-root>/.../eval-2/with_skill"},
-        "without_skill": {"path": "<run-root>/.../eval-2/without_skill"}
-      }
+      "run_root": "<prepared-run-root>",
+      "provider": "claude",
+      "skill_name": "example-skill",
+      "evals": [
+        {
+          "eval_id": 1,
+          "eval_name": "basic",
+          "with_skill_path": "<prepared-run-root>/eval-1/with_skill",
+          "without_skill_path": "<prepared-run-root>/eval-1/without_skill",
+          "skill_file": "<prepared-run-root>/eval-1/with_skill/.claude/skills/example-skill/SKILL.md",
+          "with_skill_fixture_path": null,
+          "without_skill_fixture_path": null
+        }
+      ]
+    }
+
+execute(args) returns the short summary printed by main():
+
+    {
+      "manifest_path": "<manifest-path>",
+      "run_root": "<prepared-run-root>",
+      "provider": "claude",
+      "skill_name": "example-skill",
+      "eval_count": 1
     }
 """
 
@@ -54,10 +59,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .providers.registry import PROVIDERS, get_provider
-
 
 CONFIGURATIONS = ("with_skill", "without_skill")
+PROVIDER_SKILL_ROOTS = {
+    "claude": ".claude",
+    "codex": ".codex",
+}
 
 
 def run_git(cmd: list[str], error_prefix: str) -> str:
@@ -404,9 +411,21 @@ def build_summary(
     }
 
 
+def get_provider_skill_root(provider_name: str) -> str:
+    """Return the skill discovery root for a supported provider."""
+    skill_root = PROVIDER_SKILL_ROOTS.get(provider_name)
+    if skill_root is None:
+        available = ", ".join(sorted(PROVIDER_SKILL_ROOTS))
+        print(
+            f"Error: unknown provider '{provider_name}'. Available: {available}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return skill_root
+
+
 def execute(args: argparse.Namespace) -> dict:
-    provider = get_provider(args.provider)
-    skill_root = args.skill_root or provider.skill_root
+    skill_root = args.skill_root or get_provider_skill_root(args.provider)
 
     skill_path = Path(args.skill_path).expanduser().resolve()
     evals_data = load_evals_data(skill_path)
@@ -468,7 +487,7 @@ def main():
         "--provider",
         default="claude",
         help="LLM provider to prepare fixtures for (default: claude). "
-             f"Available: {', '.join(sorted(PROVIDERS))}",
+             f"Available: {', '.join(sorted(PROVIDER_SKILL_ROOTS))}",
     )
     parser.add_argument(
         "--skill-root",
