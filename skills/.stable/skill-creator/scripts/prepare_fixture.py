@@ -54,7 +54,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-from providers.registry import PROVIDERS, get_provider
+from .providers.registry import PROVIDERS, get_provider
+
+
+CONFIGURATIONS = ("with_skill", "without_skill")
 
 
 def run_git(cmd: list[str], error_prefix: str) -> str:
@@ -217,6 +220,235 @@ def copy_eval_files(skill_path: Path, dest_run_dir: Path, files: list[str], eval
         shutil.copy2(source, destination)
 
 
+def load_evals_data(skill_path: Path) -> dict:
+    """Load evals/evals.json for a skill directory."""
+    evals_json_path = skill_path / "evals" / "evals.json"
+
+    if not evals_json_path.exists():
+        print(f"Error: evals.json not found at {evals_json_path}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(evals_json_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve_fixture_staging(evals_data: dict, base: Path) -> Path | None:
+    """Resolve or prepare the fixture source directory for this run."""
+    has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
+    if not has_fixtures:
+        return None
+
+    fixture_repo = evals_data.get("fixture_repo")
+    fixture_ref = evals_data.get("fixture_ref")
+    fixture_base_raw = evals_data.get("fixture_base_path")
+
+    if fixture_base_raw:
+        fixture_staging = Path(fixture_base_raw).expanduser().resolve()
+    else:
+        fixture_staging = base / "fixtures"
+
+    if fixture_repo:
+        git_clone_or_pull(fixture_repo, fixture_staging, fixture_ref)
+    elif not fixture_staging.exists():
+        print(
+            f"Error: fixture_base_path {fixture_staging} does not exist and no fixture_repo is defined to clone from",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return fixture_staging
+
+
+def copy_fixture(
+    fixture_staging: Path,
+    eval_dir: Path,
+    run_dir: Path,
+    config: str,
+    fixture_name: str,
+    fixture_in_workdir: bool,
+    eval_id: str,
+) -> str:
+    """Copy one eval fixture for a single run configuration."""
+    source = fixture_staging / fixture_name
+    if not source.exists():
+        print(
+            f"Error: fixture '{fixture_name}' not found at {source} (referenced by eval id={eval_id})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if fixture_in_workdir:
+        dest = run_dir / fixture_name
+        shutil.copytree(source, dest)
+        return str(dest)
+
+    external_dir = eval_dir / f"{config}_fixtures"
+    external_dir.mkdir(parents=True, exist_ok=True)
+    dest = external_dir / fixture_name
+    if not dest.exists():
+        shutil.copytree(source, dest)
+    return str(dest)
+
+
+def prepare_configuration(
+    skill_path: Path,
+    run_root: Path,
+    eval_def: dict,
+    config: str,
+    fixture_staging: Path | None,
+    skill_name: str,
+    skill_root: str,
+) -> dict:
+    """Prepare one eval/configuration working directory."""
+    eval_id = str(eval_def["id"])
+    eval_dir = run_root / f"eval-{eval_id}"
+    run_dir = eval_dir / config
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    fixture_path = None
+    fixture_name = eval_def.get("fixture")
+    if fixture_name and fixture_staging:
+        fixture_path = copy_fixture(
+            fixture_staging=fixture_staging,
+            eval_dir=eval_dir,
+            run_dir=run_dir,
+            config=config,
+            fixture_name=fixture_name,
+            fixture_in_workdir=eval_def.get("fixture_in_workdir", True),
+            eval_id=eval_id,
+        )
+
+    eval_files = eval_def.get("files", [])
+    if eval_files:
+        copy_eval_files(skill_path, run_dir, eval_files, eval_id)
+
+    if config == "with_skill":
+        copy_skill(skill_path, run_dir, skill_name, skill_root)
+
+    entry = {"path": str(run_dir)}
+    if fixture_path:
+        entry["fixture_path"] = fixture_path
+    if config == "with_skill":
+        entry["skill_file"] = str(
+            run_dir / skill_root / "skills" / skill_name / "SKILL.md"
+        )
+    return entry
+
+
+def build_manifest_entry(eval_def: dict, run_paths: dict[str, dict]) -> dict:
+    """Build the manifest entry for one prepared eval."""
+    eval_id = str(eval_def["id"])
+    with_skill_entry = run_paths["with_skill"]
+    without_skill_entry = run_paths["without_skill"]
+    return {
+        "eval_id": eval_def["id"],
+        "eval_name": eval_def.get("eval_name", f"eval-{eval_id}"),
+        "with_skill_path": with_skill_entry["path"],
+        "without_skill_path": without_skill_entry["path"],
+        "skill_file": with_skill_entry["skill_file"],
+        "with_skill_fixture_path": with_skill_entry.get("fixture_path"),
+        "without_skill_fixture_path": without_skill_entry.get("fixture_path"),
+    }
+
+
+def prepare_eval(
+    skill_path: Path,
+    run_root: Path,
+    eval_def: dict,
+    fixture_staging: Path | None,
+    skill_name: str,
+    skill_root: str,
+) -> dict:
+    """Prepare all configurations for one eval and return its manifest entry."""
+    run_paths = {
+        config: prepare_configuration(
+            skill_path=skill_path,
+            run_root=run_root,
+            eval_def=eval_def,
+            config=config,
+            fixture_staging=fixture_staging,
+            skill_name=skill_name,
+            skill_root=skill_root,
+        )
+        for config in CONFIGURATIONS
+    }
+    return build_manifest_entry(eval_def, run_paths)
+
+
+def write_manifest(manifest: dict, manifest_path_arg: str | None, run_root: Path) -> Path:
+    """Write the prepared manifest and return its path."""
+    manifest_path = (
+        Path(manifest_path_arg).expanduser().resolve()
+        if manifest_path_arg
+        else run_root / "prepared_manifest.json"
+    )
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+def build_summary(
+    manifest_path: Path,
+    run_root: Path,
+    provider_name: str,
+    skill_name: str,
+    eval_count: int,
+) -> dict:
+    """Build the short stdout summary for callers."""
+    return {
+        "manifest_path": str(manifest_path),
+        "run_root": str(run_root),
+        "provider": provider_name,
+        "skill_name": skill_name,
+        "eval_count": eval_count,
+    }
+
+
+def execute(args: argparse.Namespace) -> dict:
+    provider = get_provider(args.provider)
+    skill_root = args.skill_root or provider.skill_root
+
+    skill_path = Path(args.skill_path).expanduser().resolve()
+    evals_data = load_evals_data(skill_path)
+    skill_name = evals_data.get("skill_name", skill_path.name)
+
+    # Providers with native skill discovery may not discover skills in temp
+    # directories, so callers should provide a real workspace-local run root.
+    base = Path(args.run_root).expanduser().resolve()
+    base.mkdir(parents=True, exist_ok=True)
+
+    fixture_staging = resolve_fixture_staging(evals_data, base)
+    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
+
+    manifest_entries = [
+        prepare_eval(
+            skill_path=skill_path,
+            run_root=run_root,
+            eval_def=eval_def,
+            fixture_staging=fixture_staging,
+            skill_name=skill_name,
+            skill_root=skill_root,
+        )
+        for eval_def in evals_data.get("evals", [])
+    ]
+
+    manifest = {
+        "run_root": str(run_root),
+        "provider": args.provider,
+        "skill_name": skill_name,
+        "evals": manifest_entries,
+    }
+    manifest_path = write_manifest(manifest, args.manifest_path, run_root)
+
+    return build_summary(
+        manifest_path=manifest_path,
+        run_root=run_root,
+        provider_name=args.provider,
+        skill_name=skill_name,
+        eval_count=len(manifest_entries),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Prepare isolated run directories for eval runs."
@@ -244,114 +476,17 @@ def main():
         help="Override the provider-specific root directory for skill placement. "
              "When omitted, this is derived from --provider.",
     )
+    parser.add_argument(
+        "--manifest-path",
+        default=None,
+        help="Optional path to write the prepared run manifest. When omitted, "
+             "the manifest is written to <prepared-run-root>/prepared_manifest.json.",
+    )
     args = parser.parse_args()
 
-    provider = get_provider(args.provider)
-    skill_root = args.skill_root or provider.skill_root
-
-    skill_path = Path(args.skill_path).expanduser().resolve()
-    evals_json_path = skill_path / "evals" / "evals.json"
-
-    if not evals_json_path.exists():
-        print(f"Error: evals.json not found at {evals_json_path}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(evals_json_path, encoding="utf-8") as f:
-        evals_data = json.load(f)
-
-    fixture_repo = evals_data.get("fixture_repo")
-    fixture_ref = evals_data.get("fixture_ref")
-    fixture_base_raw = evals_data.get("fixture_base_path")
-    skill_name = evals_data.get("skill_name", skill_path.name)
-
-    # Everything lives under --run-root: fixture staging, run directories, etc.
-    # Providers with native skill discovery may not discover skills in temp
-    # directories so this must be a real path provided by the caller.
-    base = Path(args.run_root).expanduser().resolve()
-    base.mkdir(parents=True, exist_ok=True)
-
-    # Fixture staging area (only needed if any eval uses fixtures)
-    has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
-
-    if has_fixtures:
-        if fixture_base_raw:
-            fixture_staging = Path(fixture_base_raw).expanduser().resolve()
-        else:
-            fixture_staging = base / "fixtures"
-
-        if fixture_repo:
-            git_clone_or_pull(fixture_repo, fixture_staging, fixture_ref)
-        elif not fixture_staging.exists():
-            print(
-                f"Error: fixture_base_path {fixture_staging} does not exist and no fixture_repo is defined to clone from",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-    else:
-        fixture_staging = None
-
-    # Unique subdirectory for this invocation's run directories to prevent
-    # cross-iteration contamination.
-    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
-
-    CONFIGURATIONS = ["with_skill", "without_skill"]
-    run_paths: dict[str, dict] = {}
-
-    for eval_def in evals_data.get("evals", []):
-        eval_id = str(eval_def["id"])
-        fixture_name = eval_def.get("fixture")
-        fixture_in_workdir = eval_def.get("fixture_in_workdir", True)
-        eval_files = eval_def.get("files", [])
-
-        run_paths[eval_id] = {}
-        for config in CONFIGURATIONS:
-            run_dir = run_root / f"eval-{eval_id}" / config
-            run_dir.mkdir(parents=True, exist_ok=True)
-
-            fixture_path = None
-            if fixture_name and fixture_staging:
-                source = fixture_staging / fixture_name
-                if not source.exists():
-                    print(
-                        f"Error: fixture '{fixture_name}' not found at {source} (referenced by eval id={eval_id})",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-
-                if fixture_in_workdir:
-                    # Copy fixture into the run directory (agent sees it immediately)
-                    dest = run_dir / fixture_name
-                    shutil.copytree(source, dest)
-                    fixture_path = str(dest)
-                else:
-                    # Copy fixture to a sibling directory outside the run directory
-                    # so the agent cannot discover it by browsing its working directory.
-                    # Only accessible via {{FIXTURE_PATH}} substitution in prompts.
-                    external_dir = run_dir.parent / f"{config}_fixtures"
-                    external_dir.mkdir(parents=True, exist_ok=True)
-                    dest = external_dir / fixture_name
-                    if not dest.exists():
-                        shutil.copytree(source, dest)
-                    fixture_path = str(dest)
-
-            if eval_files:
-                copy_eval_files(skill_path, run_dir, eval_files, eval_id)
-
-            # Copy skill into with_skill run directories
-            if config == "with_skill":
-                copy_skill(skill_path, run_dir, skill_name, skill_root)
-
-            entry = {"path": str(run_dir)}
-            if fixture_path:
-                entry["fixture_path"] = fixture_path
-            if config == "with_skill":
-                entry["skill_file"] = str(
-                    run_dir / skill_root / "skills" / skill_name / "SKILL.md"
-                )
-            run_paths[eval_id][config] = entry
-
-    print(json.dumps(run_paths, indent=2))
-
-
-if __name__ == "__main__":
-    main()
+    print(
+        json.dumps(
+            execute(args),
+            indent=2,
+        )
+    )
