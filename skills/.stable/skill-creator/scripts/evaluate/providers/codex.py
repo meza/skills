@@ -89,6 +89,33 @@ class CodexProvider(Provider):
 
         return cmd
 
+    def build_grading_command(
+        self,
+        model: str | None,
+        effort: str | None,
+        working_dir: str,
+        output_schema: str,
+    ) -> list[str]:
+        del effort
+        cmd = [
+            _find_codex_executable(),
+            "exec",
+            "--json",
+            "--skip-git-repo-check",
+            "--ephemeral",
+            "--ignore-user-config",
+            *SHELL_ENV_SECRET_FILTER_ARGS,
+            *EVAL_ISOLATION_CONFIG_ARGS,
+            "-",
+            "--cd",
+            working_dir,
+            "--output-schema",
+            output_schema,
+        ]
+        if model:
+            cmd.extend(["--model", model])
+        return cmd
+
     def parse_output(self, stdout: str, prompt: str) -> TurnResult:
         events = _parse_json_events(stdout)
         usage = _get_turn_completed_usage(events)

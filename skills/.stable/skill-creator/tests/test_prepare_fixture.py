@@ -54,12 +54,14 @@ class PrepareFixtureContractTests(unittest.TestCase):
         skill_path: Path,
         run_root: Path,
         provider: str = "claude",
+        eval_ids: str | None = None,
     ) -> prepare_fixture.PreparedRun:
         return prepare_fixture.FixturePreparer(
             prepare_fixture.PrepareFixtureOptions(
                 skill_path=skill_path,
                 run_root=run_root,
                 provider=provider,
+                eval_ids=eval_ids,
             )
         ).prepare()
 
@@ -93,11 +95,11 @@ class PrepareFixtureContractTests(unittest.TestCase):
             self.assertEqual(eval_entry.eval_name, "basic")
             self.assertEqual(
                 eval_entry.with_skill_path,
-                prepared_run.run_root / "eval-1" / "with_skill",
+                prepared_run.run_root / "workdirs" / "eval-1" / "with_skill",
             )
             self.assertEqual(
                 eval_entry.without_skill_path,
-                prepared_run.run_root / "eval-1" / "without_skill",
+                prepared_run.run_root / "workdirs" / "eval-1" / "without_skill",
             )
             self.assertEqual(
                 eval_entry.skill_file,
@@ -282,7 +284,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
             )
             self.assertNotEqual(with_fixture, without_fixture)
 
-    def test_creates_fresh_prepared_run_root_for_each_invocation(self):
+    def test_reuses_prepared_run_root_for_each_invocation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
@@ -293,9 +295,114 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             first_path = self._prepared_eval(first).with_skill_path
             second_path = self._prepared_eval(second).with_skill_path
-            self.assertNotEqual(first.run_root, second.run_root)
+            self.assertEqual(first.run_root, run_base)
+            self.assertEqual(second.run_root, run_base)
+            self.assertEqual(first_path, second_path)
             self.assertTrue(first_path.exists())
             self.assertTrue(second_path.exists())
+
+    def test_reuses_run_root_and_replaces_prepared_eval_dirs_between_invocations(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fixtures = self._write_fixture_base(temp_path)
+            skill_path = self._write_skill(
+                temp_path,
+                self._minimal_evals(
+                    {
+                        "eval_name": "fixture",
+                        "fixture": "sample-project",
+                        "fixture_in_workdir": True,
+                    },
+                    fixture_base_path=str(fixtures),
+                ),
+            )
+            run_root = temp_path / "runs" / "demo-skill"
+
+            first = self._run_prepare(skill_path, run_root)
+            stale_file = (
+                first.run_root / "workdirs" / "eval-1" / "with_skill" / "stale.txt"
+            )
+            stale_file.write_text("stale", encoding="utf-8")
+            preserved_result = first.run_root / "results" / "iteration-1" / "marker.txt"
+            preserved_result.parent.mkdir(parents=True)
+            preserved_result.write_text("keep", encoding="utf-8")
+            stale_workdir = first.run_root / "workdirs" / "stale-eval"
+            stale_workdir.mkdir()
+
+            second = self._run_prepare(skill_path, run_root)
+
+            self.assertEqual(first.run_root, run_root)
+            self.assertEqual(second.run_root, run_root)
+            self.assertFalse(stale_file.exists())
+            self.assertFalse(stale_workdir.exists())
+            self.assertEqual(preserved_result.read_text(encoding="utf-8"), "keep")
+            self.assertEqual(
+                (second.evals[0].with_skill_fixture_path / "README.md").read_text(
+                    encoding="utf-8"
+                ),
+                "fixture",
+            )
+
+    def test_prepares_only_requested_eval_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = self._write_skill(
+                temp_path,
+                {
+                    "skill_name": "demo-skill",
+                    "evals": [
+                        {
+                            "id": 1,
+                            "eval_name": "first",
+                            "turns": [{"prompt": "First", "expectations": []}],
+                        },
+                        {
+                            "id": 2,
+                            "eval_name": "second",
+                            "turns": [{"prompt": "Second", "expectations": []}],
+                        },
+                    ],
+                },
+            )
+            run_root = temp_path / "runs"
+
+            prepared_run = self._run_prepare(skill_path, run_root, eval_ids="2")
+
+            self.assertEqual(prepared_run.eval_count, 1)
+            self.assertEqual(prepared_run.evals[0].eval_id, 2)
+            self.assertFalse((run_root / "workdirs" / "eval-1").exists())
+            self.assertTrue((run_root / "workdirs" / "eval-2").exists())
+
+    def test_fixture_staging_uses_only_requested_eval_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = self._write_skill(
+                temp_path,
+                {
+                    "skill_name": "demo-skill",
+                    "fixture_base_path": str(temp_path / "missing-fixtures"),
+                    "evals": [
+                        {
+                            "id": 1,
+                            "eval_name": "fixture",
+                            "fixture": "sample-project",
+                            "turns": [{"prompt": "Fixture", "expectations": []}],
+                        },
+                        {
+                            "id": 2,
+                            "eval_name": "no-fixture",
+                            "turns": [{"prompt": "No fixture", "expectations": []}],
+                        },
+                    ],
+                },
+            )
+            run_root = temp_path / "runs"
+
+            prepared_run = self._run_prepare(skill_path, run_root, eval_ids="2")
+
+            self.assertEqual(prepared_run.eval_count, 1)
+            self.assertEqual(prepared_run.evals[0].eval_id, 2)
+            self.assertFalse((run_root / "fixtures").exists())
 
 
 if __name__ == "__main__":

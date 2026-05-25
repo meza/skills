@@ -1,13 +1,14 @@
 """Run prepared skill evals using a pluggable LLM provider."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from .eval_definitions import load_evals_data, select_evals, selected_configs
 from .eval_runner import EvalRun, EvalRunOptions
+from .grading import create_grading_job_factory
 from .prepare_fixture import PreparedRun
 from .providers.registry import get_provider
 
-DEFAULT_ITERATION = 1
 DEFAULT_MAX_PARALLEL = 10
 DEFAULT_TIMEOUT_SECONDS = 600
 
@@ -42,7 +43,7 @@ class SkillEvalRunner:
         options = EvalRunOptions(
             eval_definitions_path=self.prepared_run.eval_definitions_path,
             workspace=self.prepared_run.run_root / "results",
-            iteration=DEFAULT_ITERATION,
+            iteration=next_iteration(self.prepared_run.run_root / "results"),
             provider_name=self.prepared_run.provider,
             model=self.options.model,
             effort=self.options.effort,
@@ -51,6 +52,12 @@ class SkillEvalRunner:
             total_timeout=None,
             run_root=self.prepared_run.run_root,
             configs=selected_configs(self.options.config),
+            grading_job_factory=create_grading_job_factory(
+                provider=provider,
+                model=self.options.model,
+                effort=self.options.effort,
+                timeout=self.options.timeout,
+            ),
         )
         return EvalRun(
             options,
@@ -63,3 +70,24 @@ class SkillEvalRunner:
 
 def run_skill_evals(prepared_run: PreparedRun, options: SkillEvalRunOptions) -> dict:
     return SkillEvalRunner(prepared_run, options).run()
+
+
+def next_iteration(results_dir: Path) -> int:
+    """Return the next numeric results iteration for a stable eval workspace."""
+    if not results_dir.exists():
+        return 1
+
+    existing_iterations = [
+        int(child.name.removeprefix("iteration-"))
+        for child in results_dir.iterdir()
+        if is_iteration_dir(child)
+    ]
+    if not existing_iterations:
+        return 1
+    return max(existing_iterations) + 1
+
+
+def is_iteration_dir(path: Path) -> bool:
+    if not path.is_dir() or not path.name.startswith("iteration-"):
+        return False
+    return path.name.removeprefix("iteration-").isdigit()

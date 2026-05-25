@@ -45,9 +45,10 @@ import json
 import shutil
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+from .eval_definitions import select_evals
 
 CONFIGURATIONS = ("with_skill", "without_skill")
 PROVIDER_SKILL_ROOTS = {
@@ -63,6 +64,7 @@ class PrepareFixtureOptions:
     run_root: Path
     provider: str
     skill_root: str | None = None
+    eval_ids: str | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +143,8 @@ class FixturePreparer:
 
         skill_path = self.options.skill_path.expanduser().resolve()
         evals_data = load_evals_data(skill_path)
+        eval_defs = select_evals(evals_data.get("evals", []), self.options.eval_ids)
+        selected_evals_data = {**evals_data, "evals": eval_defs}
         skill_name = evals_data.get("skill_name", skill_path.name)
 
         # Providers with native skill discovery may not discover skills in temp
@@ -148,8 +152,10 @@ class FixturePreparer:
         base = self.options.run_root.expanduser().resolve()
         base.mkdir(parents=True, exist_ok=True)
 
-        fixture_staging = resolve_fixture_staging(evals_data, base)
-        run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
+        reset_workdirs(base)
+        fixture_staging = resolve_fixture_staging(selected_evals_data, base)
+        run_root = base / "workdirs"
+        run_root.mkdir(parents=True, exist_ok=True)
 
         prepared_evals = [
             prepare_eval(
@@ -160,12 +166,12 @@ class FixturePreparer:
                 skill_name=skill_name,
                 skill_root=skill_root,
             )
-            for eval_def in evals_data.get("evals", [])
+            for eval_def in eval_defs
         ]
 
         return PreparedRun(
             eval_definitions_path=(skill_path / "evals" / "evals.json").resolve(),
-            run_root=run_root,
+            run_root=base,
             provider=self.options.provider,
             skill_name=skill_name,
             evals=prepared_evals,
@@ -517,6 +523,7 @@ def prepare_eval(
     skill_root: str,
 ) -> PreparedEval:
     """Prepare all configurations for one eval and return its manifest entry."""
+    reset_prepared_eval_dir(run_root, eval_def["id"])
     run_paths = {
         config: prepare_configuration(
             skill_path=skill_path,
@@ -530,6 +537,42 @@ def prepare_eval(
         for config in CONFIGURATIONS
     }
     return build_prepared_eval(eval_def, run_paths)
+
+
+def reset_prepared_eval_dir(run_root: Path, eval_id: int) -> None:
+    """Remove one prepared eval directory while preserving run-level results."""
+    eval_dir = run_root / f"eval-{eval_id}"
+    if not eval_dir.exists():
+        return
+
+    resolved_run_root = run_root.resolve()
+    resolved_eval_dir = eval_dir.resolve()
+    assert_eval_dir_inside_run_root(resolved_run_root, resolved_eval_dir, eval_dir)
+
+    shutil.rmtree(eval_dir)
+
+
+def reset_workdirs(run_root: Path) -> None:
+    """Clear the disposable workdir root before preparing a new run."""
+    workdirs = run_root / "workdirs"
+    if workdirs.exists():
+        shutil.rmtree(workdirs)
+    workdirs.mkdir(parents=True, exist_ok=True)
+
+
+def assert_eval_dir_inside_run_root(
+    resolved_run_root: Path,
+    resolved_eval_dir: Path,
+    display_path: Path,
+) -> None:
+    if resolved_eval_dir.parent == resolved_run_root:
+        return
+
+    print(
+        f"Error: refusing to remove eval directory outside run root: {display_path}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def get_provider_skill_root(provider_name: str) -> str:

@@ -4,6 +4,7 @@ import json
 import sys
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -32,6 +33,7 @@ class EvalRunOptions:
     total_timeout: int | None
     configs: list[str]
     run_root: Path
+    grading_job_factory: Callable | None = None
 
 
 @dataclass(frozen=True)
@@ -241,6 +243,7 @@ class EvalRun:
                 self.options.effort,
                 self.options.timeout,
                 deadline,
+                self.options.grading_job_factory,
             )
             futures[future] = job
         return futures

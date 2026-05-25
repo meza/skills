@@ -82,6 +82,31 @@ class ClaudeProviderCommandTests(unittest.TestCase):
 
         self.assertEqual(provider.skill_root, ".claude")
 
+    def test_grading_command_uses_single_shot_stream_json_command(self):
+        command = ClaudeProvider().build_grading_command(
+            model="claude-sonnet-4-5",
+            effort="high",
+            working_dir="F:/tmp/eval-1/with_skill",
+            output_schema="F:/schemas/grading.schema.json",
+        )
+
+        self.assertEqual(
+            command,
+            [
+                "claude",
+                "-p",
+                "--effort",
+                "high",
+                "--output-format",
+                "stream-json",
+                "--verbose",
+                "--permission-mode",
+                "bypassPermissions",
+                "--model",
+                "claude-sonnet-4-5",
+            ],
+        )
+
 
 class ClaudeProviderParseOutputTests(unittest.TestCase):
     def test_parse_output_extracts_response_transcript_and_usage(self):

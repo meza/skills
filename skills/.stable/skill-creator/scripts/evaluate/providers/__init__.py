@@ -66,6 +66,21 @@ class Provider(ABC):
         """
 
     @abstractmethod
+    def build_grading_command(
+        self,
+        model: str | None,
+        effort: str | None,
+        working_dir: str,
+        output_schema: str,
+    ) -> list[str]:
+        """Build the single-shot command used for grading one completed run.
+
+        Grading has no session, resume behavior, or turn index. Providers that
+        cannot enforce a schema should still expose the closest grading command
+        and leave validation to the caller.
+        """
+
+    @abstractmethod
     def parse_output(self, stdout: str, prompt: str) -> TurnResult:
         """Parse raw stdout from the CLI into a structured result.
 

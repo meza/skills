@@ -166,8 +166,17 @@ class RunSkillEvalsContractTests(unittest.TestCase):
         provider: FakeProvider,
         run_results,
     ) -> dict:
+        class NoOpGradingJob:
+            def run(self):
+                pass
+
         with (
             mock.patch.object(run_skill_evals, "get_provider", return_value=provider),
+            mock.patch.object(
+                run_skill_evals,
+                "create_grading_job_factory",
+                return_value=lambda _job: NoOpGradingJob(),
+            ),
             mock.patch.object(eval_job, "run_with_timeout", side_effect=run_results),
             contextlib.redirect_stdout(io.StringIO()),
         ):
@@ -316,6 +325,53 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 (run_root / "results" / "iteration-1" / "eval-1" / "without_skill"),
             )
 
+    def test_eval_job_invokes_grading_after_writing_run_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            iteration_dir = temp_path / "iteration"
+            run_dir = temp_path / "run"
+            run_dir.mkdir()
+            graded_paths = []
+
+            def grading_job_factory(job):
+                class FakeGradingJob:
+                    def run(self):
+                        config_dir = job.config_dir
+                        assert (config_dir / "timing.json").exists()
+                        assert (config_dir / "raw_output.jsonl").exists()
+                        graded_paths.append(config_dir)
+
+                return FakeGradingJob()
+
+            job = eval_job.EvalJob(
+                eval_def={
+                    "id": 1,
+                    "eval_name": "basic",
+                    "turns": [{"prompt": "Do the task", "expectations": []}],
+                },
+                config="with_skill",
+                run_dir=str(run_dir),
+                fixture_path=None,
+                iteration_dir=iteration_dir,
+                provider=FakeProvider(),
+                model=None,
+                effort=None,
+                timeout=30,
+                grading_job_factory=grading_job_factory,
+            )
+
+            with mock.patch.object(
+                eval_job,
+                "run_with_timeout",
+                return_value=("stdout", "", 0, False, 50),
+            ):
+                job.run()
+
+            self.assertEqual(
+                graded_paths,
+                [iteration_dir / "eval-1" / "with_skill"],
+            )
+
     def test_execute_resumes_multi_turn_runs_with_provider_session_id(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -425,6 +481,11 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 mock.patch.object(
                     run_skill_evals, "get_provider", return_value=provider
                 ),
+                mock.patch.object(
+                    run_skill_evals,
+                    "create_grading_job_factory",
+                    return_value="grading-factory",
+                ) as create_grading_job_factory,
                 mock.patch.object(run_skill_evals, "EvalRun") as eval_run,
             ):
                 run_skill_evals.SkillEvalRunner(
@@ -438,6 +499,63 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             options = eval_run.call_args.args[0]
             self.assertEqual(options.max_parallel, 12)
             self.assertEqual(options.timeout, 900)
+            self.assertEqual(options.grading_job_factory, "grading-factory")
+            create_grading_job_factory.assert_called_once_with(
+                provider=provider,
+                model=None,
+                effort=None,
+                timeout=900,
+            )
+
+    def test_runner_uses_next_results_iteration_for_stable_run_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = self._write_skill(
+                temp_path,
+                {
+                    "skill_name": "fake-skill",
+                    "evals": [{"id": 1, "turns": []}],
+                },
+            )
+            run_root = self._write_prepared_run_root(temp_path)
+            (run_root / "results" / "iteration-1").mkdir(parents=True)
+            (run_root / "results" / "iteration-2").mkdir(parents=True)
+            prepared_run = self._prepared_run(skill_path, run_root)
+            provider = FakeProvider()
+
+            with (
+                mock.patch.object(
+                    run_skill_evals, "get_provider", return_value=provider
+                ),
+                mock.patch.object(
+                    run_skill_evals,
+                    "create_grading_job_factory",
+                    return_value="grading-factory",
+                ),
+                mock.patch.object(run_skill_evals, "EvalRun") as eval_run,
+            ):
+                run_skill_evals.SkillEvalRunner(
+                    prepared_run,
+                    run_skill_evals.SkillEvalRunOptions(),
+                ).run()
+
+            options = eval_run.call_args.args[0]
+            self.assertEqual(options.iteration, 3)
+
+    def test_next_iteration_ignores_non_iteration_entries(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir) / "results"
+            results_dir.mkdir()
+            (results_dir / "progress.json").write_text("{}", encoding="utf-8")
+            (results_dir / "iteration-old").mkdir()
+
+            self.assertEqual(run_skill_evals.next_iteration(results_dir), 1)
+            self.assertFalse(
+                run_skill_evals.is_iteration_dir(results_dir / "progress.json")
+            )
+            self.assertFalse(
+                run_skill_evals.is_iteration_dir(results_dir / "iteration-old")
+            )
 
     def test_run_skill_evals_delegates_to_runner(self):
         prepared_run = PreparedRun(
@@ -1148,6 +1266,7 @@ class EvalLibTests(unittest.TestCase):
     def test_eval_run_submit_jobs_passes_resolved_job_fields(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
+            grading_job_factory = object()
             runner = EvalRun(
                 EvalRunOptions(
                     eval_definitions_path=temp_path / "skill" / "evals" / "evals.json",
@@ -1161,6 +1280,7 @@ class EvalLibTests(unittest.TestCase):
                     total_timeout=None,
                     configs=["with_skill"],
                     run_root=temp_path / "prepared",
+                    grading_job_factory=grading_job_factory,
                 ),
                 FakeProvider(),
                 {},
@@ -1187,6 +1307,8 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(submitted[4], str(temp_path / "fixture"))
             self.assertEqual(submitted[7], "fake-model")
             self.assertEqual(submitted[8], "high")
+            self.assertEqual(submitted[10], 123.0)
+            self.assertIs(submitted[11], grading_job_factory)
 
 
 class RunSkillEvalsPromptTests(unittest.TestCase):
@@ -1365,6 +1487,58 @@ class GitEnvironmentTests(unittest.TestCase):
         self.assertEqual(returncode, 0)
         self.assertFalse(timed_out)
         self.assertEqual(stdout.strip(), "present")
+
+    def test_run_with_timeout_forces_utf8_text_encoding_for_provider_stdin(self):
+        process = mock.Mock()
+        process.communicate.return_value = ("stdout", "")
+        process.returncode = 0
+        process.pid = 123
+
+        with mock.patch.object(
+            eval_job.subprocess,
+            "Popen",
+            return_value=process,
+        ) as popen:
+            stdout, stderr, returncode, timed_out, _ = run_with_timeout(
+                ["provider"],
+                "curly quote: \u201c",
+                str(PROJECT_ROOT),
+                5,
+            )
+
+        self.assertEqual(
+            (stdout, stderr, returncode, timed_out), ("stdout", "", 0, False)
+        )
+        self.assertEqual(popen.call_args.kwargs["encoding"], "utf-8")
+
+    def test_run_with_timeout_unregisters_process_after_completion(self):
+        process = mock.Mock()
+        process.communicate.return_value = ("stdout", "")
+        process.returncode = 0
+        process.pid = 456
+
+        with (
+            mock.patch.object(eval_job.subprocess, "Popen", return_value=process),
+            mock.patch.object(eval_job, "register_process") as register_process,
+            mock.patch.object(eval_job, "unregister_process") as unregister_process,
+        ):
+            run_with_timeout(["provider"], "prompt", str(PROJECT_ROOT), 5)
+
+        register_process.assert_called_once_with(456)
+        unregister_process.assert_called_once_with(456)
+
+    def test_kill_active_processes_kills_and_clears_registered_processes(self):
+        with (
+            mock.patch.object(eval_job, "_ACTIVE_PROCESS_IDS", {111, 222}),
+            mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree,
+        ):
+            eval_job.kill_active_processes()
+
+        self.assertEqual(
+            kill_process_tree.call_args_list,
+            [mock.call(111), mock.call(222)],
+        )
+        self.assertEqual(eval_job._ACTIVE_PROCESS_IDS, set())
 
 
 if __name__ == "__main__":

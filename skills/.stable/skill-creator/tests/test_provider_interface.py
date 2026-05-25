@@ -18,6 +18,15 @@ class MinimalProvider(Provider):
     def parse_output(self, stdout, prompt):
         return TurnResult(response=stdout, transcript=prompt)
 
+    def build_grading_command(
+        self,
+        model,
+        effort,
+        working_dir,
+        output_schema,
+    ):
+        return []
+
     @property
     def skill_root(self):
         return ".minimal"

@@ -10,12 +10,15 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
+_ACTIVE_PROCESS_IDS: set[int] = set()
+_ACTIVE_PROCESS_IDS_LOCK = threading.Lock()
 
 
 def build_prompt(
@@ -168,6 +171,25 @@ def _force_kill_process_tree(pid):
         pass
 
 
+def register_process(pid: int) -> None:
+    with _ACTIVE_PROCESS_IDS_LOCK:
+        _ACTIVE_PROCESS_IDS.add(pid)
+
+
+def unregister_process(pid: int) -> None:
+    with _ACTIVE_PROCESS_IDS_LOCK:
+        _ACTIVE_PROCESS_IDS.discard(pid)
+
+
+def kill_active_processes() -> None:
+    with _ACTIVE_PROCESS_IDS_LOCK:
+        process_ids = sorted(_ACTIVE_PROCESS_IDS)
+        _ACTIVE_PROCESS_IDS.clear()
+
+    for pid in process_ids:
+        _kill_process_tree(pid)
+
+
 def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
     """Run a CLI command with timeout and full process tree cleanup."""
     popen_kwargs = dict(
@@ -177,6 +199,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
         cwd=cwd,
         env=env,
         text=True,
+        encoding="utf-8",
     )
     if _IS_WINDOWS:
         popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -184,6 +207,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
         popen_kwargs["start_new_session"] = True
 
     process = subprocess.Popen(cmd, **popen_kwargs)
+    register_process(process.pid)
 
     timed_out = False
 
@@ -211,6 +235,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
         process.wait()
     finally:
         timer.cancel()
+        unregister_process(process.pid)
 
     duration_ms = int((time.monotonic() - start) * 1000)
     return stdout, stderr, process.returncode, timed_out, duration_ms
@@ -228,6 +253,7 @@ class EvalJob:
     effort: str | None
     timeout: int
     deadline: float | None = None
+    grading_job_factory: Callable[["EvalJob"], object] | None = None
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     all_events: list[dict] = field(default_factory=list)
     input_tokens: int = 0
@@ -271,6 +297,7 @@ class EvalJob:
                 temp_git_config.unlink(missing_ok=True)
 
         self.write_run_artifacts()
+        self.run_grading_job()
         return self.summary()
 
     def run_turns(self, process_env: dict[str, str]) -> None:
@@ -420,6 +447,11 @@ class EvalJob:
             encoding="utf-8",
         )
 
+    def run_grading_job(self) -> None:
+        if not self.grading_job_factory:
+            return
+        self.grading_job_factory(self).run()
+
     def timing(self) -> dict:
         return {
             "total_tokens": self.total_tokens,
@@ -479,6 +511,7 @@ def run_single_job(
     effort: str | None,
     timeout: int,
     deadline: float | None = None,
+    grading_job_factory: Callable[["EvalJob"], object] | None = None,
 ) -> dict:
     """Run all turns of one eval and configuration combination."""
     return EvalJob(
@@ -492,6 +525,7 @@ def run_single_job(
         effort=effort,
         timeout=timeout,
         deadline=deadline,
+        grading_job_factory=grading_job_factory,
     ).run()
 
 

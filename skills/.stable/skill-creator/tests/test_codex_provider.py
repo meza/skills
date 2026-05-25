@@ -201,6 +201,27 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIn("skills.bundled.enabled=false", command)
         self.assertIn("features.plugins=false", command)
 
+    def test_build_grading_command_applies_output_schema(self):
+        command = CodexProvider().build_grading_command(
+            model="gpt-5.5",
+            effort=None,
+            working_dir="F:/runs/eval-1/with_skill",
+            output_schema="F:/schemas/grading.schema.json",
+        )
+
+        self.assertIn("--output-schema", command)
+        self.assertEqual(
+            command[command.index("--output-schema") + 1],
+            "F:/schemas/grading.schema.json",
+        )
+        self.assertIn("--cd", command)
+        self.assertEqual(
+            command[command.index("--cd") + 1],
+            "F:/runs/eval-1/with_skill",
+        )
+        self.assertIn("--model", command)
+        self.assertEqual(command[command.index("--model") + 1], "gpt-5.5")
+
     def test_build_command_resumes_existing_session(self):
         command = CodexProvider().build_command(
             session_id="thread-123",

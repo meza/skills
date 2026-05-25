@@ -3,6 +3,7 @@ cognitive-complexity
 coverage
 flake8
 flake8-cognitive-complexity
+jsonschema
 pytest
 pytest-cov
 ruff

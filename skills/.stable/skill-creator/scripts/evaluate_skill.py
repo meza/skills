@@ -7,14 +7,18 @@ import sys
 from pathlib import Path
 
 if __package__:
+    from .evaluate.eval_job import kill_active_processes
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from .evaluate.providers.registry import PROVIDERS
     from .evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
+    from .evaluate.skill_prepare_hook import run_skill_prepare_hook
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts.evaluate.eval_job import kill_active_processes
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from scripts.evaluate.providers.registry import PROVIDERS
     from scripts.evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
+    from scripts.evaluate.skill_prepare_hook import run_skill_prepare_hook
 
 
 class RunRootInsideGitWorkspaceError(ValueError):
@@ -46,27 +50,38 @@ def validate_run_root_is_not_in_git_workspace(run_root: Path) -> None:
 def execute(args: argparse.Namespace) -> dict:
     """Prepare isolated run directories, then execute the eval run."""
     validate_run_root_is_not_in_git_workspace(args.run_root)
+    skill_workspace = args.run_root / args.skill_path.name
 
     prepared_run = FixturePreparer(
         PrepareFixtureOptions(
             skill_path=args.skill_path,
-            run_root=args.run_root,
+            run_root=skill_workspace,
             provider=args.provider,
             skill_root=None,
+            eval_ids=args.eval_ids,
         )
     ).prepare()
 
-    run_manifest = SkillEvalRunner(
-        prepared_run,
-        SkillEvalRunOptions(
-            eval_ids=args.eval_ids,
-            config=args.config,
-            model=args.model,
-            effort=args.effort,
-            max_parallel=args.max_parallel,
-            timeout=args.timeout,
-        ),
-    ).run()
+    run_skill_prepare_hook(
+        skill_path=args.skill_path,
+        prepared_run=prepared_run,
+        eval_ids=args.eval_ids,
+    )
+
+    try:
+        run_manifest = SkillEvalRunner(
+            prepared_run,
+            SkillEvalRunOptions(
+                eval_ids=args.eval_ids,
+                config=args.config,
+                model=args.model,
+                effort=args.effort,
+                max_parallel=args.max_parallel,
+                timeout=args.timeout,
+            ),
+        ).run()
+    finally:
+        kill_active_processes()
 
     return {
         "prepare": prepared_run.to_summary(),

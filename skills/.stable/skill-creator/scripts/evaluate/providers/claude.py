@@ -42,6 +42,21 @@ class ClaudeProvider(Provider):
 
         return cmd
 
+    def build_grading_command(
+        self,
+        model: str | None,
+        effort: str | None,
+        working_dir: str,
+        output_schema: str,
+    ) -> list[str]:
+        del working_dir
+        del output_schema
+        cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
+        cmd.extend(STREAM_JSON_ARGS)
+        if model:
+            cmd.extend(["--model", model])
+        return cmd
+
     def parse_output(self, stdout: str, prompt: str) -> TurnResult:
         events = _parse_stream_json(stdout)
         result_event = _get_result_event(events)

@@ -695,6 +695,49 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 (prepared_run.run_root / "prepared_manifest.json").exists()
             )
 
+    def test_assert_eval_dir_inside_run_root_exits_for_external_path(self):
+        with (
+            self.assertRaises(SystemExit),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            prepare_fixture.assert_eval_dir_inside_run_root(
+                Path("run").resolve(),
+                Path("elsewhere/eval-1").resolve(),
+                Path("elsewhere/eval-1"),
+            )
+
+        self.assertIn("refusing to remove eval directory", stderr.getvalue())
+
+    def test_reset_prepared_eval_dir_removes_existing_eval_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir)
+            eval_dir = run_root / "eval-1"
+            eval_dir.mkdir()
+            (eval_dir / "stale.txt").write_text("stale", encoding="utf-8")
+
+            prepare_fixture.reset_prepared_eval_dir(run_root, 1)
+
+            self.assertFalse(eval_dir.exists())
+
+    def test_reset_workdirs_creates_missing_scratch_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir)
+
+            prepare_fixture.reset_workdirs(run_root)
+
+            self.assertTrue((run_root / "workdirs").is_dir())
+
+    def test_assert_eval_dir_inside_run_root_accepts_direct_child(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir)
+            eval_dir = run_root / "eval-1"
+
+            prepare_fixture.assert_eval_dir_inside_run_root(
+                run_root.resolve(),
+                eval_dir.resolve(),
+                eval_dir,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,8 +36,14 @@ class EvaluateSkillTests(unittest.TestCase):
             ) as fixture_preparer,
             mock.patch.object(
                 evaluate_skill,
+                "run_skill_prepare_hook",
+                create=True,
+            ) as run_skill_prepare_hook,
+            mock.patch.object(
+                evaluate_skill,
                 "SkillEvalRunner",
             ) as skill_eval_runner,
+            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
         ):
             fixture_preparer.return_value.prepare.return_value = prepared_run
             skill_eval_runner.return_value.run.return_value = run_manifest
@@ -65,11 +71,17 @@ class EvaluateSkillTests(unittest.TestCase):
         )
 
         fixture_preparer.return_value.prepare.assert_called_once_with()
+        run_skill_prepare_hook.assert_called_once_with(
+            skill_path=Path("F:/skills/sample-skill"),
+            prepared_run=prepared_run,
+            eval_ids="1,2",
+        )
         prepare_options = fixture_preparer.call_args.args[0]
         self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
-        self.assertEqual(prepare_options.run_root, Path("F:/runs"))
+        self.assertEqual(prepare_options.run_root, Path("F:/runs/sample-skill"))
         self.assertEqual(prepare_options.provider, "codex")
         self.assertIsNone(prepare_options.skill_root)
+        self.assertEqual(prepare_options.eval_ids, "1,2")
 
         runner_args = skill_eval_runner.call_args.args
         self.assertIs(runner_args[0], prepared_run)
@@ -81,6 +93,42 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(run_options.max_parallel, 12)
         self.assertEqual(run_options.timeout, 900)
         skill_eval_runner.return_value.run.assert_called_once_with()
+        kill_active.assert_called_once_with()
+
+    def test_execute_kills_active_processes_when_eval_runner_fails(self):
+        prepared_run = PreparedRun(
+            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
+            run_root=Path("F:/runs/sample-skill"),
+            provider="codex",
+            skill_name="sample-skill",
+            evals=[],
+        )
+
+        with (
+            mock.patch.object(evaluate_skill, "FixturePreparer") as fixture_preparer,
+            mock.patch.object(evaluate_skill, "run_skill_prepare_hook"),
+            mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
+            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
+            self.assertRaises(RuntimeError),
+        ):
+            fixture_preparer.return_value.prepare.return_value = prepared_run
+            skill_eval_runner.return_value.run.side_effect = RuntimeError("failed")
+
+            evaluate_skill.execute(
+                argparse.Namespace(
+                    skill_path=Path("F:/skills/sample-skill"),
+                    run_root=Path("F:/runs"),
+                    provider="codex",
+                    model="gpt-5.4",
+                    effort="high",
+                    eval_ids="1",
+                    config="with_skill",
+                    max_parallel=12,
+                    timeout=900,
+                )
+            )
+
+        kill_active.assert_called_once_with()
 
     def test_validate_run_root_rejects_path_inside_git_directory_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
