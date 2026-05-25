@@ -1463,10 +1463,58 @@ class GitEnvironmentTests(unittest.TestCase):
             config_text = config_path.read_text(encoding="utf-8")
             self.assertIn("[include]", config_text)
             self.assertIn(global_config.as_posix(), config_text)
+            self.assertIn("[core]", config_text)
+            self.assertIn("\tfsmonitor = false", config_text)
             self.assertIn("[safe]", config_text)
             self.assertIn(repo_path.resolve().as_posix(), config_text)
 
             config_path.unlink(missing_ok=True)
+
+    def test_stop_git_fsmonitor_daemons_stops_repos_under_run_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            repo_path = temp_path / "workdirs" / "eval-1" / "with_skill" / "repo"
+            repo_path.mkdir(parents=True)
+            (repo_path / ".git").mkdir()
+
+            with mock.patch.object(eval_job.subprocess, "run") as run:
+                eval_job.stop_git_fsmonitor_daemons(temp_path)
+
+        run.assert_called_once_with(
+            [
+                "git",
+                "-C",
+                str(repo_path),
+                "fsmonitor--daemon",
+                "stop",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+    def test_stop_git_fsmonitor_daemons_ignores_missing_run_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_root = Path(temp_dir) / "missing"
+
+            with mock.patch.object(eval_job.subprocess, "run") as run:
+                eval_job.stop_git_fsmonitor_daemons(missing_root)
+
+        run.assert_not_called()
+
+    def test_stop_git_fsmonitor_daemons_ignores_stop_failures(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            repo_path = temp_path / "repo"
+            repo_path.mkdir()
+            (repo_path / ".git").mkdir()
+
+            with mock.patch.object(
+                eval_job.subprocess,
+                "run",
+                side_effect=eval_job.subprocess.TimeoutExpired("git", 5),
+            ):
+                eval_job.stop_git_fsmonitor_daemons(temp_path)
 
     def test_run_with_timeout_passes_env_to_child_process(self):
         command = [

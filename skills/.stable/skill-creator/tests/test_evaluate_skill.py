@@ -44,6 +44,10 @@ class EvaluateSkillTests(unittest.TestCase):
                 "SkillEvalRunner",
             ) as skill_eval_runner,
             mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
+            mock.patch.object(
+                evaluate_skill,
+                "stop_git_fsmonitor_daemons",
+            ) as stop_fsmonitor,
         ):
             fixture_preparer.return_value.prepare.return_value = prepared_run
             skill_eval_runner.return_value.run.return_value = run_manifest
@@ -94,6 +98,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(run_options.timeout, 900)
         skill_eval_runner.return_value.run.assert_called_once_with()
         kill_active.assert_called_once_with()
+        stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
     def test_execute_kills_active_processes_when_eval_runner_fails(self):
         prepared_run = PreparedRun(
@@ -109,6 +114,10 @@ class EvaluateSkillTests(unittest.TestCase):
             mock.patch.object(evaluate_skill, "run_skill_prepare_hook"),
             mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
             mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
+            mock.patch.object(
+                evaluate_skill,
+                "stop_git_fsmonitor_daemons",
+            ) as stop_fsmonitor,
             self.assertRaises(RuntimeError),
         ):
             fixture_preparer.return_value.prepare.return_value = prepared_run
@@ -129,6 +138,7 @@ class EvaluateSkillTests(unittest.TestCase):
             )
 
         kill_active.assert_called_once_with()
+        stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
     def test_validate_run_root_rejects_path_inside_git_directory_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:

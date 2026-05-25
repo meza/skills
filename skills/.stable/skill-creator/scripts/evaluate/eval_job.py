@@ -121,6 +121,14 @@ def _write_process_git_config(
             ]
         )
 
+    lines.extend(
+        [
+            "[core]",
+            "\tfsmonitor = false",
+            "",
+        ]
+    )
+
     for safe_directory in safe_directories:
         lines.extend(
             [
@@ -140,6 +148,31 @@ def _write_process_git_config(
         temp_config_path = Path(temp_config.name)
 
     return temp_config_path
+
+
+def stop_git_fsmonitor_daemons(run_root: Path | str) -> None:
+    """Stop Git fsmonitor daemons for repositories created under an eval run root.
+
+    The eval provider runs with a temporary Git config that disables fsmonitor,
+    but existing fixture repositories may already have detached fsmonitor daemons.
+    This cleanup is intentionally scoped to repositories physically located under
+    the eval run root and does not change any Git config.
+    """
+    root = Path(run_root).expanduser().resolve()
+    if not root.exists():
+        return
+
+    for git_dir in root.rglob(".git"):
+        repo_path = git_dir.parent
+        try:
+            subprocess.run(
+                ["git", "-C", str(repo_path), "fsmonitor--daemon", "stop"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
 
 
 def _kill_process_tree(pid):

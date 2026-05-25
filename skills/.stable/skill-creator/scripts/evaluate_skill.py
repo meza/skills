@@ -7,14 +7,17 @@ import sys
 from pathlib import Path
 
 if __package__:
-    from .evaluate.eval_job import kill_active_processes
+    from .evaluate.eval_job import kill_active_processes, stop_git_fsmonitor_daemons
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from .evaluate.providers.registry import PROVIDERS
     from .evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from .evaluate.skill_prepare_hook import run_skill_prepare_hook
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts.evaluate.eval_job import kill_active_processes
+    from scripts.evaluate.eval_job import (
+        kill_active_processes,
+        stop_git_fsmonitor_daemons,
+    )
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from scripts.evaluate.providers.registry import PROVIDERS
     from scripts.evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
@@ -81,6 +84,7 @@ def execute(args: argparse.Namespace) -> dict:
             ),
         ).run()
     finally:
+        stop_git_fsmonitor_daemons(prepared_run.run_root)
         kill_active_processes()
 
     return {
