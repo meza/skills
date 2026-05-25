@@ -1,9 +1,9 @@
 import json
+import importlib
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
@@ -11,7 +11,9 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from validate_grading import validate_grading_data, validate_grading_file
+validate_grading = importlib.import_module("validate_grading")
+validate_grading_data = validate_grading.validate_grading_data
+validate_grading_file = validate_grading.validate_grading_file
 
 
 class ValidateGradingTests(unittest.TestCase):
@@ -34,10 +36,16 @@ class ValidateGradingTests(unittest.TestCase):
                 "suggestions": [
                     {
                         "assertion": "The output includes the expected file",
-                        "reason": "This assertion is discriminating and matched the observed output.",
+                        "reason": (
+                            "This assertion is discriminating and matched "
+                            "the observed output."
+                        ),
                     }
                 ],
-                "overall": "The run completed cleanly and the assertions covered the main outcome.",
+                "overall": (
+                    "The run completed cleanly and the assertions covered "
+                    "the main outcome."
+                ),
             },
         }
 
@@ -99,7 +107,10 @@ class ValidateGradingTests(unittest.TestCase):
                         },
                         "eval_feedback": {
                             "suggestions": [],
-                            "overall": "The run failed because the expected file was not produced.",
+                            "overall": (
+                                "The run failed because the expected file "
+                                "was not produced."
+                            ),
                         },
                     }
                 ),

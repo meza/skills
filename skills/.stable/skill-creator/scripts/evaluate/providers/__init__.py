@@ -9,6 +9,8 @@ orchestration) lives in the runner and is shared across providers.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 
@@ -41,6 +43,7 @@ class Provider(ABC):
         session_name: str,
         turn_index: int,
         model: str | None,
+        effort: str | None = None,
         working_dir: str | None = None,
     ) -> list[str]:
         """Build the CLI command for a single turn.
@@ -54,6 +57,7 @@ class Provider(ABC):
             turn_index: Zero-based turn number. Turn 0 starts a new session.
                 Subsequent turns resume the existing session.
             model: Model override, or None for the provider default.
+            effort: Reasoning effort override, or None for the provider default.
             working_dir: Optional directory that the provider should use as the
                 working root when its CLI exposes a cwd flag.
 
@@ -74,6 +78,23 @@ class Provider(ABC):
             the session/thread ID observed for this turn when available.
         """
 
+    @contextmanager
+    def process_environment(
+        self,
+        base_env: dict[str, str],
+        run_dir: str,
+        artifact_dir,
+    ) -> Iterator[dict[str, str]]:
+        """Return the environment used for provider subprocesses.
+
+        Providers can override this to add per-job isolation while keeping the
+        runner independent from provider-specific filesystem and auth rules.
+        The context stays open for all turns in one eval job.
+        """
+        del run_dir
+        del artifact_dir
+        yield base_env
+
     @property
     @abstractmethod
     def skill_root(self) -> str:
@@ -86,15 +107,4 @@ class Provider(ABC):
             - Codex:   .codex
             - GitHub:  .github
             - Generic: .agents
-        """
-
-    @property
-    @abstractmethod
-    def supports_skill_discovery(self) -> bool:
-        """Whether the provider discovers skills automatically.
-
-        Providers that return True are expected to find skills placed at
-        <skill_root>/skills/<name>/ in the working directory. Providers
-        that return False will always get the skill content prepended
-        to the prompt (equivalent to --force-skill).
         """

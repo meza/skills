@@ -29,14 +29,14 @@ DEFAULT_PORT = 3117
 
 def _get_local_ip() -> str:
     """Return the machine's LAN IP address."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        return s.getsockname()[0]
     except Exception:
         return socket.gethostname()
+    finally:
+        s.close()
 
 
 def _is_ssh() -> bool:
@@ -64,35 +64,47 @@ def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
         if _IS_WINDOWS:
-            result = subprocess.run(
-                ["netstat", "-ano"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            for line in result.stdout.splitlines():
-                if f":{port}" in line and "LISTENING" in line:
-                    parts = line.split()
-                    pid_str = parts[-1]
-                    try:
-                        _kill_pid(int(pid_str))
-                    except ValueError:
-                        pass
+            _kill_windows_port(port)
         else:
-            result = subprocess.run(
-                ["lsof", "-ti", f":{port}"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            for pid_str in result.stdout.strip().split("\n"):
-                if pid_str.strip():
-                    try:
-                        _kill_pid(int(pid_str.strip()))
-                    except ValueError:
-                        pass
+            _kill_posix_port(port)
         time.sleep(0.5)
     except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+
+def _kill_windows_port(port: int) -> None:
+    result = subprocess.run(
+        ["netstat", "-ano"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    for line in result.stdout.splitlines():
+        _kill_windows_listener_line(line, port)
+
+
+def _kill_windows_listener_line(line: str, port: int) -> None:
+    if f":{port}" not in line or "LISTENING" not in line:
+        return
+    _kill_pid_text(line.split()[-1])
+
+
+def _kill_posix_port(port: int) -> None:
+    result = subprocess.run(
+        ["lsof", "-ti", f":{port}"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    for pid_str in result.stdout.strip().split("\n"):
+        if pid_str.strip():
+            _kill_pid_text(pid_str.strip())
+
+
+def _kill_pid_text(pid_text: str) -> None:
+    try:
+        _kill_pid(int(pid_text))
+    except ValueError:
         pass
 
 
@@ -113,78 +125,85 @@ def _health_check(port: int, retries: int = 30, interval: float = 0.2) -> bool:
 def cmd_stop(_args=None, quiet: bool = False) -> None:
     """Stop any running viewer server."""
     if not PIDFILE.exists():
-        if not quiet:
-            print("No viewer running.")
+        _print_no_viewer(quiet)
         return
 
-    try:
-        data = json.loads(PIDFILE.read_text(encoding="utf-8"))
-        pid = data.get("pid")
-        port = data.get("port", DEFAULT_PORT)
-    except (json.JSONDecodeError, OSError):
+    pid_data = _read_pidfile()
+    if pid_data is None:
         PIDFILE.unlink(missing_ok=True)
         return
 
-    stopped = False
-    if pid:
-        stopped = _kill_pid(pid)
-    _kill_port(port)
+    stopped = _stop_viewer_process(pid_data)
 
     PIDFILE.unlink(missing_ok=True)
     if not quiet:
-        if stopped:
-            print(f"Stopped viewer (PID {pid}).")
-        else:
-            print("Viewer was not running.")
+        _print_stop_result(pid_data[0], stopped)
+
+
+def _print_no_viewer(quiet: bool) -> None:
+    if not quiet:
+        print("No viewer running.")
+
+
+def _stop_viewer_process(pid_data: tuple[int | None, int]) -> bool:
+    pid, port = pid_data
+    stopped = _kill_pid(pid) if pid else False
+    _kill_port(port)
+    return stopped
+
+
+def _print_stop_result(pid: int | None, stopped: bool) -> None:
+    if stopped:
+        print(f"Stopped viewer (PID {pid}).")
+    else:
+        print("Viewer was not running.")
+
+
+def _read_pidfile() -> tuple[int | None, int] | None:
+    try:
+        data = json.loads(PIDFILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return data.get("pid"), data.get("port", DEFAULT_PORT)
 
 
 def cmd_start(args) -> None:
     """Start the viewer server in the background."""
     cmd_stop(quiet=True)
 
-    script = (
-        Path(__file__).resolve().parent.parent / "eval-viewer" / "generate_review.py"
-    )
-    if not script.exists():
-        print(f"Error: {script} not found.", file=sys.stderr)
-        sys.exit(1)
-
-    workspace = Path(args.workspace).resolve()
-    if not workspace.is_dir():
-        print(f"Error: {workspace} is not a directory.", file=sys.stderr)
-        sys.exit(1)
-
-    cmd = [sys.executable, str(script), str(workspace)]
-
-    port = args.port or DEFAULT_PORT
-    cmd.extend(["--port", str(port)])
-
-    if args.skill_name:
-        cmd.extend(["--skill-name", args.skill_name])
-    if args.previous_workspace:
-        cmd.extend(["--previous-workspace", str(args.previous_workspace)])
-    if args.benchmark:
-        cmd.extend(["--benchmark", str(args.benchmark)])
-
+    script = _resolve_viewer_script()
+    workspace = _resolve_workspace(args.workspace)
+    port, cmd = _build_viewer_command(args, script, workspace)
     if args.static:
         cmd.extend(["--static", str(args.static)])
         subprocess.run(cmd)
         return
 
+    _start_background_viewer(args, cmd, port)
+
+
+def _resolve_viewer_script() -> Path:
+    script = (
+        Path(__file__).resolve().parent.parent / "eval-viewer" / "generate_review.py"
+    )
+    if script.exists():
+        return script
+    print(f"Error: {script} not found.", file=sys.stderr)
+    sys.exit(1)
+
+
+def _resolve_workspace(workspace_text: str) -> Path:
+    workspace = Path(workspace_text).resolve()
+    if workspace.is_dir():
+        return workspace
+    print(f"Error: {workspace} is not a directory.", file=sys.stderr)
+    sys.exit(1)
+
+
+def _start_background_viewer(args, cmd: list[str], port: int) -> None:
     _kill_port(port)
 
-    popen_kwargs = dict(
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if _IS_WINDOWS:
-        popen_kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-        )
-    else:
-        popen_kwargs["start_new_session"] = True
-
-    proc = subprocess.Popen(cmd, **popen_kwargs)
+    proc = subprocess.Popen(cmd, **_viewer_popen_kwargs())
 
     PIDFILE.write_text(json.dumps({"pid": proc.pid, "port": port}), encoding="utf-8")
 
@@ -201,6 +220,34 @@ def cmd_start(args) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+
+def _viewer_popen_kwargs() -> dict:
+    popen_kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if _IS_WINDOWS:
+        popen_kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        )
+    else:
+        popen_kwargs["start_new_session"] = True
+    return popen_kwargs
+
+
+def _build_viewer_command(args, script: Path, workspace: Path) -> tuple[int, list[str]]:
+    port = args.port or DEFAULT_PORT
+    cmd = [sys.executable, str(script), str(workspace), "--port", str(port)]
+    _add_optional_arg(cmd, "--skill-name", args.skill_name)
+    _add_optional_arg(cmd, "--previous-workspace", args.previous_workspace)
+    _add_optional_arg(cmd, "--benchmark", args.benchmark)
+    return port, cmd
+
+
+def _add_optional_arg(cmd: list[str], flag: str, value: str | None) -> None:
+    if value:
+        cmd.extend([flag, str(value)])
 
 
 def main() -> None:

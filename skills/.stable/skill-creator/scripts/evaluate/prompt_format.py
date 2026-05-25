@@ -4,7 +4,9 @@ SYSTEM_NOTIFICATION_SECTION = "[SYSTEM NOTIFICATION]"
 USER_INPUT_SECTION = "[USER INPUT]"
 
 
-def format_prompt_sections(user_prompt: str, system_notification: str | None = None) -> str:
+def format_prompt_sections(
+    user_prompt: str, system_notification: str | None = None
+) -> str:
     """Render the prompt with an optional system-notification section."""
     if not system_notification:
         return user_prompt
@@ -27,7 +29,7 @@ def extract_prompt_sections(prompt: str) -> list[tuple[str, str]]:
     prefix = f"{SYSTEM_NOTIFICATION_SECTION}\n"
 
     if prompt.startswith(prefix):
-        system_notification, separator, user_prompt = prompt[len(prefix):].partition(
+        system_notification, separator, user_prompt = prompt[len(prefix) :].partition(
             section_separator
         )
         if separator:

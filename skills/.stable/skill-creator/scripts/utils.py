@@ -3,45 +3,59 @@
 from pathlib import Path
 
 
-
 def parse_skill_md(skill_path: Path) -> tuple[str, str, str]:
     """Parse a SKILL.md file, returning (name, description, full_content)."""
     content = (skill_path / "SKILL.md").read_text(encoding="utf-8")
     lines = content.split("\n")
+    end_idx = _find_frontmatter_end(lines)
+    name, description = _parse_frontmatter(lines[1:end_idx])
+    return name, description, content
 
+
+def _find_frontmatter_end(lines: list[str]) -> int:
     if lines[0].strip() != "---":
         raise ValueError("SKILL.md missing frontmatter (no opening ---)")
 
-    end_idx = None
     for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
-            end_idx = i
-            break
+            return i
 
-    if end_idx is None:
-        raise ValueError("SKILL.md missing frontmatter (no closing ---)")
+    raise ValueError("SKILL.md missing frontmatter (no closing ---)")
 
+
+def _parse_frontmatter(frontmatter_lines: list[str]) -> tuple[str, str]:
     name = ""
     description = ""
-    frontmatter_lines = lines[1:end_idx]
     i = 0
     while i < len(frontmatter_lines):
         line = frontmatter_lines[i]
         if line.startswith("name:"):
-            name = line[len("name:"):].strip().strip('"').strip("'")
+            name = line[len("name:") :].strip().strip('"').strip("'")
         elif line.startswith("description:"):
-            value = line[len("description:"):].strip()
-            # Handle YAML multiline indicators (>, |, >-, |-)
-            if value in (">", "|", ">-", "|-"):
-                continuation_lines: list[str] = []
-                i += 1
-                while i < len(frontmatter_lines) and (frontmatter_lines[i].startswith("  ") or frontmatter_lines[i].startswith("\t")):
-                    continuation_lines.append(frontmatter_lines[i].strip())
-                    i += 1
-                description = " ".join(continuation_lines)
-                continue
-            else:
-                description = value.strip('"').strip("'")
+            description, i = _parse_description(frontmatter_lines, i)
         i += 1
 
-    return name, description, content
+    return name, description
+
+
+def _parse_description(frontmatter_lines: list[str], index: int) -> tuple[str, int]:
+    value = frontmatter_lines[index][len("description:") :].strip()
+    if value not in (">", "|", ">-", "|-"):
+        return value.strip('"').strip("'"), index
+    description, final_index = _parse_multiline_value(frontmatter_lines, index + 1)
+    return description, final_index
+
+
+def _parse_multiline_value(
+    frontmatter_lines: list[str], start_index: int
+) -> tuple[str, int]:
+    continuation_lines: list[str] = []
+    index = start_index
+    while index < len(frontmatter_lines) and _is_indented(frontmatter_lines[index]):
+        continuation_lines.append(frontmatter_lines[index].strip())
+        index += 1
+    return " ".join(continuation_lines), index - 1
+
+
+def _is_indented(line: str) -> bool:
+    return line.startswith("  ") or line.startswith("\t")

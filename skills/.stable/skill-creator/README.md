@@ -8,12 +8,13 @@ The workflow runs realistic prompts against a skill, compares runs with and with
 
 Use this sequence for each iteration:
 
-1. Prepare isolated run directories with `prepare_fixture.py`.
-2. Run the evals with `run_skill_evals.py`.
-3. Grade each run and write `grading.json`.
-4. Validate grader output with `validate_grading.py`.
-5. Aggregate results with `aggregate_benchmark.py`.
-6. Open the review UI with `serve_viewer.py`.
+1. Run the evals with `evaluate_skill.py`.
+2. Grade each run and write `grading.json`.
+3. Validate grader output with `validate_grading.py`.
+4. Aggregate results with `aggregate_benchmark.py`.
+5. Open the review UI with `serve_viewer.py`.
+
+`evaluate_skill.py` is the only eval-running command. Fixture preparation and eval execution are internal application steps. Do not call `prepare_fixture.py` or `run_skill_evals.py` directly.
 
 ## Inputs
 
@@ -24,6 +25,70 @@ A skill under test needs a `SKILL.md` file and an eval definition at `evals/eval
 Eval files are copied from paths listed in each eval's `files` array. Paths are relative to the skill directory and must stay inside that directory.
 
 Fixtures can come from a shared fixture repository or a local fixture base path. Fixture-backed evals can either place the fixture in the run directory or keep it outside the working directory and expose it through `{{FIXTURE_PATH}}`.
+
+## Run Evals
+
+Run evals through the single orchestration entrypoint:
+
+```bash
+python <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex> \
+  --model <model-id> \
+  --effort <effort>
+```
+
+Optional filters:
+
+```bash
+python <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex> \
+  --eval-ids 1,3 \
+  --config with_skill
+```
+
+`--config` accepts `with_skill` or `without_skill`. If omitted, both configurations run.
+
+Use a run root under the current workspace so generated artifacts stay contained to the session. Each invocation creates a fresh prepared run root under `--run-root`, then writes result artifacts under:
+
+```text
+<prepared-run-root>/results/iteration-1/
+```
+
+The final command output includes the prepared run root and the run manifest summary.
+
+## Result Layout
+
+Every iteration follows this structure:
+
+```text
+iteration-N/
+└── eval-<ID>/
+    ├── eval_metadata.json
+    ├── with_skill/
+    │   ├── turn-1/
+    │   │   └── outputs/
+    │   │       ├── response.md
+    │   │       └── transcript.md
+    │   ├── turn-2/
+    │   │   └── outputs/
+    │   │       ├── response.md
+    │   │       └── transcript.md
+    │   ├── grading.json
+    │   ├── raw_output.jsonl
+    │   └── timing.json
+    └── without_skill/
+        ├── turn-1/
+        ├── turn-2/
+        ├── grading.json
+        ├── raw_output.jsonl
+        └── timing.json
+```
+
+`eval_metadata.json` is shared by both configurations for one eval. `grading.json`, `timing.json`, and `raw_output.jsonl` live under the configuration directory.
 
 ## Multi-Turn Evals
 
@@ -46,20 +111,9 @@ Each eval defines a `turns` array. A one-turn eval has one entry. A multi-turn e
 }
 ```
 
-`run_skill_evals.py` sends the first turn as a new provider session and sends later turns by resuming that same session. The agent can use conversation state from earlier turns, but it cannot see future turns before they are sent.
+The runner sends the first turn as a new provider session and sends later turns by resuming that same session. The agent can use conversation state from earlier turns, but it cannot see future turns before they are sent.
 
-Each turn writes its own response and transcript:
-
-```text
-iteration-N/eval-<ID>/<configuration>/turn-1/outputs/response.md
-iteration-N/eval-<ID>/<configuration>/turn-1/outputs/transcript.md
-iteration-N/eval-<ID>/<configuration>/turn-2/outputs/response.md
-iteration-N/eval-<ID>/<configuration>/turn-2/outputs/transcript.md
-```
-
-Expectations belong to the turn they evaluate. Use turn-level expectations when the success criteria change across the conversation.
-
-Timeouts can be set at the eval level or on an individual turn. A turn-level timeout overrides the eval-level timeout and the command-line `--timeout`.
+Each turn writes its own `response.md` and `transcript.md`. Expectations belong to the turn they evaluate.
 
 ## Eval Fixtures
 
@@ -105,65 +159,22 @@ When `fixture_in_workdir` is `true`, the fixture is copied into both the `with_s
 
 When `fixture_in_workdir` is `false`, the fixture is copied to a sibling directory outside the agent's working directory. The agent receives the path only if the prompt uses `{{FIXTURE_PATH}}`.
 
-```json
-{
-  "id": 2,
-  "eval_name": "hidden-project-path",
-  "fixture": "sample-project",
-  "fixture_in_workdir": false,
-  "turns": [
-    {
-      "prompt": "The project is at {{FIXTURE_PATH}}. Inspect it and summarize the build steps.",
-      "expectations": []
-    }
-  ]
-}
-```
+Fixture copies are isolated per eval and per configuration. Changes made by a `with_skill` run cannot affect the matching `without_skill` run, and changes from one eval cannot affect another eval.
 
-`prepare_fixture.py` copies the selected fixture separately for each eval configuration. Changes made by a `with_skill` run cannot affect the matching `without_skill` run, and changes from one eval cannot affect another eval.
+## Internal Application Shape
 
-## Prepare Runs
+`evaluate_skill.py` owns the CLI. It creates typed options and calls the internal application classes:
 
-Run `prepare_fixture.py` first. It creates a fresh prepared run root containing one directory for each eval and configuration.
+- `FixturePreparer` in `prepare_fixture.py`
+- `SkillEvalRunner` in `run_skill_evals.py`
 
-```bash
-python <skill-creator-path>/scripts/prepare_fixture.py \
-  --skill-path <path-to-skill> \
-  --run-root <path-to-run-root> \
-  --provider <claude|codex>
-```
+The handoff between preparation and execution is an in-memory `PreparedRun` dataclass. There is no prepared manifest file between those steps.
 
-The command prints a JSON mapping of eval IDs to prepared `with_skill` and `without_skill` directories. The prepared run root is a unique subdirectory under `--run-root`.
-
-Use a run root under the current workspace so generated artifacts stay contained to the session.
-
-## Run Evals
-
-Pass the prepared run root from `prepare_fixture.py` to `run_skill_evals.py`.
-
-```bash
-python <skill-creator-path>/scripts/run_skill_evals.py \
-  --skill-path <path-to-skill> \
-  --workspace <workspace-path> \
-  --iteration <N> \
-  --provider <claude|codex> \
-  --model <model-id> \
-  --max-parallel 4 \
-  --timeout 900 \
-  --run-root <prepared-run-root>
-```
-
-`--workspace` receives the iteration outputs. Each run writes extracted responses, transcripts, timing data, raw provider output, progress data, and a run manifest.
-
-Claude uses provider skill discovery from `.claude/skills/<skill-name>/`.
-
-Codex receives an explicit instruction pointing to the copied `SKILL.md` for `with_skill` runs.
+`run_manifest.json` still exists as a result artifact under the iteration directory. It summarizes completed runs, statuses, timings, costs, model, and effort.
 
 ## Grade Results
 
-Each run needs a `grading.json` file at the configuration directory level.
-
-For each eval and configuration, the grader reads the run outputs and writes:
+Each run needs a `grading.json` file at the configuration directory level:
 
 ```text
 iteration-N/eval-<ID>/<configuration>/grading.json
@@ -173,7 +184,7 @@ Validate every grading file before aggregating:
 
 ```bash
 python <skill-creator-path>/scripts/validate_grading.py \
-  <workspace-path>/iteration-<N>/eval-<ID>/<configuration>/grading.json
+  <prepared-run-root>/results/iteration-1/eval-<ID>/<configuration>/grading.json
 ```
 
 `grading.json` must include expectation results, summary counts, pass rate, and eval feedback.
@@ -184,7 +195,7 @@ After all grading files validate, aggregate the iteration:
 
 ```bash
 python <skill-creator-path>/scripts/aggregate_benchmark.py \
-  <workspace-path>/iteration-<N> \
+  <prepared-run-root>/results/iteration-1 \
   --skill-name <skill-name>
 ```
 
@@ -196,38 +207,36 @@ Open the viewer after grading and aggregation:
 
 ```bash
 python <skill-creator-path>/scripts/serve_viewer.py start \
-  <workspace-path>/iteration-<N> \
+  <prepared-run-root>/results/iteration-1 \
   --skill-name <skill-name> \
-  --benchmark <workspace-path>/iteration-<N>/benchmark.json
+  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json
 ```
 
 For later iterations, include the previous iteration so the viewer can show comparisons:
 
 ```bash
 python <skill-creator-path>/scripts/serve_viewer.py start \
-  <workspace-path>/iteration-<N> \
+  <prepared-run-root>/results/iteration-1 \
   --skill-name <skill-name> \
-  --benchmark <workspace-path>/iteration-<N>/benchmark.json \
-  --previous-workspace <workspace-path>/iteration-<N-1>
+  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json \
+  --previous-workspace <previous-prepared-run-root>/results/iteration-1
 ```
 
 In headless environments, write a static viewer file instead of starting a server:
 
 ```bash
 python <skill-creator-path>/scripts/serve_viewer.py start \
-  <workspace-path>/iteration-<N> \
+  <prepared-run-root>/results/iteration-1 \
   --skill-name <skill-name> \
-  --benchmark <workspace-path>/iteration-<N>/benchmark.json \
+  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json \
   --static <path-to-output-html> \
   --no-open
 ```
 
 ## Isolation
 
-`prepare_fixture.py` creates a new prepared run root for every invocation. Each eval gets separate `with_skill` and `without_skill` working directories.
+Every `evaluate_skill.py` invocation creates a new prepared run root. Each eval gets separate `with_skill` and `without_skill` working directories.
 
 `with_skill` receives a copied version of the skill under test in the provider-specific discovery location. `without_skill` does not receive the skill.
 
 Fixtures and eval files are copied into each run configuration separately. A run modifies only its own prepared working directory, so one eval or configuration cannot contaminate another.
-
-`run_skill_evals.py` executes against the prepared directories. It does not recreate or reuse the run root.

@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.
+description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update an existing skill, run evals to test a skill, or benchmark skill performance with variance analysis.
 ---
 
 # Skill Creator
@@ -11,7 +11,7 @@ At a high level, the process of creating a skill goes like this:
 
 - Decide what you want the skill to do and roughly how it should do it
 - Write a draft of the skill
-- Create a few test prompts and run them via `run_skill_evals.py`
+- Create a few test prompts and run them via `evaluate_skill.py`
 - Help the user evaluate the results both qualitatively and quantitatively
   - While the runs happen in the background, draft some quantitative evals if there aren't any (if there are some, you can either use as is or modify if you feel something needs to change about them). Then explain them to the user (or if they already existed, explain the ones that already exist)
   - Use `serve_viewer.py` to show the user the results for them to look at, and also let them look at the quantitative metrics
@@ -200,43 +200,39 @@ Key placement rules:
 - **timing.json**: at the config directory level.
 - **Eval directory names**: use the numeric ID from evals.json prefixed with `eval-` (e.g., `eval-1/`, `eval-2/`). Put the human-readable name in `eval_name` inside eval_metadata.json. The aggregation script requires the `eval-` prefix.
 
-### Step 1: Prepare fixtures, then run all evals
+### Step 1: Run evals through the orchestrator
 
-This workflow is now split into two steps. `prepare_fixture.py` creates the isolated run root first. `run_skill_evals.py` then executes against that prepared run root without recreating it.
-
-First prepare the run directories:
+Call `evaluate_skill.py`. Do not call `prepare_fixture.py` or `run_skill_evals.py` directly. Those modules are internal application code used by the orchestrator.
 
 ```bash
-python <skill-creator-path>/scripts/prepare_fixture.py \
+python <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
-  --provider <claude|codex>
-```
-
-This prints a JSON mapping of eval ids to prepared `with_skill` and `without_skill` directories. The actual prepared run root will be a unique subdirectory under `--run-root`, typically named something like `<skill>-eval-runs-xxxxxxx/`, and it contains `eval-1/`, `eval-2/`, and so on.
-
-Then run the evals against that prepared run root:
-
-```bash
-python <skill-creator-path>/scripts/run_skill_evals.py \
-  --skill-path <path-to-skill> \
-  --workspace <workspace-path> \
-  --iteration <N> \
   --provider <claude|codex> \
   --model <model-id> \
-  --max-parallel 4 \
-  --timeout 900 \
-  --run-root <path-to-run-root>
+  --effort <effort>
 ```
 
-**Run root (required):** For `prepare_fixture.py`, this is the base directory where the script stages fixtures and creates a unique prepared run root. Keep it under the current working directory so eval artifacts stay contained to the session. For `run_skill_evals.py`, this must be the specific prepared run root that already contains `eval-<id>/with_skill` and `eval-<id>/without_skill`.
-Examples: run `prepare_fixture.py` with a cwd-local directory such as `<cwd>/skill-evals`, then pass the returned prepared run root such as `<cwd>/skill-evals/<skill>-eval-runs-ab12cd34` to `run_skill_evals.py`.
+Use optional filters only when the user asks to limit the run:
 
-**Timeout:** The `--timeout` flag sets seconds per turn. Before launching, think about what each turn asks the agent to do. A turn that asks a question needs 60 seconds. A turn that asks the agent to implement a feature, write tests, or build a project can easily take 10+ minutes. Set the timeout generously for the slowest turn in your eval set. When in doubt, use `--timeout 900` (15 minutes). A timed-out run produces no useful output but still burns tokens and costs real money. Every token spent before the timeout is wasted.
+```bash
+python <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex> \
+  --model <model-id> \
+  --effort <effort> \
+  --eval-ids 1,3 \
+  --config with_skill
+```
 
-Run `run_skill_evals.py` in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
+`--config` accepts only `with_skill` or `without_skill`. If omitted, both configurations run. `--eval-ids` is a comma-separated list of eval IDs from `evals/evals.json`.
 
-**How it works:** `prepare_fixture.py` creates the isolated run root ahead of time. Each eval run then starts as its own provider CLI process in one of the prepared directories under that run root. For providers with native skill discovery, `with_skill` already contains the skill in the provider-specific discovery folder. Providers without discovery support get an explicit instruction to read the copied skill file. For `without_skill` runs, no skill is injected. The prompts are otherwise identical.
+**Run root (required):** This is the base directory where the orchestrator stages fixtures, creates a unique prepared run root, and writes results. Keep it under the current working directory so eval artifacts stay contained to the session. Each invocation creates a fresh child directory named like `<skill>-eval-runs-xxxxxxx/`.
+
+Run `evaluate_skill.py` in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
+
+**How it works:** The orchestrator prepares isolated run directories in memory, then starts each eval run as its own provider CLI process in one of those prepared directories. For `with_skill` runs, the prepared directory contains the skill in the provider-specific discovery folder. For `without_skill` runs, the prepared directory does not contain the skill. The prompts are otherwise identical.
 
 Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent turns. Each turn's prompt is piped via stdin to avoid shell escaping issues.
 
@@ -248,6 +244,8 @@ Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent tur
 - `raw_output.jsonl` with the full `stream-json` transcript for debugging
 - `run_manifest.json` summarizing all runs (status, timing, costs)
 - `progress.json` with live progress (updates after each run completes)
+
+The result iteration lives under `<prepared-run-root>/results/iteration-1/`. The command output includes the prepared run root and run manifest summary.
 
 **Fixture sources:** `evals/evals.json` can define a top-level `fixture_repo` and optional `fixture_ref` so eval fixtures come from a shared repository at a pinned commit, tag, or branch. If you already have a local pinned checkout, use `fixture_base_path` instead.
 
@@ -274,7 +272,7 @@ Update the `eval_metadata.json` files and `evals/evals.json` with the expectatio
 
 ### Step 3: Grade, then aggregate and launch the viewer
 
-Once `run_skill_evals.py` finishes, spawn grader subagents for each run. One grader per run (not one for the whole batch). You can spawn all graders in parallel.
+Once `evaluate_skill.py` finishes, spawn grader subagents for each run. One grader per run (not one for the whole batch). You can spawn all graders in parallel.
 
 The graders are not optional bookkeeping. They are the primary qualitative review pass for the loop, and they exist in part to save your context window. Do not start reading transcripts and outputs run-by-run to form your own qualitative judgments before the graders do. That defeats the point of parallel grading and burns context on work the graders are already supposed to do. Before the graders finish, your job is orchestration: confirm the expected files exist, launch graders, and fix pipeline breakage if something is missing or obviously malformed. Do not substitute your own intermediary review for the graders' review.
 
@@ -398,7 +396,7 @@ This task is pretty important (we are trying to create billions a year in econom
 After improving the skill:
 
 1. Apply your improvements to the skill
-2. Run `prepare_fixture.py` again, then run `run_skill_evals.py` with `--iteration <N+1>`. Preparation creates a fresh run tree every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
+2. Run `evaluate_skill.py` again. The orchestrator creates a fresh run tree every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) -- that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
 3. Launch the reviewer with `--previous-workspace` pointing at the previous iteration
 4. Wait for the user to review and tell you they're done
 5. Read the new feedback, improve again, repeat
@@ -461,7 +459,7 @@ Repeating one more time the core loop here for emphasis:
 
 - Figure out what the skill is about
 - Draft or edit the skill
-- Run the test prompts via `run_skill_evals.py`
+- Run the test prompts via `evaluate_skill.py`
 - With the user, evaluate the outputs:
   - Create benchmark.json and run `serve_viewer.py` to help the user review them
 - Run quantitative evals

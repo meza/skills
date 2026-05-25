@@ -1,0 +1,264 @@
+import argparse
+import contextlib
+import io
+import json
+import runpy
+import sys
+import tempfile
+import unittest
+import warnings
+from pathlib import Path
+from unittest import mock
+
+from scripts import evaluate_skill
+from scripts.evaluate.prepare_fixture import PreparedRun
+
+
+class EvaluateSkillTests(unittest.TestCase):
+    def test_execute_prepares_skill_then_runs_prepared_run(self):
+        prepared_run = PreparedRun(
+            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
+            run_root=Path("F:/runs/prepared"),
+            provider="codex",
+            skill_name="sample-skill",
+            evals=[],
+        )
+        run_manifest = {
+            "skill_name": "sample-skill",
+            "provider": "codex",
+            "runs": [],
+        }
+
+        with (
+            mock.patch.object(
+                evaluate_skill,
+                "FixturePreparer",
+            ) as fixture_preparer,
+            mock.patch.object(
+                evaluate_skill,
+                "SkillEvalRunner",
+            ) as skill_eval_runner,
+        ):
+            fixture_preparer.return_value.prepare.return_value = prepared_run
+            skill_eval_runner.return_value.run.return_value = run_manifest
+
+            result = evaluate_skill.execute(
+                argparse.Namespace(
+                    skill_path=Path("F:/skills/sample-skill"),
+                    run_root=Path("F:/runs"),
+                    provider="codex",
+                    model="gpt-5.4",
+                    effort="high",
+                    eval_ids="1,2",
+                    config="with_skill",
+                    max_parallel=12,
+                    timeout=900,
+                )
+            )
+
+        self.assertEqual(
+            result,
+            {
+                "prepare": prepared_run.to_summary(),
+                "run": run_manifest,
+            },
+        )
+
+        fixture_preparer.return_value.prepare.assert_called_once_with()
+        prepare_options = fixture_preparer.call_args.args[0]
+        self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
+        self.assertEqual(prepare_options.run_root, Path("F:/runs"))
+        self.assertEqual(prepare_options.provider, "codex")
+        self.assertIsNone(prepare_options.skill_root)
+
+        runner_args = skill_eval_runner.call_args.args
+        self.assertIs(runner_args[0], prepared_run)
+        run_options = runner_args[1]
+        self.assertEqual(run_options.eval_ids, "1,2")
+        self.assertEqual(run_options.config, "with_skill")
+        self.assertEqual(run_options.model, "gpt-5.4")
+        self.assertEqual(run_options.effort, "high")
+        self.assertEqual(run_options.max_parallel, 12)
+        self.assertEqual(run_options.timeout, 900)
+        skill_eval_runner.return_value.run.assert_called_once_with()
+
+    def test_validate_run_root_rejects_path_inside_git_directory_workspace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / "workspace"
+            run_root = workspace / "tmp" / "evals"
+            (workspace / ".git").mkdir(parents=True)
+
+            with self.assertRaises(
+                evaluate_skill.RunRootInsideGitWorkspaceError
+            ) as raised:
+                evaluate_skill.validate_run_root_is_not_in_git_workspace(run_root)
+
+        self.assertIn(
+            "--run-root must not be inside a Git workspace", str(raised.exception)
+        )
+        self.assertIn(".git", str(raised.exception))
+
+    def test_validate_run_root_rejects_path_inside_git_file_workspace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / "workspace"
+            run_root = workspace / "tmp" / "evals"
+            workspace.mkdir()
+            (workspace / ".git").write_text(
+                "gitdir: ../.git/worktrees/workspace\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(evaluate_skill.RunRootInsideGitWorkspaceError):
+                evaluate_skill.validate_run_root_is_not_in_git_workspace(run_root)
+
+    def test_validate_run_root_allows_path_outside_git_workspace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir) / "tmp" / "evals"
+
+            evaluate_skill.validate_run_root_is_not_in_git_workspace(run_root)
+
+    def test_main_parses_cli_options_and_prints_execution_summary(self):
+        expected_result = {
+            "prepare": {
+                "run_root": "F:/runs/prepared",
+                "provider": "codex",
+                "skill_name": "sample-skill",
+                "eval_count": 1,
+            },
+            "run": {"runs": []},
+        }
+        argv = [
+            "evaluate_skill.py",
+            "--skill-path",
+            "F:/skills/sample-skill",
+            "--run-root",
+            "F:/runs",
+            "--provider",
+            "codex",
+            "--model",
+            "gpt-5.5",
+            "--effort",
+            "high",
+            "--eval-ids",
+            "1,2",
+            "--config",
+            "without_skill",
+            "--max-parallel",
+            "12",
+            "--timeout",
+            "900",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(
+                evaluate_skill, "execute", return_value=expected_result
+            ) as execute,
+            contextlib.redirect_stdout(io.StringIO()) as stdout,
+        ):
+            evaluate_skill.main()
+
+        args = execute.call_args.args[0]
+        self.assertEqual(args.skill_path, Path("F:/skills/sample-skill"))
+        self.assertEqual(args.run_root, Path("F:/runs"))
+        self.assertEqual(args.provider, "codex")
+        self.assertEqual(args.model, "gpt-5.5")
+        self.assertEqual(args.effort, "high")
+        self.assertEqual(args.eval_ids, "1,2")
+        self.assertEqual(args.config, "without_skill")
+        self.assertEqual(args.max_parallel, 12)
+        self.assertEqual(args.timeout, 900)
+        self.assertEqual(json.loads(stdout.getvalue()), expected_result)
+
+    def test_main_uses_runner_defaults_for_optional_limits(self):
+        argv = [
+            "evaluate_skill.py",
+            "--skill-path",
+            "F:/skills/sample-skill",
+            "--run-root",
+            "F:/runs",
+            "--provider",
+            "codex",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(evaluate_skill, "execute", return_value={}) as execute,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            evaluate_skill.main()
+
+        args = execute.call_args.args[0]
+        self.assertIsNone(args.model)
+        self.assertIsNone(args.effort)
+        self.assertIsNone(args.eval_ids)
+        self.assertIsNone(args.config)
+        self.assertEqual(args.max_parallel, 10)
+        self.assertEqual(args.timeout, 600)
+
+    def test_main_reports_run_root_git_workspace_errors(self):
+        argv = [
+            "evaluate_skill.py",
+            "--skill-path",
+            "F:/skills/sample-skill",
+            "--run-root",
+            "F:/runs",
+            "--provider",
+            "codex",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(
+                evaluate_skill,
+                "execute",
+                side_effect=evaluate_skill.RunRootInsideGitWorkspaceError(
+                    "--run-root must not be inside a Git workspace"
+                ),
+            ),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            evaluate_skill.main()
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn(
+            "Error: --run-root must not be inside a Git workspace",
+            stderr.getvalue(),
+        )
+
+    def test_module_entrypoint_requires_cli_boundaries(self):
+        with (
+            mock.patch.object(sys, "argv", ["evaluate_skill.py"]),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            warnings.catch_warnings(),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            warnings.simplefilter("ignore", RuntimeWarning)
+            runpy.run_module("scripts.evaluate_skill", run_name="__main__")
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--skill-path", stderr.getvalue())
+        self.assertIn("--run-root", stderr.getvalue())
+        self.assertIn("--provider", stderr.getvalue())
+
+    def test_direct_script_entrypoint_requires_cli_boundaries(self):
+        script_path = (
+            Path(__file__).resolve().parents[1] / "scripts" / "evaluate_skill.py"
+        )
+
+        with (
+            mock.patch.object(sys, "argv", [str(script_path)]),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            runpy.run_path(str(script_path), run_name="__main__")
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--skill-path", stderr.getvalue())
+        self.assertIn("--run-root", stderr.getvalue())
+        self.assertIn("--provider", stderr.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

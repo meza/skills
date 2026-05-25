@@ -3,7 +3,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 EVAL_VIEWER_DIR = PROJECT_ROOT / "eval-viewer"
@@ -14,7 +13,9 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 def _load_generate_review_module():
     module_path = EVAL_VIEWER_DIR / "generate_review.py"
-    spec = importlib.util.spec_from_file_location("skill_creator_generate_review", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "skill_creator_generate_review", module_path
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -33,7 +34,10 @@ class GeneratedHtmlBrandingTests(unittest.TestCase):
                     "prompt": "Review the sample output",
                     "eval_id": 1,
                     "eval_name": "Sample Eval",
-                    "turns": [{"role": "user", "text": "Prompt"}, {"role": "agent", "files": []}],
+                    "turns": [
+                        {"role": "user", "text": "Prompt"},
+                        {"role": "agent", "files": []},
+                    ],
                     "outputs": [],
                     "grading": {
                         "eval_feedback": {

@@ -28,114 +28,191 @@ def validate_grading_data(data: object) -> list[str]:
     if not isinstance(data, dict):
         return ["top-level JSON value must be an object"]
 
+    expectations = _validate_expectations(data, errors)
+    _validate_summary(data, expectations, errors)
+    _validate_eval_feedback(data, errors)
+    _validate_claims(data, errors)
+    _validate_user_notes(data, errors)
+    _validate_execution_metrics(data, errors)
+    _validate_timing(data, errors)
+
+    return errors
+
+
+def _validate_expectations(data: dict, errors: list[str]) -> list:
     expectations = data.get("expectations")
     if not isinstance(expectations, list):
         errors.append("expectations must be a list")
-        expectations = []
+        return []
     for index, expectation in enumerate(expectations):
-        prefix = f"expectations[{index}]"
-        if not isinstance(expectation, dict):
-            errors.append(f"{prefix} must be an object")
-            continue
-        if not isinstance(expectation.get("text"), str) or not expectation["text"].strip():
-            errors.append(f"{prefix}.text must be a non-empty string")
-        if not isinstance(expectation.get("passed"), bool):
-            errors.append(f"{prefix}.passed must be a boolean")
-        if not isinstance(expectation.get("evidence"), str) or not expectation["evidence"].strip():
-            errors.append(f"{prefix}.evidence must be a non-empty string")
+        _validate_expectation(index, expectation, errors)
+    return expectations
 
+
+def _validate_expectation(index: int, expectation: object, errors: list[str]) -> None:
+    prefix = f"expectations[{index}]"
+    if not isinstance(expectation, dict):
+        errors.append(f"{prefix} must be an object")
+        return
+    _require_non_empty_string(expectation, "text", f"{prefix}.text", errors)
+    if not isinstance(expectation.get("passed"), bool):
+        errors.append(f"{prefix}.passed must be a boolean")
+    _require_non_empty_string(expectation, "evidence", f"{prefix}.evidence", errors)
+
+
+def _validate_summary(data: dict, expectations: list, errors: list[str]) -> None:
     summary = data.get("summary")
     if not isinstance(summary, dict):
         errors.append("summary must be an object")
-        summary = {}
+        return
     for field in ("passed", "failed", "total"):
         value = summary.get(field)
         if not isinstance(value, int) or isinstance(value, bool):
             errors.append(f"summary.{field} must be an integer")
-    pass_rate = summary.get("pass_rate")
-    if not _is_number(pass_rate):
+    if not _is_number(summary.get("pass_rate")):
         errors.append("summary.pass_rate must be a number")
-    if isinstance(summary.get("passed"), int) and isinstance(summary.get("failed"), int) and isinstance(summary.get("total"), int):
-        if summary["passed"] + summary["failed"] != summary["total"]:
-            errors.append("summary.passed + summary.failed must equal summary.total")
-        if isinstance(expectations, list) and summary["total"] != len(expectations):
-            errors.append("summary.total must match len(expectations)")
+    if _summary_counts_are_ints(summary):
+        _validate_summary_totals(summary, expectations, errors)
 
+
+def _summary_counts_are_ints(summary: dict) -> bool:
+    return all(isinstance(summary.get(field), int) for field in _SUMMARY_FIELDS)
+
+
+_SUMMARY_FIELDS = ("passed", "failed", "total")
+
+
+def _validate_summary_totals(
+    summary: dict, expectations: list, errors: list[str]
+) -> None:
+    if summary["passed"] + summary["failed"] != summary["total"]:
+        errors.append("summary.passed + summary.failed must equal summary.total")
+    if summary["total"] != len(expectations):
+        errors.append("summary.total must match len(expectations)")
+
+
+def _validate_eval_feedback(data: dict, errors: list[str]) -> None:
     eval_feedback = data.get("eval_feedback")
     if not isinstance(eval_feedback, dict):
         errors.append("eval_feedback must be an object")
-        eval_feedback = {}
+        return
     suggestions = eval_feedback.get("suggestions")
     if not isinstance(suggestions, list):
         errors.append("eval_feedback.suggestions must be a list")
         suggestions = []
     for index, suggestion in enumerate(suggestions):
-        prefix = f"eval_feedback.suggestions[{index}]"
-        if not isinstance(suggestion, dict):
-            errors.append(f"{prefix} must be an object")
-            continue
-        reason = suggestion.get("reason")
-        if not isinstance(reason, str) or not reason.strip():
-            errors.append(f"{prefix}.reason must be a non-empty string")
-        assertion = suggestion.get("assertion")
-        if assertion is not None and not isinstance(assertion, str):
-            errors.append(f"{prefix}.assertion must be a string when present")
-    overall = eval_feedback.get("overall")
-    if not isinstance(overall, str) or not overall.strip():
-        errors.append("eval_feedback.overall must be a non-empty string")
+        _validate_suggestion(index, suggestion, errors)
+    _require_non_empty_string(eval_feedback, "overall", "eval_feedback.overall", errors)
 
+
+def _validate_suggestion(index: int, suggestion: object, errors: list[str]) -> None:
+    prefix = f"eval_feedback.suggestions[{index}]"
+    if not isinstance(suggestion, dict):
+        errors.append(f"{prefix} must be an object")
+        return
+    _require_non_empty_string(suggestion, "reason", f"{prefix}.reason", errors)
+    assertion = suggestion.get("assertion")
+    if assertion is not None and not isinstance(assertion, str):
+        errors.append(f"{prefix}.assertion must be a string when present")
+
+
+def _validate_claims(data: dict, errors: list[str]) -> None:
     claims = data.get("claims")
-    if claims is not None:
-        if not isinstance(claims, list):
-            errors.append("claims must be a list when present")
-        else:
-            for index, claim in enumerate(claims):
-                prefix = f"claims[{index}]"
-                if not isinstance(claim, dict):
-                    errors.append(f"{prefix} must be an object")
-                    continue
-                if not isinstance(claim.get("claim"), str) or not claim["claim"].strip():
-                    errors.append(f"{prefix}.claim must be a non-empty string")
-                if not isinstance(claim.get("type"), str) or not claim["type"].strip():
-                    errors.append(f"{prefix}.type must be a non-empty string")
-                if not isinstance(claim.get("verified"), bool):
-                    errors.append(f"{prefix}.verified must be a boolean")
-                if not isinstance(claim.get("evidence"), str) or not claim["evidence"].strip():
-                    errors.append(f"{prefix}.evidence must be a non-empty string")
+    if claims is None:
+        return
+    if not isinstance(claims, list):
+        errors.append("claims must be a list when present")
+        return
+    for index, claim in enumerate(claims):
+        _validate_claim(index, claim, errors)
 
+
+def _validate_claim(index: int, claim: object, errors: list[str]) -> None:
+    prefix = f"claims[{index}]"
+    if not isinstance(claim, dict):
+        errors.append(f"{prefix} must be an object")
+        return
+    _require_non_empty_string(claim, "claim", f"{prefix}.claim", errors)
+    _require_non_empty_string(claim, "type", f"{prefix}.type", errors)
+    if not isinstance(claim.get("verified"), bool):
+        errors.append(f"{prefix}.verified must be a boolean")
+    _require_non_empty_string(claim, "evidence", f"{prefix}.evidence", errors)
+
+
+def _validate_user_notes(data: dict, errors: list[str]) -> None:
     user_notes = data.get("user_notes_summary")
-    if user_notes is not None:
-        if not isinstance(user_notes, dict):
-            errors.append("user_notes_summary must be an object when present")
-        else:
-            for field in ("uncertainties", "needs_review", "workarounds"):
-                if field in user_notes:
-                    _validate_string_list(f"user_notes_summary.{field}", user_notes[field], errors)
+    if user_notes is None:
+        return
+    if not isinstance(user_notes, dict):
+        errors.append("user_notes_summary must be an object when present")
+        return
+    for field in ("uncertainties", "needs_review", "workarounds"):
+        if field in user_notes:
+            _validate_string_list(
+                f"user_notes_summary.{field}", user_notes[field], errors
+            )
 
+
+def _validate_execution_metrics(data: dict, errors: list[str]) -> None:
     execution_metrics = data.get("execution_metrics")
-    if execution_metrics is not None:
-        if not isinstance(execution_metrics, dict):
-            errors.append("execution_metrics must be an object when present")
-        else:
-            tool_calls = execution_metrics.get("tool_calls")
-            if tool_calls is not None and not isinstance(tool_calls, dict):
-                errors.append("execution_metrics.tool_calls must be an object when present")
-            for field in ("total_tool_calls", "total_steps", "errors_encountered", "output_chars", "transcript_chars"):
-                if field in execution_metrics:
-                    value = execution_metrics[field]
-                    if not isinstance(value, int) or isinstance(value, bool):
-                        errors.append(f"execution_metrics.{field} must be an integer")
+    if execution_metrics is None:
+        return
+    if not isinstance(execution_metrics, dict):
+        errors.append("execution_metrics must be an object when present")
+        return
+    _validate_tool_calls(execution_metrics, errors)
+    for field in _EXECUTION_INTEGER_FIELDS:
+        _validate_optional_integer(execution_metrics, field, errors)
 
+
+_EXECUTION_INTEGER_FIELDS = (
+    "total_tool_calls",
+    "total_steps",
+    "errors_encountered",
+    "output_chars",
+    "transcript_chars",
+)
+
+
+def _validate_tool_calls(execution_metrics: dict, errors: list[str]) -> None:
+    tool_calls = execution_metrics.get("tool_calls")
+    if tool_calls is not None and not isinstance(tool_calls, dict):
+        errors.append("execution_metrics.tool_calls must be an object when present")
+
+
+def _validate_optional_integer(values: dict, field: str, errors: list[str]) -> None:
+    if field not in values:
+        return
+    value = values[field]
+    if not isinstance(value, int) or isinstance(value, bool):
+        errors.append(f"execution_metrics.{field} must be an integer")
+
+
+def _validate_timing(data: dict, errors: list[str]) -> None:
     timing = data.get("timing")
-    if timing is not None:
-        if not isinstance(timing, dict):
-            errors.append("timing must be an object when present")
-        else:
-            for field in ("executor_duration_seconds", "grader_duration_seconds", "total_duration_seconds"):
-                if field in timing and not _is_number(timing[field]):
-                    errors.append(f"timing.{field} must be a number")
+    if timing is None:
+        return
+    if not isinstance(timing, dict):
+        errors.append("timing must be an object when present")
+        return
+    for field in _TIMING_NUMBER_FIELDS:
+        if field in timing and not _is_number(timing[field]):
+            errors.append(f"timing.{field} must be a number")
 
-    return errors
+
+_TIMING_NUMBER_FIELDS = (
+    "executor_duration_seconds",
+    "grader_duration_seconds",
+    "total_duration_seconds",
+)
+
+
+def _require_non_empty_string(
+    values: dict, field: str, name: str, errors: list[str]
+) -> None:
+    value = values.get(field)
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{name} must be a non-empty string")
 
 
 def validate_grading_file(path: Path) -> list[str]:

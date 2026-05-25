@@ -2,10 +2,10 @@
 """
 Prepare isolated run directories for skill evals.
 
-The caller provides a skill directory, a base run root, and a provider. The
-module reads <skill>/evals/evals.json, stages any shared fixture source, creates
-a fresh prepared run root, and prepares one working directory for each eval
-configuration:
+The orchestrator provides a skill directory, a base run root, and a provider.
+The module reads <skill>/evals/evals.json, stages any shared fixture source,
+creates a fresh prepared run root, and prepares one working directory for each
+eval configuration:
 
     <run-root>/
       fixtures/                 # cloned or reused fixture source, when needed
@@ -19,52 +19,161 @@ the with_skill and without_skill configurations receive separate fixture copies
 so changes made by one run cannot contaminate the other. Files listed in an
 eval's files[] entry are copied into both configurations.
 
-The prepared manifest is written to --manifest-path when provided. Otherwise it
-is written to <prepared-run-root>/prepared_manifest.json. The manifest is the
-durable handoff to the eval runner and has this shape:
+FixturePreparer returns a PreparedRun object as the in-memory handoff to the
+eval runner:
 
-    {
-      "run_root": "<prepared-run-root>",
-      "provider": "claude",
-      "skill_name": "example-skill",
-      "evals": [
-        {
-          "eval_id": 1,
-          "eval_name": "basic",
-          "with_skill_path": "<prepared-run-root>/eval-1/with_skill",
-          "without_skill_path": "<prepared-run-root>/eval-1/without_skill",
-          "skill_file": "<prepared-run-root>/eval-1/with_skill/.claude/skills/example-skill/SKILL.md",
-          "with_skill_fixture_path": null,
-          "without_skill_fixture_path": null
-        }
-      ]
-    }
-
-execute(args) returns the short summary printed by main():
-
-    {
-      "manifest_path": "<manifest-path>",
-      "run_root": "<prepared-run-root>",
-      "provider": "claude",
-      "skill_name": "example-skill",
-      "eval_count": 1
-    }
+    PreparedRun(
+        eval_definitions_path=Path("<skill>/evals/evals.json"),
+        run_root=Path("<prepared-run-root>"),
+        provider="claude",
+        skill_name="example-skill",
+        evals=[
+            PreparedEval(
+                eval_id=1,
+                eval_name="basic",
+                with_skill_path=Path("<prepared-run-root>/eval-1/with_skill"),
+                without_skill_path=Path("<prepared-run-root>/eval-1/without_skill"),
+                skill_file=Path("<prepared-run-root>/eval-1/with_skill/.../SKILL.md"),
+                with_skill_fixture_path=None,
+                without_skill_fixture_path=None,
+            )
+        ],
+    )
 """
 
-import argparse
 import json
 import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-
 
 CONFIGURATIONS = ("with_skill", "without_skill")
 PROVIDER_SKILL_ROOTS = {
     "claude": ".claude",
     "codex": ".codex",
 }
+GITIGNORE_AUTH_ENTRY = "auth.json"
+
+
+@dataclass(frozen=True)
+class PrepareFixtureOptions:
+    skill_path: Path
+    run_root: Path
+    provider: str
+    skill_root: str | None = None
+
+
+@dataclass(frozen=True)
+class PreparedEval:
+    eval_id: int
+    eval_name: str
+    with_skill_path: Path
+    without_skill_path: Path
+    skill_file: Path
+    with_skill_fixture_path: Path | None
+    without_skill_fixture_path: Path | None
+
+    def to_dict(self) -> dict:
+        return {
+            "eval_id": self.eval_id,
+            "eval_name": self.eval_name,
+            "with_skill_path": str(self.with_skill_path),
+            "without_skill_path": str(self.without_skill_path),
+            "skill_file": str(self.skill_file),
+            "with_skill_fixture_path": _optional_path_to_string(
+                self.with_skill_fixture_path
+            ),
+            "without_skill_fixture_path": _optional_path_to_string(
+                self.without_skill_fixture_path
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class PreparedRun:
+    eval_definitions_path: Path
+    run_root: Path
+    provider: str
+    skill_name: str
+    evals: list[PreparedEval]
+
+    @property
+    def eval_count(self) -> int:
+        return len(self.evals)
+
+    def to_dict(self) -> dict:
+        return {
+            "eval_definitions_path": str(self.eval_definitions_path),
+            "run_root": str(self.run_root),
+            "provider": self.provider,
+            "skill_name": self.skill_name,
+            "evals": [eval_entry.to_dict() for eval_entry in self.evals],
+        }
+
+    def to_summary(self) -> dict:
+        return {
+            "run_root": str(self.run_root),
+            "provider": self.provider,
+            "skill_name": self.skill_name,
+            "eval_count": self.eval_count,
+        }
+
+
+class FixturePreparer:
+    """Prepare isolated eval working directories for one skill evaluation run.
+
+    The preparer owns the old fixture preparation workflow as application code.
+    It validates the skill's eval definitions, stages shared fixtures when an
+    eval uses them, creates a fresh prepared run root, and returns a PreparedRun
+    object that the eval runner can consume directly. It does not write an
+    interchange manifest file.
+    """
+
+    def __init__(self, options: PrepareFixtureOptions):
+        self.options = options
+
+    def prepare(self) -> PreparedRun:
+        skill_root = self.options.skill_root or get_provider_skill_root(
+            self.options.provider
+        )
+
+        skill_path = self.options.skill_path.expanduser().resolve()
+        evals_data = load_evals_data(skill_path)
+        skill_name = evals_data.get("skill_name", skill_path.name)
+
+        # Providers with native skill discovery may not discover skills in temp
+        # directories, so callers should provide a real workspace-local run root.
+        base = self.options.run_root.expanduser().resolve()
+        base.mkdir(parents=True, exist_ok=True)
+
+        fixture_staging = resolve_fixture_staging(evals_data, base)
+        run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
+
+        prepared_evals = [
+            prepare_eval(
+                skill_path=skill_path,
+                run_root=run_root,
+                eval_def=eval_def,
+                fixture_staging=fixture_staging,
+                skill_name=skill_name,
+                skill_root=skill_root,
+            )
+            for eval_def in evals_data.get("evals", [])
+        ]
+
+        return PreparedRun(
+            eval_definitions_path=(skill_path / "evals" / "evals.json").resolve(),
+            run_root=run_root,
+            provider=self.options.provider,
+            skill_name=skill_name,
+            evals=prepared_evals,
+        )
+
+
+def _optional_path_to_string(path: Path | None) -> str | None:
+    return str(path) if path else None
 
 
 def run_git(cmd: list[str], error_prefix: str) -> str:
@@ -91,7 +200,25 @@ def resolve_ref(dest: Path, ref: str | None) -> str:
             "Error: could not resolve origin/HEAD for fixture repo",
         )
 
-    candidates = [
+    candidates = ref_candidates(ref)
+    resolved = first_resolved_ref(dest, candidates)
+    if resolved:
+        return resolved
+
+    if fetch_ref(dest, ref):
+        resolved = first_resolved_ref(dest, candidates)
+        if resolved:
+            return resolved
+
+    print(
+        f"Error: could not resolve fixture_ref '{ref}' in {dest}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+def ref_candidates(ref: str) -> list[str]:
+    return [
         ref,
         f"{ref}^{{commit}}",
         f"origin/{ref}",
@@ -100,6 +227,8 @@ def resolve_ref(dest: Path, ref: str | None) -> str:
         f"refs/tags/{ref}^{{commit}}",
     ]
 
+
+def first_resolved_ref(dest: Path, candidates: list[str]) -> str | None:
     for candidate in candidates:
         result = subprocess.run(
             ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
@@ -108,27 +237,16 @@ def resolve_ref(dest: Path, ref: str | None) -> str:
         )
         if result.returncode == 0:
             return result.stdout.strip()
+    return None
 
-    fetch_result = subprocess.run(
+
+def fetch_ref(dest: Path, ref: str) -> bool:
+    result = subprocess.run(
         ["git", "-C", str(dest), "fetch", "origin", ref],
         capture_output=True,
         text=True,
     )
-    if fetch_result.returncode == 0:
-        for candidate in candidates:
-            result = subprocess.run(
-                ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-
-    print(
-        f"Error: could not resolve fixture_ref '{ref}' in {dest}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+    return result.returncode == 0
 
 
 def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None:
@@ -170,7 +288,9 @@ def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None
     )
 
 
-def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str = ".claude") -> None:
+def copy_skill(
+    skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str = ".claude"
+) -> None:
     """Copy the skill under test into the run directory's skill discovery folder.
 
     The destination follows the convention <run_dir>/<skill_root>/skills/<skill_name>/
@@ -186,7 +306,23 @@ def copy_skill(skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root
     )
 
 
-def copy_eval_files(skill_path: Path, dest_run_dir: Path, files: list[str], eval_id: str) -> None:
+def write_eval_gitignore(run_dir: Path) -> None:
+    """Ignore copied provider auth files inside an eval working directory."""
+    gitignore_path = run_dir / ".gitignore"
+    existing_entries = []
+    if gitignore_path.exists():
+        existing_entries = gitignore_path.read_text(encoding="utf-8").splitlines()
+
+    if GITIGNORE_AUTH_ENTRY in existing_entries:
+        return
+
+    entries = [*existing_entries, GITIGNORE_AUTH_ENTRY]
+    gitignore_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
+
+
+def copy_eval_files(
+    skill_path: Path, dest_run_dir: Path, files: list[str], eval_id: str
+) -> None:
     """Copy eval input files into the run directory, preserving relative paths.
 
     File paths are relative to the skill root. They are copied into both
@@ -203,21 +339,24 @@ def copy_eval_files(skill_path: Path, dest_run_dir: Path, files: list[str], eval
             source.relative_to(skill_root)
         except ValueError:
             print(
-                f"Error: eval file '{raw_path}' escapes the skill root (referenced by eval id={eval_id})",
+                f"Error: eval file '{raw_path}' escapes the skill root "
+                f"(referenced by eval id={eval_id})",
                 file=sys.stderr,
             )
             sys.exit(1)
 
         if not source.exists():
             print(
-                f"Error: eval file '{raw_path}' not found at {source} (referenced by eval id={eval_id})",
+                f"Error: eval file '{raw_path}' not found at {source} "
+                f"(referenced by eval id={eval_id})",
                 file=sys.stderr,
             )
             sys.exit(1)
 
         if not source.is_file():
             print(
-                f"Error: eval file '{raw_path}' is not a file at {source} (referenced by eval id={eval_id})",
+                f"Error: eval file '{raw_path}' is not a file at {source} "
+                f"(referenced by eval id={eval_id})",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -258,7 +397,8 @@ def resolve_fixture_staging(evals_data: dict, base: Path) -> Path | None:
         git_clone_or_pull(fixture_repo, fixture_staging, fixture_ref)
     elif not fixture_staging.exists():
         print(
-            f"Error: fixture_base_path {fixture_staging} does not exist and no fixture_repo is defined to clone from",
+            f"Error: fixture_base_path {fixture_staging} does not exist and "
+            "no fixture_repo is defined to clone from",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -279,7 +419,8 @@ def copy_fixture(
     source = fixture_staging / fixture_name
     if not source.exists():
         print(
-            f"Error: fixture '{fixture_name}' not found at {source} (referenced by eval id={eval_id})",
+            f"Error: fixture '{fixture_name}' not found at {source} "
+            f"(referenced by eval id={eval_id})",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -311,6 +452,7 @@ def prepare_configuration(
     eval_dir = run_root / f"eval-{eval_id}"
     run_dir = eval_dir / config
     run_dir.mkdir(parents=True, exist_ok=True)
+    write_eval_gitignore(run_dir)
 
     fixture_path = None
     fixture_name = eval_def.get("fixture")
@@ -342,20 +484,28 @@ def prepare_configuration(
     return entry
 
 
-def build_manifest_entry(eval_def: dict, run_paths: dict[str, dict]) -> dict:
-    """Build the manifest entry for one prepared eval."""
+def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedEval:
+    """Build the prepared run entry for one eval."""
     eval_id = str(eval_def["id"])
     with_skill_entry = run_paths["with_skill"]
     without_skill_entry = run_paths["without_skill"]
-    return {
-        "eval_id": eval_def["id"],
-        "eval_name": eval_def.get("eval_name", f"eval-{eval_id}"),
-        "with_skill_path": with_skill_entry["path"],
-        "without_skill_path": without_skill_entry["path"],
-        "skill_file": with_skill_entry["skill_file"],
-        "with_skill_fixture_path": with_skill_entry.get("fixture_path"),
-        "without_skill_fixture_path": without_skill_entry.get("fixture_path"),
-    }
+    return PreparedEval(
+        eval_id=eval_def["id"],
+        eval_name=eval_def.get("eval_name", f"eval-{eval_id}"),
+        with_skill_path=Path(with_skill_entry["path"]),
+        without_skill_path=Path(without_skill_entry["path"]),
+        skill_file=Path(with_skill_entry["skill_file"]),
+        with_skill_fixture_path=_optional_string_to_path(
+            with_skill_entry.get("fixture_path")
+        ),
+        without_skill_fixture_path=_optional_string_to_path(
+            without_skill_entry.get("fixture_path")
+        ),
+    )
+
+
+def _optional_string_to_path(path: str | None) -> Path | None:
+    return Path(path) if path else None
 
 
 def prepare_eval(
@@ -365,7 +515,7 @@ def prepare_eval(
     fixture_staging: Path | None,
     skill_name: str,
     skill_root: str,
-) -> dict:
+) -> PreparedEval:
     """Prepare all configurations for one eval and return its manifest entry."""
     run_paths = {
         config: prepare_configuration(
@@ -379,36 +529,7 @@ def prepare_eval(
         )
         for config in CONFIGURATIONS
     }
-    return build_manifest_entry(eval_def, run_paths)
-
-
-def write_manifest(manifest: dict, manifest_path_arg: str | None, run_root: Path) -> Path:
-    """Write the prepared manifest and return its path."""
-    manifest_path = (
-        Path(manifest_path_arg).expanduser().resolve()
-        if manifest_path_arg
-        else run_root / "prepared_manifest.json"
-    )
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return manifest_path
-
-
-def build_summary(
-    manifest_path: Path,
-    run_root: Path,
-    provider_name: str,
-    skill_name: str,
-    eval_count: int,
-) -> dict:
-    """Build the short stdout summary for callers."""
-    return {
-        "manifest_path": str(manifest_path),
-        "run_root": str(run_root),
-        "provider": provider_name,
-        "skill_name": skill_name,
-        "eval_count": eval_count,
-    }
+    return build_prepared_eval(eval_def, run_paths)
 
 
 def get_provider_skill_root(provider_name: str) -> str:
@@ -424,88 +545,5 @@ def get_provider_skill_root(provider_name: str) -> str:
     return skill_root
 
 
-def execute(args: argparse.Namespace) -> dict:
-    skill_root = args.skill_root or get_provider_skill_root(args.provider)
-
-    skill_path = Path(args.skill_path).expanduser().resolve()
-    evals_data = load_evals_data(skill_path)
-    skill_name = evals_data.get("skill_name", skill_path.name)
-
-    # Providers with native skill discovery may not discover skills in temp
-    # directories, so callers should provide a real workspace-local run root.
-    base = Path(args.run_root).expanduser().resolve()
-    base.mkdir(parents=True, exist_ok=True)
-
-    fixture_staging = resolve_fixture_staging(evals_data, base)
-    run_root = Path(tempfile.mkdtemp(prefix=f"{skill_name}-eval-runs-", dir=base))
-
-    manifest_entries = [
-        prepare_eval(
-            skill_path=skill_path,
-            run_root=run_root,
-            eval_def=eval_def,
-            fixture_staging=fixture_staging,
-            skill_name=skill_name,
-            skill_root=skill_root,
-        )
-        for eval_def in evals_data.get("evals", [])
-    ]
-
-    manifest = {
-        "run_root": str(run_root),
-        "provider": args.provider,
-        "skill_name": skill_name,
-        "evals": manifest_entries,
-    }
-    manifest_path = write_manifest(manifest, args.manifest_path, run_root)
-
-    return build_summary(
-        manifest_path=manifest_path,
-        run_root=run_root,
-        provider_name=args.provider,
-        skill_name=skill_name,
-        eval_count=len(manifest_entries),
-    )
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Prepare isolated run directories for eval runs."
-    )
-    parser.add_argument(
-        "--skill-path",
-        required=True,
-        help="Path to the skill directory containing evals/evals.json",
-    )
-    parser.add_argument(
-        "--run-root",
-        required=True,
-        help="Directory to create run directories in. Providers with skill "
-             "discovery may require a non-temp path.",
-    )
-    parser.add_argument(
-        "--provider",
-        default="claude",
-        help="LLM provider to prepare fixtures for (default: claude). "
-             f"Available: {', '.join(sorted(PROVIDER_SKILL_ROOTS))}",
-    )
-    parser.add_argument(
-        "--skill-root",
-        default=None,
-        help="Override the provider-specific root directory for skill placement. "
-             "When omitted, this is derived from --provider.",
-    )
-    parser.add_argument(
-        "--manifest-path",
-        default=None,
-        help="Optional path to write the prepared run manifest. When omitted, "
-             "the manifest is written to <prepared-run-root>/prepared_manifest.json.",
-    )
-    args = parser.parse_args()
-
-    print(
-        json.dumps(
-            execute(args),
-            indent=2,
-        )
-    )
+def prepare(options: PrepareFixtureOptions) -> PreparedRun:
+    return FixturePreparer(options).prepare()

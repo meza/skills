@@ -1,13 +1,9 @@
-import argparse
-import contextlib
 import json
-import io
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
-from scripts import prepare_fixture
+from scripts.evaluate import prepare_fixture
 
 
 class PrepareFixtureContractTests(unittest.TestCase):
@@ -53,127 +49,92 @@ class PrepareFixtureContractTests(unittest.TestCase):
         (project_fixture / "README.md").write_text("fixture", encoding="utf-8")
         return fixtures
 
-    def _run_prepare_process(
-        self,
-        skill_path: Path,
-        run_root: Path,
-        provider: str = "claude",
-        manifest_path: Path | None = None,
-    ) -> SimpleNamespace:
-        args = argparse.Namespace(
-            skill_path=str(skill_path),
-            run_root=str(run_root),
-            provider=provider,
-            skill_root=None,
-            manifest_path=str(manifest_path) if manifest_path else None,
-        )
-
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        try:
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-                summary = prepare_fixture.execute(args)
-                print(json.dumps(summary))
-        except SystemExit as error:
-            code = error.code if isinstance(error.code, int) else 1
-            return SimpleNamespace(returncode=code, stdout=stdout.getvalue(), stderr=stderr.getvalue())
-
-        return SimpleNamespace(returncode=0, stdout=stdout.getvalue(), stderr=stderr.getvalue())
-
     def _run_prepare(
         self,
         skill_path: Path,
         run_root: Path,
         provider: str = "claude",
-        manifest_path: Path | None = None,
-    ) -> dict:
-        result = self._run_prepare_process(skill_path, run_root, provider, manifest_path)
-        self.assertEqual(
-            result.returncode,
-            0,
-            msg=f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}",
-        )
-        return json.loads(result.stdout)
+    ) -> prepare_fixture.PreparedRun:
+        return prepare_fixture.FixturePreparer(
+            prepare_fixture.PrepareFixtureOptions(
+                skill_path=skill_path,
+                run_root=run_root,
+                provider=provider,
+            )
+        ).prepare()
 
-    def _manifest_from_output(self, output: dict) -> dict:
-        manifest_path = Path(output["manifest_path"])
-        self.assertTrue(manifest_path.exists())
-        return json.loads(manifest_path.read_text(encoding="utf-8"))
-
-    def _manifest_eval(self, manifest: dict, eval_id: int = 1) -> dict:
-        for eval_entry in manifest["evals"]:
-            if eval_entry["eval_id"] == eval_id:
+    def _prepared_eval(
+        self, prepared_run: prepare_fixture.PreparedRun, eval_id: int = 1
+    ) -> prepare_fixture.PreparedEval:
+        for eval_entry in prepared_run.evals:
+            if eval_entry.eval_id == eval_id:
                 return eval_entry
-        self.fail(f"eval_id {eval_id} not found in manifest")
+        self.fail(f"eval_id {eval_id} not found in prepared run")
 
-    def test_writes_explicit_prepared_manifest(self):
+    def test_returns_prepared_run_without_writing_handoff_manifest(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
-            expected_manifest_path = temp_path / "expected-manifest.json"
 
-            output = self._run_prepare(
-                skill_path,
-                temp_path / "runs",
-                provider="claude",
-                manifest_path=expected_manifest_path,
-            )
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
+            prepared_run = self._run_prepare(skill_path, temp_path / "runs")
+            eval_entry = self._prepared_eval(prepared_run)
 
-            self.assertEqual(manifest["run_root"], output["run_root"])
-            self.assertEqual(manifest["provider"], "claude")
-            self.assertEqual(manifest["skill_name"], "demo-skill")
             self.assertEqual(
-                output,
-                {
-                    "manifest_path": str(expected_manifest_path.resolve()),
-                    "run_root": manifest["run_root"],
-                    "provider": "claude",
-                    "skill_name": "demo-skill",
-                    "eval_count": 1,
-                },
+                prepared_run.eval_definitions_path,
+                (skill_path / "evals" / "evals.json").resolve(),
             )
-            self.assertEqual(eval_entry["eval_id"], 1)
-            self.assertEqual(eval_entry["eval_name"], "basic")
+            self.assertEqual(prepared_run.provider, "claude")
+            self.assertEqual(prepared_run.skill_name, "demo-skill")
+            self.assertEqual(prepared_run.eval_count, 1)
+            self.assertFalse(
+                (prepared_run.run_root / "prepared_manifest.json").exists()
+            )
+            self.assertEqual(eval_entry.eval_id, 1)
+            self.assertEqual(eval_entry.eval_name, "basic")
             self.assertEqual(
-                Path(eval_entry["with_skill_path"]),
-                Path(manifest["run_root"]) / "eval-1" / "with_skill",
+                eval_entry.with_skill_path,
+                prepared_run.run_root / "eval-1" / "with_skill",
             )
             self.assertEqual(
-                Path(eval_entry["without_skill_path"]),
-                Path(manifest["run_root"]) / "eval-1" / "without_skill",
+                eval_entry.without_skill_path,
+                prepared_run.run_root / "eval-1" / "without_skill",
             )
             self.assertEqual(
-                Path(eval_entry["skill_file"]),
-                Path(eval_entry["with_skill_path"])
+                eval_entry.skill_file,
+                eval_entry.with_skill_path
                 / ".claude"
                 / "skills"
                 / "demo-skill"
                 / "SKILL.md",
             )
-            self.assertIsNone(eval_entry["with_skill_fixture_path"])
-            self.assertIsNone(eval_entry["without_skill_fixture_path"])
+            self.assertIsNone(eval_entry.with_skill_fixture_path)
+            self.assertIsNone(eval_entry.without_skill_fixture_path)
 
     def test_places_skill_only_in_with_skill_provider_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
 
-            output = self._run_prepare(skill_path, temp_path / "runs", provider="claude")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
-
-            with_skill = Path(eval_entry["with_skill_path"])
-            without_skill = Path(eval_entry["without_skill_path"])
+            prepared_run = self._run_prepare(skill_path, temp_path / "runs")
+            eval_entry = self._prepared_eval(prepared_run)
 
             self.assertTrue(
-                (with_skill / ".claude" / "skills" / "demo-skill" / "SKILL.md").exists()
+                (
+                    eval_entry.with_skill_path
+                    / ".claude"
+                    / "skills"
+                    / "demo-skill"
+                    / "SKILL.md"
+                ).exists()
             )
-            self.assertFalse((without_skill / ".claude").exists())
+            self.assertFalse((eval_entry.without_skill_path / ".claude").exists())
             self.assertEqual(
-                Path(eval_entry["skill_file"]),
-                with_skill / ".claude" / "skills" / "demo-skill" / "SKILL.md",
+                eval_entry.skill_file,
+                eval_entry.with_skill_path
+                / ".claude"
+                / "skills"
+                / "demo-skill"
+                / "SKILL.md",
             )
 
     def test_uses_codex_skill_root_for_codex_provider(self):
@@ -181,18 +142,28 @@ class PrepareFixtureContractTests(unittest.TestCase):
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
 
-            output = self._run_prepare(skill_path, temp_path / "runs", provider="codex")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
-
-            with_skill = Path(eval_entry["with_skill_path"])
-            self.assertTrue(
-                (with_skill / ".codex" / "skills" / "demo-skill" / "SKILL.md").exists()
+            prepared_run = self._run_prepare(
+                skill_path, temp_path / "runs", provider="codex"
             )
-            self.assertFalse((with_skill / ".claude").exists())
+            eval_entry = self._prepared_eval(prepared_run)
+
+            self.assertTrue(
+                (
+                    eval_entry.with_skill_path
+                    / ".codex"
+                    / "skills"
+                    / "demo-skill"
+                    / "SKILL.md"
+                ).exists()
+            )
+            self.assertFalse((eval_entry.with_skill_path / ".claude").exists())
             self.assertEqual(
-                Path(eval_entry["skill_file"]),
-                with_skill / ".codex" / "skills" / "demo-skill" / "SKILL.md",
+                eval_entry.skill_file,
+                eval_entry.with_skill_path
+                / ".codex"
+                / "skills"
+                / "demo-skill"
+                / "SKILL.md",
             )
 
     def test_copies_eval_files_into_both_configurations(self):
@@ -204,7 +175,9 @@ class PrepareFixtureContractTests(unittest.TestCase):
                     {
                         "eval_name": "file-input",
                         "files": ["evals/files/input.txt"],
-                        "turns": [{"prompt": "Read the input file", "expectations": []}],
+                        "turns": [
+                            {"prompt": "Read the input file", "expectations": []}
+                        ],
                     }
                 ),
             )
@@ -212,18 +185,19 @@ class PrepareFixtureContractTests(unittest.TestCase):
             input_file.parent.mkdir()
             input_file.write_text("sample", encoding="utf-8")
 
-            output = self._run_prepare(skill_path, temp_path / "runs")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
+            prepared_run = self._run_prepare(skill_path, temp_path / "runs")
+            eval_entry = self._prepared_eval(prepared_run)
 
-            with_skill = Path(eval_entry["with_skill_path"])
-            without_skill = Path(eval_entry["without_skill_path"])
             self.assertEqual(
-                (with_skill / "evals" / "files" / "input.txt").read_text(encoding="utf-8"),
+                (
+                    eval_entry.with_skill_path / "evals" / "files" / "input.txt"
+                ).read_text(encoding="utf-8"),
                 "sample",
             )
             self.assertEqual(
-                (without_skill / "evals" / "files" / "input.txt").read_text(encoding="utf-8"),
+                (
+                    eval_entry.without_skill_path / "evals" / "files" / "input.txt"
+                ).read_text(encoding="utf-8"),
                 "sample",
             )
 
@@ -239,24 +213,32 @@ class PrepareFixtureContractTests(unittest.TestCase):
                         "eval_name": "fixture",
                         "fixture": "sample-project",
                         "fixture_in_workdir": True,
-                        "turns": [{"prompt": "Inspect the project", "expectations": []}],
+                        "turns": [
+                            {"prompt": "Inspect the project", "expectations": []}
+                        ],
                     },
                     fixture_base_path=str(fixtures),
                 ),
             )
 
-            output = self._run_prepare(skill_path, temp_path / "runs")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
+            prepared_run = self._run_prepare(skill_path, temp_path / "runs")
+            eval_entry = self._prepared_eval(prepared_run)
 
-            with_fixture = Path(eval_entry["with_skill_fixture_path"])
-            without_fixture = Path(eval_entry["without_skill_fixture_path"])
+            with_fixture = eval_entry.with_skill_fixture_path
+            without_fixture = eval_entry.without_skill_fixture_path
             self.assertEqual(with_fixture.name, "sample-project")
             self.assertEqual(without_fixture.name, "sample-project")
-            self.assertTrue(with_fixture.is_relative_to(Path(eval_entry["with_skill_path"])))
-            self.assertTrue(without_fixture.is_relative_to(Path(eval_entry["without_skill_path"])))
-            self.assertEqual((with_fixture / "README.md").read_text(encoding="utf-8"), "fixture")
-            self.assertEqual((without_fixture / "README.md").read_text(encoding="utf-8"), "fixture")
+            self.assertTrue(with_fixture.is_relative_to(eval_entry.with_skill_path))
+            self.assertTrue(
+                without_fixture.is_relative_to(eval_entry.without_skill_path)
+            )
+            self.assertEqual(
+                (with_fixture / "README.md").read_text(encoding="utf-8"), "fixture"
+            )
+            self.assertEqual(
+                (without_fixture / "README.md").read_text(encoding="utf-8"),
+                "fixture",
+            )
             self.assertNotEqual(with_fixture, without_fixture)
 
     def test_keeps_fixture_outside_workdir_when_fixture_is_not_in_workdir(self):
@@ -282,18 +264,22 @@ class PrepareFixtureContractTests(unittest.TestCase):
                 ),
             )
 
-            output = self._run_prepare(skill_path, temp_path / "runs")
-            manifest = self._manifest_from_output(output)
-            eval_entry = self._manifest_eval(manifest)
+            prepared_run = self._run_prepare(skill_path, temp_path / "runs")
+            eval_entry = self._prepared_eval(prepared_run)
 
-            with_workdir = Path(eval_entry["with_skill_path"])
-            without_workdir = Path(eval_entry["without_skill_path"])
-            with_fixture = Path(eval_entry["with_skill_fixture_path"])
-            without_fixture = Path(eval_entry["without_skill_fixture_path"])
-            self.assertFalse(with_fixture.is_relative_to(with_workdir))
-            self.assertFalse(without_fixture.is_relative_to(without_workdir))
-            self.assertEqual((with_fixture / "README.md").read_text(encoding="utf-8"), "fixture")
-            self.assertEqual((without_fixture / "README.md").read_text(encoding="utf-8"), "fixture")
+            with_fixture = eval_entry.with_skill_fixture_path
+            without_fixture = eval_entry.without_skill_fixture_path
+            self.assertFalse(with_fixture.is_relative_to(eval_entry.with_skill_path))
+            self.assertFalse(
+                without_fixture.is_relative_to(eval_entry.without_skill_path)
+            )
+            self.assertEqual(
+                (with_fixture / "README.md").read_text(encoding="utf-8"), "fixture"
+            )
+            self.assertEqual(
+                (without_fixture / "README.md").read_text(encoding="utf-8"),
+                "fixture",
+            )
             self.assertNotEqual(with_fixture, without_fixture)
 
     def test_creates_fresh_prepared_run_root_for_each_invocation(self):
@@ -304,12 +290,10 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             first = self._run_prepare(skill_path, run_base)
             second = self._run_prepare(skill_path, run_base)
-            first_manifest = self._manifest_from_output(first)
-            second_manifest = self._manifest_from_output(second)
 
-            first_path = Path(self._manifest_eval(first_manifest)["with_skill_path"])
-            second_path = Path(self._manifest_eval(second_manifest)["with_skill_path"])
-            self.assertNotEqual(first_manifest["run_root"], second_manifest["run_root"])
+            first_path = self._prepared_eval(first).with_skill_path
+            second_path = self._prepared_eval(second).with_skill_path
+            self.assertNotEqual(first.run_root, second.run_root)
             self.assertTrue(first_path.exists())
             self.assertTrue(second_path.exists())
 
