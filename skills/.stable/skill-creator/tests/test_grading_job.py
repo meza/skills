@@ -50,10 +50,12 @@ class GradingJobTests(unittest.TestCase):
         eval_job.eval_def = {"id": 1}
         eval_job.config = "with_skill"
         eval_job.config_dir = Path("F:/runs/eval-1/with_skill")
+        eval_job.run_dir = "F:/runs/workdirs/eval-1/with_skill"
         provider = FakeProvider()
 
         grading_job = create_grading_job_factory(
             provider=provider,
+            skill_name="sample-skill",
             model="gpt-test",
             effort="high",
             timeout=600,
@@ -63,11 +65,21 @@ class GradingJobTests(unittest.TestCase):
         self.assertEqual(grading_job.eval_def, {"id": 1})
         self.assertEqual(grading_job.config, "with_skill")
         self.assertEqual(grading_job.config_dir, Path("F:/runs/eval-1/with_skill"))
+        self.assertEqual(grading_job.run_dir, "F:/runs/workdirs/eval-1/with_skill")
+        self.assertEqual(grading_job.skill_name, "sample-skill")
         self.assertIs(grading_job.provider, provider)
         self.assertEqual(grading_job.model, "gpt-test")
         self.assertEqual(grading_job.effort, "high")
         self.assertEqual(grading_job.timeout, 600)
         self.assertEqual(grading_job.schema_path, DEFAULT_GRADING_SCHEMA_PATH)
+        self.assertEqual(
+            DEFAULT_GRADER_INSTRUCTIONS_PATH,
+            Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "evaluate"
+            / "instructions"
+            / "grading.md",
+        )
         self.assertEqual(
             grading_job.grader_instructions_path,
             DEFAULT_GRADER_INSTRUCTIONS_PATH,
@@ -76,13 +88,21 @@ class GradingJobTests(unittest.TestCase):
     def test_run_writes_provider_json_response_to_grading_file(self):
         grading_payload = {
             "executive_summary": "The run satisfied the expectation.",
-            "expectations": [
-                {
-                    "text": "It does the thing",
-                    "passed": True,
-                    "evidence": "The response says so.",
-                }
-            ],
+            "results": {
+                "overall_expectations": [],
+                "turns": [
+                    {
+                        "turn": 1,
+                        "expectations": [
+                            {
+                                "text": "It does the thing",
+                                "passed": True,
+                                "evidence": "The response says so.",
+                            }
+                        ],
+                    }
+                ],
+            },
             "summary": {
                 "passed": 1,
                 "failed": 0,
@@ -100,13 +120,16 @@ class GradingJobTests(unittest.TestCase):
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
             instructions_path = Path(temp_dir) / "grader.md"
-            instructions_path.write_text("Grade carefully.", encoding="utf-8")
+            instructions_path.write_text(
+                "Grade carefully.\n{run_result_json}",
+                encoding="utf-8",
+            )
 
             with mock.patch(
                 "scripts.evaluate.grading.run_with_timeout",
                 return_value=(json.dumps(grading_payload), "", 0, False, 125),
             ) as run_with_timeout:
-                GradingJob(
+                grading_job = GradingJob(
                     eval_def={
                         "id": 1,
                         "eval_name": "sample-eval",
@@ -119,17 +142,27 @@ class GradingJobTests(unittest.TestCase):
                     },
                     config="with_skill",
                     config_dir=config_dir,
+                    skill_name="sample-skill",
                     provider=FakeProvider(),
                     model="gpt-test",
                     effort="high",
                     timeout=600,
                     schema_path=DEFAULT_GRADING_SCHEMA_PATH,
                     grader_instructions_path=instructions_path,
-                ).run()
+                )
+                grading_job.run()
 
             self.assertEqual(
                 json.loads((config_dir / "grading.json").read_text(encoding="utf-8")),
                 grading_payload,
+            )
+            run_artifacts = json.loads(
+                (config_dir / "run_artifacts.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(run_artifacts, grading_job.run_result())
+            self.assertIn(
+                json.dumps(run_artifacts, indent=2),
+                run_with_timeout.call_args.args[1],
             )
             self.assertEqual(
                 run_with_timeout.call_args.args[0],
@@ -174,6 +207,7 @@ class GradingJobTests(unittest.TestCase):
                     },
                     config="with_skill",
                     config_dir=config_dir,
+                    skill_name="sample-skill",
                     provider=FakeProvider(),
                     model="gpt-test",
                     effort="high",
@@ -209,6 +243,7 @@ class GradingJobTests(unittest.TestCase):
                     eval_def={"id": 1, "turns": []},
                     config="with_skill",
                     config_dir=config_dir,
+                    skill_name="sample-skill",
                     provider=FakeProvider(),
                     model=None,
                     effort=None,
@@ -239,6 +274,7 @@ class GradingJobTests(unittest.TestCase):
                     eval_def={"id": 1, "turns": []},
                     config="with_skill",
                     config_dir=config_dir,
+                    skill_name="sample-skill",
                     provider=FakeProvider(),
                     model=None,
                     effort=None,
@@ -247,16 +283,27 @@ class GradingJobTests(unittest.TestCase):
                     grader_instructions_path=instructions_path,
                 ).run()
 
-    def test_build_prompt_includes_grader_instructions_eval_and_turn_outputs(self):
+    def test_build_prompt_injects_run_result_json_with_artifact_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             config_dir = temp_path / "results" / "iteration-1" / "eval-1" / "with_skill"
+            run_dir = temp_path / "workdirs" / "eval-1" / "with_skill"
             outputs_dir = config_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
+            run_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
+            (config_dir / "transcript.md").write_text(
+                "full transcript", encoding="utf-8"
+            )
+            (config_dir / "raw_output.jsonl").write_text("{}", encoding="utf-8")
+            (config_dir / "timing.json").write_text("{}", encoding="utf-8")
             instructions_path = temp_path / "grader.md"
-            instructions_path.write_text("Grade carefully.", encoding="utf-8")
+            instructions_path.write_text(
+                "Grade {skill_name}.\n{run_result_json}",
+                encoding="utf-8",
+            )
+            schema_path = temp_path / "grading.schema.json"
 
             prompt = GradingJob(
                 eval_def={
@@ -271,19 +318,67 @@ class GradingJobTests(unittest.TestCase):
                 },
                 config="with_skill",
                 config_dir=config_dir,
+                run_dir=str(run_dir),
+                skill_name="sample-skill",
                 provider=FakeProvider(),
                 model=None,
                 effort=None,
                 timeout=600,
-                schema_path=temp_path / "grading.schema.json",
+                schema_path=schema_path,
                 grader_instructions_path=instructions_path,
             ).build_prompt()
 
-        self.assertIn("Grade carefully.", prompt)
-        self.assertIn('"eval_name": "sample-eval"', prompt)
-        self.assertIn('"config": "with_skill"', prompt)
-        self.assertIn('"response": "answer"', prompt)
-        self.assertIn('"transcript": "transcript"', prompt)
+        self.assertIn("Grade sample-skill.", prompt)
+        self.assertNotIn("{run_result_json}", prompt)
+        self.assertNotIn('"response": "answer"', prompt)
+        self.assertNotIn('"transcript": "transcript"', prompt)
+        run_result = json.loads(prompt.split("\n", 1)[1])
+        self.assertEqual(run_result["skill_name"], "sample-skill")
+        self.assertEqual(
+            run_result["eval"],
+            {
+                "id": 1,
+                "eval_name": "sample-eval",
+                "turns": [
+                    {
+                        "prompt": "Do it",
+                        "expectations": ["It does the thing"],
+                    }
+                ],
+            },
+        )
+        self.assertEqual(run_result["config"], "with_skill")
+        self.assertEqual(
+            run_result["artifacts"]["results_dir_path"],
+            str(config_dir),
+        )
+        self.assertEqual(
+            run_result["artifacts"]["working_dir_path"],
+            str(run_dir),
+        )
+        self.assertEqual(
+            run_result["artifacts"]["run_transcript_path"],
+            str(config_dir / "transcript.md"),
+        )
+        self.assertEqual(
+            run_result["artifacts"]["raw_output_path"],
+            str(config_dir / "raw_output.jsonl"),
+        )
+        self.assertEqual(
+            run_result["artifacts"]["timing_path"],
+            str(config_dir / "timing.json"),
+        )
+        self.assertEqual(run_result["schema_path"], str(schema_path))
+        self.assertEqual(
+            run_result["artifacts"]["turns"],
+            [
+                {
+                    "turn": 1,
+                    "response_path": str(outputs_dir / "response.md"),
+                    "transcript_path": str(outputs_dir / "transcript.md"),
+                }
+            ],
+        )
 
 
 if __name__ == "__main__":

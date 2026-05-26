@@ -10,6 +10,8 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 
 Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an object with `prompt` and `expectations`.
 
+Use `turns[].expectations` for checks that apply to a specific turn. Use `outcome_expectations` for checks that apply to the complete eval/config run after all turns finish.
+
 ```json
 {
   "skill_name": "example-skill",
@@ -19,6 +21,9 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
     {
       "id": 1,
       "eval_name": "basic-output-check",
+      "outcome_expectations": [
+        "The complete interaction produces the requested artifact"
+      ],
       "turns": [
         {
           "prompt": "User's example prompt",
@@ -61,6 +66,7 @@ Every eval uses `turns[]`. A one-turn eval has a single entry. Each turn is an o
 - `fixture_base_path`: Optional existing local path to use as the fixture source instead of `<run-root>/fixtures`. This is useful when you want to pin or pre-stage fixtures outside the eval harness. Use a normal platform-native path such as `F:\dev\fixtures` on Windows or `/srv/fixtures` on Unix.
 - `evals[].id`: Unique integer identifier
 - `evals[].eval_name`: Human-readable name for the eval. Displayed in the viewer and benchmark tab. This is the source of truth. The eval_metadata.json and aggregation scripts read it from here.
+- `evals[].outcome_expectations`: Optional list of verifiable statements for the complete eval/config run. The grader evaluates these only after all turns finish and may use evidence from any turn, run-level transcript, outputs, artifacts, and final state.
 - `evals[].turns`: Array of turn objects. One entry for a single-turn eval. Multiple for a conversation. The agent is blind to future turns.
 - `evals[].turns[].prompt`: The user message sent to the agent at this turn.
 - `evals[].turns[].expectations`: List of verifiable statements for this turn. The grader evaluates these against the corresponding turn's response and transcript.

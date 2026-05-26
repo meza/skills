@@ -276,7 +276,7 @@ Once `evaluate_skill.py` finishes, spawn grader subagents for each run. One grad
 
 The graders are not optional bookkeeping. They are the primary qualitative review pass for the loop, and they exist in part to save your context window. Do not start reading transcripts and outputs run-by-run to form your own qualitative judgments before the graders do. That defeats the point of parallel grading and burns context on work the graders are already supposed to do. Before the graders finish, your job is orchestration: confirm the expected files exist, launch graders, and fix pipeline breakage if something is missing or obviously malformed. Do not substitute your own intermediary review for the graders' review.
 
-1. **Grade each run** — each grader reads `agents/grader.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
+1. **Grade each run** — each grader reads `scripts/evaluate/instructions/grading.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
@@ -446,7 +446,7 @@ If you're in Cowork, the main things to know are:
 
 The agents/ directory contains instructions for specialized subagents. Read them when you need to spawn the relevant subagent.
 
-- `agents/grader.md` — How to evaluate assertions against outputs
+- `scripts/evaluate/instructions/grading.md` — How to evaluate assertions against outputs
 - `agents/comparator.md` — How to do blind A/B comparison between two outputs
 - `agents/analyzer.md` — How to analyze why one version beat another
 

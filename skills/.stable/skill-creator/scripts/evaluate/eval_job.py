@@ -470,6 +470,10 @@ class EvalJob:
         )
 
     def write_run_artifacts(self) -> None:
+        (self.config_dir / "transcript.md").write_text(
+            self.run_transcript(),
+            encoding="utf-8",
+        )
         (self.config_dir / "timing.json").write_text(
             json.dumps(self.timing(), indent=2),
             encoding="utf-8",
@@ -479,6 +483,14 @@ class EvalJob:
             "\n".join(raw_lines),
             encoding="utf-8",
         )
+
+    def run_transcript(self) -> str:
+        transcript_parts = []
+        for turn_dir in sorted(self.config_dir.glob("turn-*/outputs")):
+            transcript_path = turn_dir / "transcript.md"
+            if transcript_path.exists():
+                transcript_parts.append(transcript_path.read_text(encoding="utf-8"))
+        return "\n\n".join(transcript_parts)
 
     def run_grading_job(self) -> None:
         if not self.grading_job_factory:

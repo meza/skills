@@ -4,29 +4,70 @@
   "title": "Skill Creator Grading Result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["executive_summary", "expectations", "summary"],
+  "required": ["executive_summary", "results", "summary"],
+  "$defs": {
+    "expectation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "passed", "evidence"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The original expectation text."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "True when the available evidence satisfies the expectation. False when evidence is missing, contradictory, superficial, or insufficient."
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The full analysis of the evidence supporting the verdict."
+        }
+      }
+    }
+  },
   "properties": {
     "executive_summary": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "A substantive analysis of the grading results, highlighting key findings, failure modes and potential fixes to the observed behavior."
     },
-    "expectations": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["text", "passed", "evidence"],
-        "properties": {
-          "text": {
-            "type": "string",
-            "minLength": 1
-          },
-          "passed": {
-            "type": "boolean"
-          },
-          "evidence": {
-            "type": "string",
-            "minLength": 1
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overall_expectations", "turns"],
+      "description": "Structured grading results separated by whole-run expectations and turn-specific expectations.",
+      "properties": {
+        "overall_expectations": {
+          "type": "array",
+          "description": "Results for every expectation listed in eval.outcome_expectations. Empty when the eval defines no outcome_expectations.",
+          "items": {
+            "$ref": "#/$defs/expectation_result"
+          }
+        },
+        "turns": {
+          "type": "array",
+          "description": "Turn-specific grading results. Each item corresponds to one eval.turns[] entry that has expectations.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["turn", "expectations"],
+            "properties": {
+              "turn": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "One-based turn number from the eval run."
+              },
+              "expectations": {
+                "type": "array",
+                "description": "Results for every expectation listed on this turn in eval.turns[].expectations.",
+                "items": {
+                  "$ref": "#/$defs/expectation_result"
+                }
+              }
+            }
           }
         }
       }

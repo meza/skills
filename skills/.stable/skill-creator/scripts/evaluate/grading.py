@@ -11,12 +11,15 @@ from .eval_job import run_with_timeout
 from .providers import Provider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GRADER_INSTRUCTIONS_PATH = PROJECT_ROOT / "agents" / "grader.md"
+DEFAULT_GRADER_INSTRUCTIONS_PATH = (
+    PROJECT_ROOT / "scripts" / "evaluate" / "instructions" / "grading.md"
+)
 DEFAULT_GRADING_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "grading.schema.json"
 
 
 def create_grading_job_factory(
     provider: Provider,
+    skill_name: str,
     model: str | None,
     effort: str | None,
     timeout: int,
@@ -28,12 +31,14 @@ def create_grading_job_factory(
             eval_def=eval_job.eval_def,
             config=eval_job.config,
             config_dir=eval_job.config_dir,
+            skill_name=skill_name,
             provider=provider,
             model=model,
             effort=effort,
             timeout=timeout,
             schema_path=DEFAULT_GRADING_SCHEMA_PATH,
             grader_instructions_path=DEFAULT_GRADER_INSTRUCTIONS_PATH,
+            run_dir=eval_job.run_dir,
         )
 
     return factory
@@ -46,14 +51,17 @@ class GradingJob:
     eval_def: dict
     config: str
     config_dir: Path
+    skill_name: str
     provider: Provider
     model: str | None
     effort: str | None
     timeout: int
     schema_path: Path
     grader_instructions_path: Path
+    run_dir: str | None = None
 
     def run(self) -> None:
+        self.write_run_artifacts_manifest()
         prompt = self.build_prompt()
         command = self.provider.build_grading_command(
             model=self.model,
@@ -87,6 +95,12 @@ class GradingJob:
             encoding="utf-8",
         )
 
+    def write_run_artifacts_manifest(self) -> None:
+        (self.config_dir / "run_artifacts.json").write_text(
+            json.dumps(self.run_result(), indent=2),
+            encoding="utf-8",
+        )
+
     def validate_grading_data(self, grading_data: object) -> None:
         schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
         try:
@@ -99,27 +113,39 @@ class GradingJob:
         return self.eval_def["id"]
 
     def build_prompt(self) -> str:
-        grading_input = json.dumps(
-            {
-                "eval": self.eval_def,
-                "config": self.config,
-                "outputs": self.read_outputs(),
-            },
-            indent=2,
-        )
         instructions = self.grader_instructions_path.read_text(encoding="utf-8")
-        return f"{instructions}\n\nGrading input:\n{grading_input}"
+        return instructions.replace("{skill_name}", self.skill_name).replace(
+            "{run_result_json}",
+            json.dumps(self.run_result(), indent=2),
+        )
 
-    def read_outputs(self) -> list[dict]:
-        outputs = []
+    def run_result(self) -> dict:
+        return {
+            "skill_name": self.skill_name,
+            "eval": self.eval_def,
+            "config": self.config,
+            "artifacts": self.artifacts(),
+            "schema_path": str(self.schema_path),
+        }
+
+    def artifacts(self) -> dict:
+        return {
+            "results_dir_path": str(self.config_dir),
+            "working_dir_path": self.run_dir,
+            "run_transcript_path": str(self.config_dir / "transcript.md"),
+            "raw_output_path": str(self.config_dir / "raw_output.jsonl"),
+            "timing_path": str(self.config_dir / "timing.json"),
+            "turns": self.turn_artifacts(),
+        }
+
+    def turn_artifacts(self) -> list[dict]:
+        artifacts = []
         for turn_dir in sorted(self.config_dir.glob("turn-*/outputs")):
-            outputs.append(
+            artifacts.append(
                 {
-                    "turn": turn_dir.parent.name,
-                    "response": (turn_dir / "response.md").read_text(encoding="utf-8"),
-                    "transcript": (turn_dir / "transcript.md").read_text(
-                        encoding="utf-8"
-                    ),
+                    "turn": int(turn_dir.parent.name.removeprefix("turn-")),
+                    "response_path": str(turn_dir / "response.md"),
+                    "transcript_path": str(turn_dir / "transcript.md"),
                 }
             )
-        return outputs
+        return artifacts

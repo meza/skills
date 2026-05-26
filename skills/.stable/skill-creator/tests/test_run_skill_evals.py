@@ -252,6 +252,10 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                     ),
                     {"event": stdout},
                 )
+                self.assertEqual(
+                    (config_dir / "transcript.md").read_text(encoding="utf-8"),
+                    f"transcript for {stdout}",
+                )
 
             progress = json.loads(
                 (iteration_dir / "progress.json").read_text(encoding="utf-8")
@@ -502,6 +506,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             self.assertEqual(options.grading_job_factory, "grading-factory")
             create_grading_job_factory.assert_called_once_with(
                 provider=provider,
+                skill_name="fake-skill",
                 model=None,
                 effort=None,
                 timeout=900,

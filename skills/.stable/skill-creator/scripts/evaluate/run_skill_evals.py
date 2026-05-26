@@ -54,6 +54,7 @@ class SkillEvalRunner:
             configs=selected_configs(self.options.config),
             grading_job_factory=create_grading_job_factory(
                 provider=provider,
+                skill_name=evals_data.get("skill_name", self.prepared_run.skill_name),
                 model=self.options.model,
                 effort=self.options.effort,
                 timeout=self.options.timeout,

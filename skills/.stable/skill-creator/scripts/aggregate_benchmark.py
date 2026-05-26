@@ -246,7 +246,7 @@ def _add_execution_metrics(result: dict, grading: dict) -> None:
 
 
 def _extract_expectations(grading: dict, grading_file: Path) -> list:
-    expectations = grading.get("expectations", [])
+    expectations = _flatten_grading_expectations(grading.get("results") or {})
     for expectation in expectations:
         if "text" not in expectation or "passed" not in expectation:
             print(
@@ -254,6 +254,19 @@ def _extract_expectations(grading: dict, grading_file: Path) -> list:
                 f"{grading_file} missing required fields "
                 f"(text, passed, evidence): {expectation}"
             )
+    return expectations
+
+
+def _flatten_grading_expectations(results: dict) -> list:
+    expectations = []
+    for expectation in results.get("overall_expectations") or []:
+        expectations.append({"scope": "overall", **expectation})
+
+    for turn_result in results.get("turns") or []:
+        turn = turn_result.get("turn")
+        for expectation in turn_result.get("expectations") or []:
+            expectations.append({"scope": "turn", "turn": turn, **expectation})
+
     return expectations
 
 
