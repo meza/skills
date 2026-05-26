@@ -1,9 +1,9 @@
 """Run a skill-local preparation hook after generic fixture preparation."""
 
-import subprocess
 import sys
 from pathlib import Path
 
+from .eval_job import run_with_timeout
 from .prepare_fixture import PreparedEval, PreparedRun
 
 
@@ -15,6 +15,7 @@ def run_skill_prepare_hook(
     skill_path: Path,
     prepared_run: PreparedRun,
     eval_ids: str | None,
+    timeout: int = 600,
 ) -> None:
     """Run optional skill-local preparation for selected prepared evals."""
     hook_path = skill_path / "scripts" / "prepare.py"
@@ -22,7 +23,7 @@ def run_skill_prepare_hook(
         return
 
     for eval_entry in _selected_prepared_evals(prepared_run.evals, eval_ids):
-        _run_prepare_hook_for_eval(skill_path, hook_path, eval_entry)
+        _run_prepare_hook_for_eval(skill_path, hook_path, eval_entry, timeout)
 
 
 def _selected_prepared_evals(
@@ -44,10 +45,11 @@ def _run_prepare_hook_for_eval(
     skill_path: Path,
     hook_path: Path,
     eval_entry: PreparedEval,
+    timeout: int,
 ) -> None:
     eval_run_dir = eval_entry.with_skill_path.parent
 
-    result = subprocess.run(
+    stdout, stderr, returncode, timed_out, _duration_ms = run_with_timeout(
         [
             sys.executable,
             str(hook_path),
@@ -56,18 +58,25 @@ def _run_prepare_hook_for_eval(
             "--eval-run-dir",
             str(eval_run_dir),
         ],
-        cwd=skill_path,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
+        "",
+        str(skill_path),
+        timeout,
     )
 
-    if result.returncode == 0:
+    if returncode == 0 and not timed_out:
         return
+
+    if timed_out:
+        raise SkillPrepareHookError(
+            "skill-local prepare hook timed out for eval id "
+            f"{eval_entry.eval_id} after {timeout}s\n"
+            f"stdout:\n{stdout}\n"
+            f"stderr:\n{stderr}"
+        )
 
     raise SkillPrepareHookError(
         "skill-local prepare hook failed for eval id "
-        f"{eval_entry.eval_id} with exit code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+        f"{eval_entry.eval_id} with exit code {returncode}\n"
+        f"stdout:\n{stdout}\n"
+        f"stderr:\n{stderr}"
     )

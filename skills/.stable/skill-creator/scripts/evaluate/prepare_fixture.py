@@ -42,7 +42,9 @@ eval runner:
 """
 
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -556,8 +558,18 @@ def reset_workdirs(run_root: Path) -> None:
     """Clear the disposable workdir root before preparing a new run."""
     workdirs = run_root / "workdirs"
     if workdirs.exists():
-        shutil.rmtree(workdirs)
+        remove_tree(workdirs)
     workdirs.mkdir(parents=True, exist_ok=True)
+
+
+def remove_tree(path: Path) -> None:
+    """Remove an orchestrator-owned tree, retrying read-only files on Windows."""
+    shutil.rmtree(path, onexc=retry_read_only_delete)
+
+
+def retry_read_only_delete(function, path, _error) -> None:
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
 
 
 def assert_eval_dir_inside_run_root(

@@ -10,6 +10,7 @@ if __package__:
     from .evaluate.eval_job import kill_active_processes, stop_git_fsmonitor_daemons
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from .evaluate.providers.registry import PROVIDERS
+    from .evaluate.results_aggregation import GradingResultAggregator
     from .evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from .evaluate.skill_prepare_hook import run_skill_prepare_hook
 else:
@@ -20,6 +21,7 @@ else:
     )
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from scripts.evaluate.providers.registry import PROVIDERS
+    from scripts.evaluate.results_aggregation import GradingResultAggregator
     from scripts.evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from scripts.evaluate.skill_prepare_hook import run_skill_prepare_hook
 
@@ -65,13 +67,14 @@ def execute(args: argparse.Namespace) -> dict:
         )
     ).prepare()
 
-    run_skill_prepare_hook(
-        skill_path=args.skill_path,
-        prepared_run=prepared_run,
-        eval_ids=args.eval_ids,
-    )
-
     try:
+        run_skill_prepare_hook(
+            skill_path=args.skill_path,
+            prepared_run=prepared_run,
+            eval_ids=args.eval_ids,
+            timeout=args.timeout,
+        )
+
         run_manifest = SkillEvalRunner(
             prepared_run,
             SkillEvalRunOptions(
@@ -87,9 +90,21 @@ def execute(args: argparse.Namespace) -> dict:
         stop_git_fsmonitor_daemons(prepared_run.run_root)
         kill_active_processes()
 
+    aggregation = GradingResultAggregator(
+        iteration_dir=prepared_run.run_root
+        / "results"
+        / f"iteration-{run_manifest['iteration']}",
+        skill_name=prepared_run.skill_name,
+        skill_path=args.skill_path,
+        provider=args.provider,
+        model=run_manifest.get("model", args.model or "default"),
+        effort=run_manifest.get("effort", args.effort or "default"),
+    ).aggregate()
+
     return {
         "prepare": prepared_run.to_summary(),
         "run": run_manifest,
+        "aggregation": aggregation,
     }
 
 

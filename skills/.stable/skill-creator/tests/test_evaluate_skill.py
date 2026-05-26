@@ -26,7 +26,15 @@ class EvaluateSkillTests(unittest.TestCase):
         run_manifest = {
             "skill_name": "sample-skill",
             "provider": "codex",
+            "model": "gpt-5.4",
+            "effort": "high",
+            "iteration": 3,
             "runs": [],
+        }
+        aggregation_result = {
+            "json_path": (
+                "F:/runs/sample-skill/results/iteration-3/aggregated_results.json"
+            ),
         }
 
         with (
@@ -43,6 +51,10 @@ class EvaluateSkillTests(unittest.TestCase):
                 evaluate_skill,
                 "SkillEvalRunner",
             ) as skill_eval_runner,
+            mock.patch.object(
+                evaluate_skill,
+                "GradingResultAggregator",
+            ) as grading_result_aggregator,
             mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
             mock.patch.object(
                 evaluate_skill,
@@ -51,6 +63,9 @@ class EvaluateSkillTests(unittest.TestCase):
         ):
             fixture_preparer.return_value.prepare.return_value = prepared_run
             skill_eval_runner.return_value.run.return_value = run_manifest
+            grading_result_aggregator.return_value.aggregate.return_value = (
+                aggregation_result
+            )
 
             result = evaluate_skill.execute(
                 argparse.Namespace(
@@ -71,6 +86,7 @@ class EvaluateSkillTests(unittest.TestCase):
             {
                 "prepare": prepared_run.to_summary(),
                 "run": run_manifest,
+                "aggregation": aggregation_result,
             },
         )
 
@@ -79,6 +95,7 @@ class EvaluateSkillTests(unittest.TestCase):
             skill_path=Path("F:/skills/sample-skill"),
             prepared_run=prepared_run,
             eval_ids="1,2",
+            timeout=900,
         )
         prepare_options = fixture_preparer.call_args.args[0]
         self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
@@ -97,6 +114,17 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(run_options.max_parallel, 12)
         self.assertEqual(run_options.timeout, 900)
         skill_eval_runner.return_value.run.assert_called_once_with()
+        aggregator_args = grading_result_aggregator.call_args.kwargs
+        self.assertEqual(
+            aggregator_args["iteration_dir"],
+            Path("F:/runs/prepared/results/iteration-3"),
+        )
+        self.assertEqual(aggregator_args["skill_name"], "sample-skill")
+        self.assertEqual(aggregator_args["skill_path"], Path("F:/skills/sample-skill"))
+        self.assertEqual(aggregator_args["provider"], "codex")
+        self.assertEqual(aggregator_args["model"], "gpt-5.4")
+        self.assertEqual(aggregator_args["effort"], "high")
+        grading_result_aggregator.return_value.aggregate.assert_called_once_with()
         kill_active.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
@@ -137,6 +165,50 @@ class EvaluateSkillTests(unittest.TestCase):
                 )
             )
 
+        kill_active.assert_called_once_with()
+        stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
+
+    def test_execute_kills_active_processes_when_skill_prepare_hook_fails(self):
+        prepared_run = PreparedRun(
+            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
+            run_root=Path("F:/runs/sample-skill"),
+            provider="codex",
+            skill_name="sample-skill",
+            evals=[],
+        )
+
+        with (
+            mock.patch.object(evaluate_skill, "FixturePreparer") as fixture_preparer,
+            mock.patch.object(
+                evaluate_skill,
+                "run_skill_prepare_hook",
+                side_effect=RuntimeError("hook failed"),
+            ),
+            mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
+            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
+            mock.patch.object(
+                evaluate_skill,
+                "stop_git_fsmonitor_daemons",
+            ) as stop_fsmonitor,
+            self.assertRaises(RuntimeError),
+        ):
+            fixture_preparer.return_value.prepare.return_value = prepared_run
+
+            evaluate_skill.execute(
+                argparse.Namespace(
+                    skill_path=Path("F:/skills/sample-skill"),
+                    run_root=Path("F:/runs"),
+                    provider="codex",
+                    model="gpt-5.4",
+                    effort="high",
+                    eval_ids="1",
+                    config="with_skill",
+                    max_parallel=12,
+                    timeout=900,
+                )
+            )
+
+        skill_eval_runner.assert_not_called()
         kill_active.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 

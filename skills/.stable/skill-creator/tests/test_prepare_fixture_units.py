@@ -727,6 +727,19 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertTrue((run_root / "workdirs").is_dir())
 
+    def test_reset_workdirs_removes_read_only_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir)
+            read_only_file = run_root / "workdirs" / "repo" / ".git" / "objects" / "1"
+            read_only_file.parent.mkdir(parents=True)
+            read_only_file.write_text("object", encoding="utf-8")
+            read_only_file.chmod(read_only_file.stat().st_mode & ~0o222)
+
+            prepare_fixture.reset_workdirs(run_root)
+
+            self.assertTrue((run_root / "workdirs").is_dir())
+            self.assertFalse(read_only_file.exists())
+
     def test_assert_eval_dir_inside_run_root_accepts_direct_child(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_root = Path(temp_dir)

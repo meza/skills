@@ -48,8 +48,8 @@ class SkillPrepareHookTests(unittest.TestCase):
             temp_path = Path(temp_dir)
 
             with mock.patch.object(
-                skill_prepare_hook.subprocess,
-                "run",
+                skill_prepare_hook,
+                "run_with_timeout",
             ) as run:
                 skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=temp_path / "skill",
@@ -71,9 +71,9 @@ class SkillPrepareHookTests(unittest.TestCase):
             prepared_run = self._prepared_run(temp_path / "runs")
 
             with mock.patch.object(
-                skill_prepare_hook.subprocess,
-                "run",
-                return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+                skill_prepare_hook,
+                "run_with_timeout",
+                return_value=("", "", 0, False, 100),
             ) as run:
                 skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
@@ -90,10 +90,9 @@ class SkillPrepareHookTests(unittest.TestCase):
                 "--eval-run-dir",
                 str(prepared_run.run_root / "workdirs" / "eval-2"),
             ],
-            cwd=skill_path,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
+            "",
+            str(skill_path),
+            600,
         )
 
     def test_runs_skill_prepare_script_for_every_eval_when_no_filter_is_set(self):
@@ -108,9 +107,9 @@ class SkillPrepareHookTests(unittest.TestCase):
             prepared_run = self._prepared_run(temp_path / "runs")
 
             with mock.patch.object(
-                skill_prepare_hook.subprocess,
-                "run",
-                return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+                skill_prepare_hook,
+                "run_with_timeout",
+                return_value=("", "", 0, False, 100),
             ) as run:
                 skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
@@ -139,13 +138,9 @@ class SkillPrepareHookTests(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    skill_prepare_hook.subprocess,
-                    "run",
-                    return_value=mock.Mock(
-                        returncode=1,
-                        stdout="stdout details",
-                        stderr="stderr details",
-                    ),
+                    skill_prepare_hook,
+                    "run_with_timeout",
+                    return_value=("stdout details", "stderr details", 1, False, 100),
                 ),
                 self.assertRaisesRegex(
                     skill_prepare_hook.SkillPrepareHookError,
@@ -156,6 +151,37 @@ class SkillPrepareHookTests(unittest.TestCase):
                     skill_path=skill_path,
                     prepared_run=self._prepared_run(temp_path / "runs"),
                     eval_ids="1",
+                )
+
+        self.assertIn("stderr details", str(raised.exception))
+        self.assertIn("stdout details", str(raised.exception))
+
+    def test_skill_prepare_script_timeout_is_reported_with_context(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = temp_path / "skill"
+            (skill_path / "scripts").mkdir(parents=True)
+            (skill_path / "scripts" / "prepare.py").write_text(
+                "print('prepare')\n",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(
+                    skill_prepare_hook,
+                    "run_with_timeout",
+                    return_value=("stdout details", "stderr details", 0, True, 100),
+                ),
+                self.assertRaisesRegex(
+                    skill_prepare_hook.SkillPrepareHookError,
+                    "skill-local prepare hook timed out for eval id 1 after 5s",
+                ) as raised,
+            ):
+                skill_prepare_hook.run_skill_prepare_hook(
+                    skill_path=skill_path,
+                    prepared_run=self._prepared_run(temp_path / "runs"),
+                    eval_ids="1",
+                    timeout=5,
                 )
 
         self.assertIn("stderr details", str(raised.exception))
