@@ -1,0 +1,42 @@
+{
+  "name": "eval-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "biome:fix": "biome check --write .",
+    "coverage": "vitest run --coverage",
+    "dev": "npm run dev:server",
+    "dev:server": "npm run fixture:visual && tsx watch --clear-screen=false scripts/devServer.ts .tmp/visual-fixture",
+    "fixture:visual": "tsx tests/fixtures/writeVisualFixture.ts",
+    "serve": "tsx src/server/main.ts",
+    "serve:visual": "npm run build && npm run fixture:visual && npm run serve -- .tmp/visual-fixture",
+    "test": "vitest run",
+    "test:visual": "playwright test"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.3.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "fastify": "^5.8.5",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite": "^8.0.14"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.7",
+    "@meza/biome": "^1.1.3",
+    "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.0.14",
+    "jsdom": "^27.2.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

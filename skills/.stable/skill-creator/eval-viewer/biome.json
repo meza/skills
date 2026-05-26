@@ -1,0 +1,16 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "extends": ["@meza/biome"],
+  "files": {
+    "includes": [
+      "**",
+      "!.tmp/**",
+      "!coverage/**",
+      "!design/**",
+      "!dist/**",
+      "!legaci-viewer/**",
+      "!node_modules/**",
+      "!test-results/**"
+    ]
+  }
+}
