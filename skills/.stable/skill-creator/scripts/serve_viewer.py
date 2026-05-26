@@ -184,7 +184,10 @@ def cmd_start(args) -> None:
 
 def _resolve_viewer_script() -> Path:
     script = (
-        Path(__file__).resolve().parent.parent / "eval-viewer" / "generate_review.py"
+        Path(__file__).resolve().parent.parent
+        / "eval-viewer"
+        / "legaci-viewer"
+        / "generate_review.py"
     )
     if script.exists():
         return script
