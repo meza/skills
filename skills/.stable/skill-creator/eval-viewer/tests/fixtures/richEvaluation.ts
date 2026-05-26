@@ -2,7 +2,6 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 interface RichRun {
-  config: string;
   duration: number;
   evalId: number;
   evalName: string;
@@ -10,6 +9,7 @@ interface RichRun {
   expectations: RichExpectation[];
   finalResponse: string;
   sessionId?: string;
+  runType: string;
   status?: string;
   totalTokens: number;
   turns: RichTurn[];
@@ -47,10 +47,10 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: numb
     model: 'gpt-5.5',
     provider: 'codex',
     runs: runs.map((run) => ({
-      config: run.config,
       duration_seconds: run.duration,
       eval_id: run.evalId,
       eval_name: run.evalName,
+      run_type: run.runType,
       session_id: run.sessionId,
       status: run.status ?? 'success',
       total_tokens: run.totalTokens
@@ -67,8 +67,8 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: numb
       skill_name: 'conventional-commit-message'
     },
     summary: {
-      with_skill: { pass_rate: { mean: 0.82 }, time_seconds: { mean: 29.8 }, tokens: { mean: 118_450 } },
-      without_skill: { pass_rate: { mean: 0.25 }, time_seconds: { mean: 21.4 }, tokens: { mean: 88_200 } }
+      skill: { pass_rate: { mean: 0.82 }, time_seconds: { mean: 29.8 }, tokens: { mean: 118_450 } },
+      baseline: { pass_rate: { mean: 0.25 }, time_seconds: { mean: 21.4 }, tokens: { mean: 88_200 } }
     }
   });
 
@@ -110,7 +110,7 @@ function currentRuns(): RichRun[] {
       sessionId: '019e64c2-4003-7e61-915d-6ae50d8ef8e3'
     }),
     richRun({
-      config: 'without_skill',
+      runType: 'baseline',
       evalId: 2,
       evalName: 'user-visible-fix-avoids-code-narration',
       expectations: [
@@ -186,13 +186,13 @@ function richRun(
     }
   ];
   return {
-    config: 'with_skill',
     duration: 31,
     executiveSummary:
       'The run satisfies the relevant expectations and preserves the required Conventional Commit output contract.',
     status: 'success',
     totalTokens: 113_059,
     turns,
+    runType: 'skill',
     ...overrides
   };
 }
@@ -234,26 +234,26 @@ async function writeEvalMetadata(root: string, run: RichRun): Promise<void> {
 }
 
 async function writeRun(root: string, run: RichRun): Promise<void> {
-  const configRoot = join(root, `eval-${run.evalId}`, run.config);
+  const runTypeRoot = join(root, `eval-${run.evalId}`, run.runType);
   for (const [index] of run.turns.entries()) {
-    await mkdir(join(configRoot, `turn-${index + 1}`, 'outputs'), { recursive: true });
+    await mkdir(join(runTypeRoot, `turn-${index + 1}`, 'outputs'), { recursive: true });
   }
-  await writeJson(join(configRoot, 'run_artifacts.json'), {
+  await writeJson(join(runTypeRoot, 'run_artifacts.json'), {
     artifacts: {
-      raw_output_path: join(configRoot, 'raw_output.jsonl'),
-      results_dir_path: configRoot,
-      timing_path: join(configRoot, 'timing.json'),
+      raw_output_path: join(runTypeRoot, 'raw_output.jsonl'),
+      results_dir_path: runTypeRoot,
+      timing_path: join(runTypeRoot, 'timing.json'),
       turns: run.turns.map((_turn, index) => ({
-        response_path: join(configRoot, `turn-${index + 1}`, 'outputs', 'response.md'),
-        transcript_path: join(configRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'),
+        response_path: join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'response.md'),
+        transcript_path: join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'),
         turn: index + 1
       })),
-      working_dir_path: join(configRoot, 'work')
+      working_dir_path: join(runTypeRoot, 'work')
     },
-    config: run.config,
+    run_type: run.runType,
     skill_name: 'conventional-commit-message'
   });
-  await writeJson(join(configRoot, 'grading.json'), {
+  await writeJson(join(runTypeRoot, 'grading.json'), {
     eval_feedback: { overall: run.executiveSummary, suggestions: [] },
     results: {
       overall_expectations: run.expectations.filter((expectation) => expectation.scope === 'overall'),
@@ -271,19 +271,19 @@ async function writeRun(root: string, run: RichRun): Promise<void> {
       total: run.expectations.length
     }
   });
-  await writeJson(join(configRoot, 'timing.json'), {
+  await writeJson(join(runTypeRoot, 'timing.json'), {
     total_duration_seconds: run.duration,
     total_tokens: run.totalTokens
   });
   await writeFile(
-    join(configRoot, 'raw_output.jsonl'),
+    join(runTypeRoot, 'raw_output.jsonl'),
     JSON.stringify({ type: 'final', text: run.finalResponse }),
     'utf-8'
   );
   await Promise.all(
     run.turns.flatMap((turn, index) => [
-      writeFile(join(configRoot, `turn-${index + 1}`, 'outputs', 'response.md'), turn.response, 'utf-8'),
-      writeFile(join(configRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'), turn.transcript, 'utf-8')
+      writeFile(join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'response.md'), turn.response, 'utf-8'),
+      writeFile(join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'), turn.transcript, 'utf-8')
     ])
   );
 }
@@ -292,7 +292,7 @@ async function writeBrokenRun(root: string): Promise<void> {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
   manifest.runs.push({
-    config: 'with_skill',
+    run_type: 'skill',
     duration_seconds: 0,
     error: 'executor timed out before response artifacts were written',
     eval_id: 4,
@@ -301,26 +301,26 @@ async function writeBrokenRun(root: string): Promise<void> {
     total_tokens: 0
   });
   await writeJson(manifestPath, manifest);
-  await mkdir(join(root, 'eval-4', 'with_skill', 'turn-1', 'outputs'), { recursive: true });
+  await mkdir(join(root, 'eval-4', 'skill', 'turn-1', 'outputs'), { recursive: true });
   await writeJson(join(root, 'eval-4', 'eval_metadata.json'), {
     eval_id: 4,
     eval_name: 'missing-artifact-smoke',
     turns: [{ expectations: ['The failed run still appears for review.'], prompt: 'Generate a commit message.' }]
   });
-  await writeJson(join(root, 'eval-4', 'with_skill', 'run_artifacts.json'), {
+  await writeJson(join(root, 'eval-4', 'skill', 'run_artifacts.json'), {
     artifacts: {
-      raw_output_path: join(root, 'eval-4', 'with_skill', 'raw_output.jsonl'),
-      timing_path: join(root, 'eval-4', 'with_skill', 'timing.json'),
+      raw_output_path: join(root, 'eval-4', 'skill', 'raw_output.jsonl'),
+      timing_path: join(root, 'eval-4', 'skill', 'timing.json'),
       turns: [
         {
-          response_path: join(root, 'eval-4', 'with_skill', 'turn-1', 'outputs', 'response.md'),
-          transcript_path: join(root, 'eval-4', 'with_skill', 'turn-1', 'outputs', 'transcript.md'),
+          response_path: join(root, 'eval-4', 'skill', 'turn-1', 'outputs', 'response.md'),
+          transcript_path: join(root, 'eval-4', 'skill', 'turn-1', 'outputs', 'transcript.md'),
           turn: 1
         }
       ]
     }
   });
-  await writeFile(join(root, 'eval-4', 'with_skill', 'grading.json'), '{', 'utf-8');
+  await writeFile(join(root, 'eval-4', 'skill', 'grading.json'), '{', 'utf-8');
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {

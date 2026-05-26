@@ -2,7 +2,7 @@
 
 Runs turns via `codex exec --json` and resumes multi-turn conversations with
 `codex exec resume`. The runner prepares an isolated `.codex/skills`
-directory for with_skill runs.
+directory for skill runs.
 """
 
 import json

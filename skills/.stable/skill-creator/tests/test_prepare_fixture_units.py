@@ -357,14 +357,14 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             temp_path = Path(temp_dir)
             fixtures = self._write_fixture_base(temp_path)
             eval_dir = temp_path / "eval-1"
-            run_dir = eval_dir / "with_skill"
+            run_dir = eval_dir / "skill"
             run_dir.mkdir(parents=True)
 
             copied = prepare_fixture.copy_fixture(
                 fixture_staging=fixtures,
                 eval_dir=eval_dir,
                 run_dir=run_dir,
-                config="with_skill",
+                run_type="skill",
                 fixture_name="sample-project",
                 fixture_in_workdir=True,
                 eval_id="1",
@@ -381,14 +381,14 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             temp_path = Path(temp_dir)
             fixtures = self._write_fixture_base(temp_path)
             eval_dir = temp_path / "eval-1"
-            run_dir = eval_dir / "with_skill"
+            run_dir = eval_dir / "skill"
             run_dir.mkdir(parents=True)
 
             copied = prepare_fixture.copy_fixture(
                 fixture_staging=fixtures,
                 eval_dir=eval_dir,
                 run_dir=run_dir,
-                config="with_skill",
+                run_type="skill",
                 fixture_name="sample-project",
                 fixture_in_workdir=False,
                 eval_id="1",
@@ -396,7 +396,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             copied_path = Path(copied)
             self.assertFalse(copied_path.is_relative_to(run_dir))
-            self.assertEqual(copied_path.parent, eval_dir / "with_skill_fixtures")
+            self.assertEqual(copied_path.parent, eval_dir / "skill_fixtures")
             self.assertEqual(
                 (copied_path / "README.md").read_text(encoding="utf-8"), "fixture"
             )
@@ -407,7 +407,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             fixtures = temp_path / "fixtures"
             fixtures.mkdir()
             eval_dir = temp_path / "eval-1"
-            run_dir = eval_dir / "with_skill"
+            run_dir = eval_dir / "skill"
             run_dir.mkdir(parents=True)
 
             with (
@@ -418,7 +418,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     fixture_staging=fixtures,
                     eval_dir=eval_dir,
                     run_dir=run_dir,
-                    config="with_skill",
+                    run_type="skill",
                     fixture_name="missing-project",
                     fixture_in_workdir=True,
                     eval_id="1",
@@ -507,14 +507,14 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         entry = prepare_fixture.build_prepared_eval(
             {"id": 7, "eval_name": "named-eval"},
             {
-                "with_skill": {
-                    "path": "runs/eval-7/with_skill",
-                    "skill_file": "runs/eval-7/with_skill/.claude/skills/demo/SKILL.md",
-                    "fixture_path": "runs/eval-7/with_skill/project",
+                "skill": {
+                    "path": "runs/eval-7/skill",
+                    "skill_file": "runs/eval-7/skill/.claude/skills/demo/SKILL.md",
+                    "fixture_path": "runs/eval-7/skill/project",
                 },
-                "without_skill": {
-                    "path": "runs/eval-7/without_skill",
-                    "fixture_path": "runs/eval-7/without_skill/project",
+                "baseline": {
+                    "path": "runs/eval-7/baseline",
+                    "fixture_path": "runs/eval-7/baseline/project",
                 },
             },
         )
@@ -524,11 +524,11 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             prepare_fixture.PreparedEval(
                 eval_id=7,
                 eval_name="named-eval",
-                with_skill_path=Path("runs/eval-7/with_skill"),
-                without_skill_path=Path("runs/eval-7/without_skill"),
-                skill_file=Path("runs/eval-7/with_skill/.claude/skills/demo/SKILL.md"),
-                with_skill_fixture_path=Path("runs/eval-7/with_skill/project"),
-                without_skill_fixture_path=Path("runs/eval-7/without_skill/project"),
+                skill_run_path=Path("runs/eval-7/skill"),
+                baseline_run_path=Path("runs/eval-7/baseline"),
+                skill_file=Path("runs/eval-7/skill/.claude/skills/demo/SKILL.md"),
+                skill_fixture_path=Path("runs/eval-7/skill/project"),
+                baseline_fixture_path=Path("runs/eval-7/baseline/project"),
             ),
         )
 
@@ -536,11 +536,11 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         prepared_eval = prepare_fixture.PreparedEval(
             eval_id=1,
             eval_name="basic",
-            with_skill_path=Path("run/eval-1/with_skill"),
-            without_skill_path=Path("run/eval-1/without_skill"),
-            skill_file=Path("run/eval-1/with_skill/.claude/skills/demo/SKILL.md"),
-            with_skill_fixture_path=Path("run/eval-1/with_skill/project"),
-            without_skill_fixture_path=None,
+            skill_run_path=Path("run/eval-1/skill"),
+            baseline_run_path=Path("run/eval-1/baseline"),
+            skill_file=Path("run/eval-1/skill/.claude/skills/demo/SKILL.md"),
+            skill_fixture_path=Path("run/eval-1/skill/project"),
+            baseline_fixture_path=None,
         )
         prepared_run = prepare_fixture.PreparedRun(
             eval_definitions_path=Path("skill/evals/evals.json"),
@@ -555,13 +555,13 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             {
                 "eval_id": 1,
                 "eval_name": "basic",
-                "with_skill_path": str(Path("run/eval-1/with_skill")),
-                "without_skill_path": str(Path("run/eval-1/without_skill")),
+                "skill_run_path": str(Path("run/eval-1/skill")),
+                "baseline_run_path": str(Path("run/eval-1/baseline")),
                 "skill_file": str(
-                    Path("run/eval-1/with_skill/.claude/skills/demo/SKILL.md")
+                    Path("run/eval-1/skill/.claude/skills/demo/SKILL.md")
                 ),
-                "with_skill_fixture_path": str(Path("run/eval-1/with_skill/project")),
-                "without_skill_fixture_path": None,
+                "skill_fixture_path": str(Path("run/eval-1/skill/project")),
+                "baseline_fixture_path": None,
             },
         )
         self.assertEqual(
@@ -598,7 +598,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         self.assertIn("unknown provider 'unknown'", stderr.getvalue())
         self.assertIn("claude, codex", stderr.getvalue())
 
-    def test_prepare_configuration_copies_skill_files_and_eval_files(self):
+    def test_prepare_run_type_copies_skill_files_and_eval_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(
@@ -613,12 +613,12 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             input_file.parent.mkdir()
             input_file.write_text("sample", encoding="utf-8")
 
-            entry = prepare_fixture.prepare_configuration(
+            entry = prepare_fixture.prepare_run_type(
                 skill_path=skill_path,
                 run_root=temp_path / "prepared",
                 eval_def=self._minimal_evals()["evals"][0]
                 | {"files": ["evals/files/input.txt"]},
-                config="with_skill",
+                run_type="skill",
                 fixture_staging=None,
                 skill_name="demo-skill",
                 skill_root=".claude",
@@ -641,7 +641,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 (run_dir / ".gitignore").read_text(encoding="utf-8").splitlines(),
             )
 
-    def test_prepare_configuration_copies_fixture_when_defined(self):
+    def test_prepare_run_type_copies_fixture_when_defined(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
@@ -653,11 +653,11 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 }
             )["evals"][0]
 
-            entry = prepare_fixture.prepare_configuration(
+            entry = prepare_fixture.prepare_run_type(
                 skill_path=skill_path,
                 run_root=temp_path / "prepared",
                 eval_def=eval_def,
-                config="without_skill",
+                run_type="baseline",
                 fixture_staging=fixtures,
                 skill_name="demo-skill",
                 skill_root=".claude",

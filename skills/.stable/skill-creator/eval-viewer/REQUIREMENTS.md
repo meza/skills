@@ -85,7 +85,7 @@ It must show:
 - model
 - effort
 - eval ids and names
-- configs run for each eval
+- run types for each eval
 - execution status
 - pass rate
 - timing
@@ -125,7 +125,7 @@ For each turn, it must show:
 
 ## Comparison Behaviour
 
-If both `with_skill` and `without_skill` exist for the same eval, the viewer must
+If both `skill` and `baseline` exist for the same eval, the viewer must
 support comparing them.
 
 Comparison must cover:

@@ -75,7 +75,7 @@ class EvaluateSkillTests(unittest.TestCase):
                     model="gpt-5.4",
                     effort="high",
                     eval_ids="1,2",
-                    config="with_skill",
+                    skip_baseline=False,
                     max_parallel=12,
                     timeout=900,
                 )
@@ -108,7 +108,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertIs(runner_args[0], prepared_run)
         run_options = runner_args[1]
         self.assertEqual(run_options.eval_ids, "1,2")
-        self.assertEqual(run_options.config, "with_skill")
+        self.assertFalse(run_options.skip_baseline)
         self.assertEqual(run_options.model, "gpt-5.4")
         self.assertEqual(run_options.effort, "high")
         self.assertEqual(run_options.max_parallel, 12)
@@ -159,7 +159,7 @@ class EvaluateSkillTests(unittest.TestCase):
                     model="gpt-5.4",
                     effort="high",
                     eval_ids="1",
-                    config="with_skill",
+                    skip_baseline=False,
                     max_parallel=12,
                     timeout=900,
                 )
@@ -202,7 +202,7 @@ class EvaluateSkillTests(unittest.TestCase):
                     model="gpt-5.4",
                     effort="high",
                     eval_ids="1",
-                    config="with_skill",
+                    skip_baseline=False,
                     max_parallel=12,
                     timeout=900,
                 )
@@ -271,8 +271,7 @@ class EvaluateSkillTests(unittest.TestCase):
             "high",
             "--eval-ids",
             "1,2",
-            "--config",
-            "without_skill",
+            "--skip-baseline",
             "--max-parallel",
             "12",
             "--timeout",
@@ -295,7 +294,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(args.model, "gpt-5.5")
         self.assertEqual(args.effort, "high")
         self.assertEqual(args.eval_ids, "1,2")
-        self.assertEqual(args.config, "without_skill")
+        self.assertTrue(args.skip_baseline)
         self.assertEqual(args.max_parallel, 12)
         self.assertEqual(args.timeout, 900)
         self.assertEqual(json.loads(stdout.getvalue()), expected_result)
@@ -322,7 +321,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertIsNone(args.model)
         self.assertIsNone(args.effort)
         self.assertIsNone(args.eval_ids)
-        self.assertIsNone(args.config)
+        self.assertFalse(args.skip_baseline)
         self.assertEqual(args.max_parallel, 10)
         self.assertEqual(args.timeout, 600)
 

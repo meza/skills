@@ -74,7 +74,7 @@ Use `turns[].expectations` for checks that apply to a specific turn. Use `outcom
 - `evals[].fixture_in_workdir`: Boolean (default `true`). When `true`, the fixture is copied into the agent's working directory so it is visible from the start. When `false`, the fixture is placed in a sibling directory outside the working directory. The agent cannot discover it by browsing. It is only accessible via `{{FIXTURE_PATH}}` substitution in a turn prompt. Use `false` when you want to test whether the agent asks for the codebase location before being told.
 - `evals[].timeout`: Optional integer (seconds). Overrides the CLI `--timeout` for all turns in this eval. Individual turns can override further with their own `timeout` field.
 - `evals[].turns[].timeout`: Optional integer (seconds). Overrides both the eval-level and CLI timeout for this specific turn. Use lower values for turns that ask a simple question and higher values for turns that require implementation work.
-- `evals[].files`: Optional list of input file paths (relative to skill root). Each listed file is copied into both the `with_skill` and `without_skill` run directories, preserving its relative path under the run directory so the agent can access it naturally during the eval.
+- `evals[].files`: Optional list of input file paths (relative to skill root). Each listed file is copied into both the `skill` and `baseline` run directories, preserving its relative path under the run directory so the agent can access it naturally during the eval.
 
 When both `fixture_repo` and `fixture_ref` are set, the harness clones or updates the repo, resolves the pinned ref, resets the staged checkout to that exact commit, and then copies fixtures from there into each run directory.
 
@@ -106,7 +106,7 @@ Written at the eval directory level (e.g., `eval-1/eval_metadata.json`). Consume
 - `eval_name`: Human-readable name displayed in the viewer and benchmark tab. Sourced from evals.json.
 - `turns`: Array of turn objects matching the evals.json schema. Each has `prompt` and `expectations`.
 
-**Viewer lookup order:** The viewer checks `run_dir/eval_metadata.json` first, then `run_dir.parent/eval_metadata.json`. Placing it at the eval directory level (parent of config dirs) means both with_skill and without_skill runs share the same metadata.
+**Viewer lookup order:** The viewer checks `run_dir/eval_metadata.json` first, then `run_dir.parent/eval_metadata.json`. Placing it at the eval directory level (parent of run type dirs) means both `skill` and `baseline` runs share the same metadata.
 
 ---
 
@@ -305,14 +305,14 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
     "analyzer_model": "most-capable-model",
     "timestamp": "2026-01-15T10:30:00Z",
     "evals_run": [1, 2, 3],
-    "runs_per_configuration": 3
+    "runs_per_run_type": 3
   },
 
   "runs": [
     {
       "eval_id": 1,
       "eval_name": "Ocean",
-      "configuration": "with_skill",
+      "run_type": "skill",
       "run_number": 1,
       "result": {
         "pass_rate": 0.85,
@@ -335,12 +335,12 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
   ],
 
   "run_summary": {
-    "with_skill": {
+    "skill": {
       "pass_rate": {"mean": 0.85, "stddev": 0.05, "min": 0.80, "max": 0.90},
       "time_seconds": {"mean": 45.0, "stddev": 12.0, "min": 32.0, "max": 58.0},
       "tokens": {"mean": 3800, "stddev": 400, "min": 3200, "max": 4100}
     },
-    "without_skill": {
+    "baseline": {
       "pass_rate": {"mean": 0.35, "stddev": 0.08, "min": 0.28, "max": 0.45},
       "time_seconds": {"mean": 32.0, "stddev": 8.0, "min": 24.0, "max": 42.0},
       "tokens": {"mean": 2100, "stddev": 300, "min": 1800, "max": 2500}
@@ -353,7 +353,7 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
   },
 
   "notes": [
-    "Assertion 'Output is a PDF file' passes 100% in both configurations - may not differentiate skill value",
+    "Assertion 'Output is a PDF file' passes 100% in both run types - may not differentiate skill value",
     "Eval 3 shows high variance (50% ± 40%) - may be flaky or model-dependent",
     "Without-skill runs consistently fail on table extraction expectations",
     "Skill adds 13s average execution time but improves pass rate by 50%"
@@ -366,19 +366,19 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
   - `skill_name`: Name of the skill
   - `timestamp`: When the benchmark was run
   - `evals_run`: List of eval names or IDs
-  - `runs_per_configuration`: Number of runs per config (e.g. 3)
+  - `runs_per_run_type`: Number of runs per run type (e.g. 3)
 - `runs[]`: Individual run results
   - `eval_id`: Numeric eval identifier
   - `eval_name`: Human-readable eval name (used as section header in the viewer). Read from eval_metadata.json by the aggregation script.
-  - `configuration`: Must be `"with_skill"` or `"without_skill"` (the viewer uses this exact string for grouping and color coding)
+  - `run_type`: Must be `"skill"` or `"baseline"` (the viewer uses this exact string for grouping and color coding)
   - `run_number`: Integer run number (1, 2, 3...)
   - `result`: Nested object with `pass_rate`, `passed`, `total`, `time_seconds`, `tokens`, `errors`
-- `run_summary`: Statistical aggregates per configuration
-  - `with_skill` / `without_skill`: Each contains `pass_rate`, `time_seconds`, `tokens` objects with `mean` and `stddev` fields
+- `run_summary`: Statistical aggregates per run type
+  - `skill` / `baseline`: Each contains `pass_rate`, `time_seconds`, `tokens` objects with `mean` and `stddev` fields
   - `delta`: Difference strings like `"+0.50"`, `"+13.0"`, `"+1700"`
 - `notes`: Freeform observations from the analyzer
 
-**Important:** The viewer reads these field names exactly. Using `config` instead of `configuration`, or putting `pass_rate` at the top level of a run instead of nested under `result`, will cause the viewer to show empty/zero values. Always reference this schema when generating benchmark.json manually.
+**Important:** The viewer reads these field names exactly. Using `config` or `configuration` instead of `run_type`, or putting `pass_rate` at the top level of a run instead of nested under `result`, will cause the viewer to show empty/zero values. Always reference this schema when generating benchmark.json manually.
 
 ---
 

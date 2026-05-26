@@ -47,10 +47,10 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
   --eval-ids 1,3 \
-  --config with_skill
+  --skip-baseline
 ```
 
-`--config` accepts `with_skill` or `without_skill`. If omitted, both configurations run.
+By default, the runner executes both the skill run and the baseline run. Use `--skip-baseline` when you only want to run the skill-enabled eval.
 
 Use a run root under the current workspace so generated artifacts stay contained to the session. Each invocation creates a fresh prepared run root under `--run-root`, then writes result artifacts under:
 
@@ -68,7 +68,7 @@ Every iteration follows this structure:
 iteration-N/
 └── eval-<ID>/
     ├── eval_metadata.json
-    ├── with_skill/
+    ├── skill/
     │   ├── turn-1/
     │   │   └── outputs/
     │   │       ├── response.md
@@ -80,7 +80,7 @@ iteration-N/
     │   ├── grading.json
     │   ├── raw_output.jsonl
     │   └── timing.json
-    └── without_skill/
+    └── baseline/
         ├── turn-1/
         ├── turn-2/
         ├── grading.json
@@ -88,7 +88,7 @@ iteration-N/
         └── timing.json
 ```
 
-`eval_metadata.json` is shared by both configurations for one eval. `grading.json`, `timing.json`, and `raw_output.jsonl` live under the configuration directory.
+`eval_metadata.json` is shared by both run types for one eval. `grading.json`, `timing.json`, and `raw_output.jsonl` live under the run type directory.
 
 ## Multi-Turn Evals
 
@@ -155,11 +155,11 @@ Each eval selects a fixture by directory name:
 }
 ```
 
-When `fixture_in_workdir` is `true`, the fixture is copied into both the `with_skill` and `without_skill` working directories. The agent can discover it by listing the run directory.
+When `fixture_in_workdir` is `true`, the fixture is copied into both the `skill` and `baseline` working directories. The agent can discover it by listing the run directory.
 
 When `fixture_in_workdir` is `false`, the fixture is copied to a sibling directory outside the agent's working directory. The agent receives the path only if the prompt uses `{{FIXTURE_PATH}}`.
 
-Fixture copies are isolated per eval and per configuration. Changes made by a `with_skill` run cannot affect the matching `without_skill` run, and changes from one eval cannot affect another eval.
+Fixture copies are isolated per eval and per run type. Changes made by a `skill` run cannot affect the matching `baseline` run, and changes from one eval cannot affect another eval.
 
 ## Internal Application Shape
 
@@ -174,17 +174,17 @@ The handoff between preparation and execution is an in-memory `PreparedRun` data
 
 ## Grade Results
 
-Each run needs a `grading.json` file at the configuration directory level:
+Each run needs a `grading.json` file at the run type directory level:
 
 ```text
-iteration-N/eval-<ID>/<configuration>/grading.json
+iteration-N/eval-<ID>/<run-type>/grading.json
 ```
 
 Validate every grading file before aggregating:
 
 ```bash
 python <skill-creator-path>/scripts/validate_grading.py \
-  <prepared-run-root>/results/iteration-1/eval-<ID>/<configuration>/grading.json
+  <prepared-run-root>/results/iteration-1/eval-<ID>/<run-type>/grading.json
 ```
 
 `grading.json` must include expectation results, summary counts, pass rate, and eval feedback.
@@ -235,8 +235,8 @@ python <skill-creator-path>/scripts/serve_viewer.py start \
 
 ## Isolation
 
-Every `evaluate_skill.py` invocation creates a new prepared run root. Each eval gets separate `with_skill` and `without_skill` working directories.
+Every `evaluate_skill.py` invocation creates a new prepared run root. Each eval gets separate `skill` and `baseline` working directories.
 
-`with_skill` receives a copied version of the skill under test in the provider-specific discovery location. `without_skill` does not receive the skill.
+`skill` receives a copied version of the skill under test in the provider-specific discovery location. `baseline` does not receive the skill.
 
-Fixtures and eval files are copied into each run configuration separately. A run modifies only its own prepared working directory, so one eval or configuration cannot contaminate another.
+Fixtures and eval files are copied into each run type separately. A run modifies only its own prepared working directory, so one eval or run type cannot contaminate another.

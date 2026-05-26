@@ -3,7 +3,7 @@
 
 This script is intentionally skill-local. It reads eval metadata from the
 skill's own evals.json, finds the configured fixture and patch for one eval,
-and prepares both with_skill and without_skill fixture copies so the evaluated
+and prepares both skill and baseline fixture copies so the evaluated
 agent sees a real git surface with staged changes.
 
 Usage:
@@ -61,18 +61,18 @@ def resolve_skill_relative_file(skill_root: Path, relative_path: str, label: str
     return resolved
 
 
-def resolve_fixture_repo(eval_run_dir: Path, config: str, fixture_name: str) -> Path:
-    in_workdir = eval_run_dir / config / fixture_name
+def resolve_fixture_repo(eval_run_dir: Path, run_type: str, fixture_name: str) -> Path:
+    in_workdir = eval_run_dir / run_type / fixture_name
     if in_workdir.is_dir():
         return in_workdir
 
-    external = eval_run_dir / f"{config}_fixtures" / fixture_name
+    external = eval_run_dir / f"{run_type}_fixtures" / fixture_name
     if external.is_dir():
         return external
 
     fail(
-        f"fixture '{fixture_name}' was not found for config '{config}' under "
-        f"{eval_run_dir / config} or {eval_run_dir / f'{config}_fixtures'}"
+        f"fixture '{fixture_name}' was not found for run type '{run_type}' under "
+        f"{eval_run_dir / run_type} or {eval_run_dir / f'{run_type}_fixtures'}"
     )
 
 
@@ -132,10 +132,10 @@ def main() -> None:
     patch_path = resolve_skill_relative_file(skill_root, patch_relative, "prepare_patch")
 
     prepared = {}
-    for config in ("with_skill", "without_skill"):
-        repo_dir = resolve_fixture_repo(eval_run_dir, config, fixture_name)
+    for run_type in ("skill", "baseline"):
+        repo_dir = resolve_fixture_repo(eval_run_dir, run_type, fixture_name)
         prepare_repo(repo_dir, patch_path)
-        prepared[config] = str(repo_dir)
+        prepared[run_type] = str(repo_dir)
 
     print(json.dumps({"eval_id": str(args.eval_id), "prepared_repos": prepared}, indent=2))
 

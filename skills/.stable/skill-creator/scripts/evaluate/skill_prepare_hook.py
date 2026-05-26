@@ -47,7 +47,7 @@ def _run_prepare_hook_for_eval(
     eval_entry: PreparedEval,
     timeout: int,
 ) -> None:
-    eval_run_dir = eval_entry.with_skill_path.parent
+    eval_run_dir = eval_entry.skill_run_path.parent
 
     stdout, stderr, returncode, timed_out, _duration_ms = run_with_timeout(
         [

@@ -109,10 +109,10 @@ class RunSkillEvalsContractTests(unittest.TestCase):
         self, root: Path, skill_name: str = "fake-skill"
     ) -> Path:
         run_root = root / "prepared"
-        for config in ("with_skill", "without_skill"):
+        for config in ("skill", "baseline"):
             run_dir = run_root / "eval-1" / config
             run_dir.mkdir(parents=True)
-            if config == "with_skill":
+            if config == "skill":
                 skill_dir = run_dir / ".fake" / "skills" / skill_name
                 skill_dir.mkdir(parents=True)
                 (skill_dir / "SKILL.md").write_text("# Fake Skill\n", encoding="utf-8")
@@ -134,27 +134,27 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 PreparedEval(
                     eval_id=1,
                     eval_name="basic",
-                    with_skill_path=run_root / "eval-1" / "with_skill",
-                    without_skill_path=run_root / "eval-1" / "without_skill",
+                    skill_run_path=run_root / "eval-1" / "skill",
+                    baseline_run_path=run_root / "eval-1" / "baseline",
                     skill_file=run_root
                     / "eval-1"
-                    / "with_skill"
+                    / "skill"
                     / ".fake"
                     / "skills"
                     / skill_name
                     / "SKILL.md",
-                    with_skill_fixture_path=None,
-                    without_skill_fixture_path=None,
+                    skill_fixture_path=None,
+                    baseline_fixture_path=None,
                 )
             ],
         )
 
     def _args(
         self,
-        config: str | None = None,
+        skip_baseline: bool = False,
     ) -> run_skill_evals.SkillEvalRunOptions:
         return run_skill_evals.SkillEvalRunOptions(
-            config=config,
+            skip_baseline=skip_baseline,
             model=None,
             effort=None,
         )
@@ -182,7 +182,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
         ):
             return run_skill_evals.SkillEvalRunner(prepared_run, options).run()
 
-    def test_execute_writes_run_artifacts_for_both_configurations(self):
+    def test_execute_writes_run_artifacts_for_both_run_types(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(
@@ -224,36 +224,36 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             self.assertEqual(metadata["eval_name"], "basic")
 
             for config, stdout in (
-                ("with_skill", "with-skill-output"),
-                ("without_skill", "without-skill-output"),
+                ("skill", "with-skill-output"),
+                ("baseline", "without-skill-output"),
             ):
-                config_dir = iteration_dir / "eval-1" / config
+                run_type_dir = iteration_dir / "eval-1" / config
                 self.assertEqual(
-                    (config_dir / "turn-1" / "outputs" / "response.md").read_text(
+                    (run_type_dir / "turn-1" / "outputs" / "response.md").read_text(
                         encoding="utf-8"
                     ),
                     f"response for {stdout}",
                 )
                 self.assertEqual(
-                    (config_dir / "turn-1" / "outputs" / "transcript.md").read_text(
+                    (run_type_dir / "turn-1" / "outputs" / "transcript.md").read_text(
                         encoding="utf-8"
                     ),
                     f"transcript for {stdout}",
                 )
                 self.assertEqual(
                     json.loads(
-                        (config_dir / "timing.json").read_text(encoding="utf-8")
+                        (run_type_dir / "timing.json").read_text(encoding="utf-8")
                     )["total_tokens"],
                     15,
                 )
                 self.assertEqual(
                     json.loads(
-                        (config_dir / "raw_output.jsonl").read_text(encoding="utf-8")
+                        (run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8")
                     ),
                     {"event": stdout},
                 )
                 self.assertEqual(
-                    (config_dir / "transcript.md").read_text(encoding="utf-8"),
+                    (run_type_dir / "transcript.md").read_text(encoding="utf-8"),
                     f"transcript for {stdout}",
                 )
 
@@ -272,8 +272,8 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
     def _fake_output_for_command(self, cmd, *_args, **_kwargs):
         stdout_by_session = {
-            "eval-1-with_skill": "with-skill-output",
-            "eval-1-without_skill": "without-skill-output",
+            "eval-1-skill": "with-skill-output",
+            "eval-1-baseline": "without-skill-output",
         }
         return stdout_by_session[cmd[1]], "", 0, False, 100
 
@@ -316,17 +316,17 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             ):
                 run_skill_evals.SkillEvalRunner(
                     prepared_run,
-                    self._args(config="without_skill"),
+                    self._args(skip_baseline=True),
                 ).run()
 
             self.assertEqual(observed_env["PROVIDER_ENV"], "present")
             self.assertEqual(
                 provider.environment_args["run_dir"],
-                str(run_root / "eval-1" / "without_skill"),
+                str(run_root / "eval-1" / "skill"),
             )
             self.assertEqual(
                 provider.environment_args["artifact_dir"],
-                (run_root / "results" / "iteration-1" / "eval-1" / "without_skill"),
+                (run_root / "results" / "iteration-1" / "eval-1" / "skill"),
             )
 
     def test_eval_job_invokes_grading_after_writing_run_artifacts(self):
@@ -340,10 +340,10 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             def grading_job_factory(job):
                 class FakeGradingJob:
                     def run(self):
-                        config_dir = job.config_dir
-                        assert (config_dir / "timing.json").exists()
-                        assert (config_dir / "raw_output.jsonl").exists()
-                        graded_paths.append(config_dir)
+                        run_type_dir = job.run_type_dir
+                        assert (run_type_dir / "timing.json").exists()
+                        assert (run_type_dir / "raw_output.jsonl").exists()
+                        graded_paths.append(run_type_dir)
 
                 return FakeGradingJob()
 
@@ -353,7 +353,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                     "eval_name": "basic",
                     "turns": [{"prompt": "Do the task", "expectations": []}],
                 },
-                config="with_skill",
+                run_type="skill",
                 run_dir=str(run_dir),
                 fixture_path=None,
                 iteration_dir=iteration_dir,
@@ -373,7 +373,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             self.assertEqual(
                 graded_paths,
-                [iteration_dir / "eval-1" / "with_skill"],
+                [iteration_dir / "eval-1" / "skill"],
             )
 
     def test_execute_resumes_multi_turn_runs_with_provider_session_id(self):
@@ -401,7 +401,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             self._execute_with_fake_provider(
                 prepared_run,
-                self._args(config="with_skill"),
+                self._args(skip_baseline=True),
                 provider,
                 [
                     ("turn-one", "", 0, False, 100),
@@ -414,12 +414,12 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             self.assertEqual(provider.commands[1]["turn_index"], 1)
             self.assertEqual(provider.commands[1]["session_id"], "session-turn-one")
 
-            config_dir = run_root / "results" / "iteration-1" / "eval-1" / "with_skill"
+            run_type_dir = run_root / "results" / "iteration-1" / "eval-1" / "skill"
             self.assertTrue(
-                (config_dir / "turn-1" / "outputs" / "response.md").exists()
+                (run_type_dir / "turn-1" / "outputs" / "response.md").exists()
             )
             self.assertTrue(
-                (config_dir / "turn-2" / "outputs" / "response.md").exists()
+                (run_type_dir / "turn-2" / "outputs" / "response.md").exists()
             )
 
     def test_execute_records_timeout_artifacts_without_invoking_real_provider_cli(self):
@@ -444,7 +444,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             manifest = self._execute_with_fake_provider(
                 prepared_run,
-                self._args(config="with_skill"),
+                self._args(skip_baseline=True),
                 provider,
                 [("partial-output", "", 0, True, 600000)],
             )
@@ -453,16 +453,16 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             self.assertEqual(run["status"], "timeout")
             self.assertEqual(run["error"], "Turn 1/1 timed out after 600s")
 
-            config_dir = run_root / "results" / "iteration-1" / "eval-1" / "with_skill"
+            run_type_dir = run_root / "results" / "iteration-1" / "eval-1" / "skill"
             self.assertEqual(
-                (config_dir / "turn-1" / "outputs" / "response.md").read_text(
+                (run_type_dir / "turn-1" / "outputs" / "response.md").read_text(
                     encoding="utf-8"
                 ),
                 "response for partial-output",
             )
             self.assertEqual(
                 json.loads(
-                    (config_dir / "raw_output.jsonl").read_text(encoding="utf-8")
+                    (run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8")
                 ),
                 {"event": "partial-output"},
             )
@@ -599,7 +599,7 @@ class EvalLibTests(unittest.TestCase):
                 "eval_name": "unit",
                 "turns": [{"prompt": "Do it", "expectations": []}],
             },
-            config="with_skill",
+            run_type="skill",
             run_dir=str(iteration_dir / "run"),
             fixture_path=None,
             iteration_dir=iteration_dir,
@@ -879,13 +879,13 @@ class EvalLibTests(unittest.TestCase):
             temp_path = Path(temp_dir)
             eval_dir = temp_path / "eval-1"
             provider = FakeProvider()
-            for config in eval_run_paths.CONFIGURATIONS:
+            for config in eval_run_paths.RUN_TYPES:
                 (eval_dir / config).mkdir(parents=True)
                 (eval_dir / f"{config}_fixtures").mkdir()
                 (eval_dir / f"{config}_fixtures" / "fixture").mkdir()
 
             skill_dir = (
-                eval_dir / "with_skill" / provider.skill_root / "skills" / "fake-skill"
+                eval_dir / "skill" / provider.skill_root / "skills" / "fake-skill"
             )
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
@@ -904,11 +904,11 @@ class EvalLibTests(unittest.TestCase):
             )
 
             self.assertEqual(
-                paths["1"]["without_skill"]["fixture_path"],
-                str(eval_dir / "without_skill_fixtures" / "fixture"),
+                paths["1"]["baseline"]["fixture_path"],
+                str(eval_dir / "baseline_fixtures" / "fixture"),
             )
             self.assertEqual(
-                paths["1"]["with_skill"]["skill_file"],
+                paths["1"]["skill"]["skill_file"],
                 str(skill_dir / "SKILL.md"),
             )
 
@@ -965,7 +965,7 @@ class EvalLibTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             eval_dir = temp_path / "eval-1"
-            for config in eval_run_paths.CONFIGURATIONS:
+            for config in eval_run_paths.RUN_TYPES:
                 (eval_dir / config).mkdir(parents=True)
 
             with (
@@ -982,7 +982,7 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("fixture 'fixture'", stderr.getvalue())
 
-            for config in eval_run_paths.CONFIGURATIONS:
+            for config in eval_run_paths.RUN_TYPES:
                 (eval_dir / config / "fixture").mkdir()
 
             with (
@@ -999,15 +999,9 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("skill file not found", stderr.getvalue())
 
-    def test_eval_definitions_reject_invalid_config_and_missing_or_empty_evals(self):
-        with (
-            contextlib.redirect_stderr(io.StringIO()) as stderr,
-            self.assertRaises(SystemExit) as raised,
-        ):
-            eval_definitions.selected_configs("unknown")
-
-        self.assertEqual(raised.exception.code, 1)
-        self.assertIn("unknown config", stderr.getvalue())
+    def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(self):
+        self.assertEqual(eval_definitions.selected_run_types(False), ["skill", "baseline"])
+        self.assertEqual(eval_definitions.selected_run_types(True), ["skill"])
 
         with tempfile.TemporaryDirectory() as temp_dir:
             missing_evals_json = (
@@ -1074,7 +1068,7 @@ class EvalLibTests(unittest.TestCase):
                     max_parallel=1,
                     timeout=30,
                     total_timeout=60,
-                    configs=["with_skill", "without_skill"],
+                    run_types=["skill", "baseline"],
                     run_root=temp_path / "prepared",
                 ),
                 FakeProvider(),
@@ -1098,7 +1092,7 @@ class EvalLibTests(unittest.TestCase):
             failed_future.result.side_effect = RuntimeError("boom")
             failed_job = EvalJobSpec(
                 {"id": 1},
-                "with_skill",
+                "skill",
                 str(temp_path / "run"),
                 None,
             )
@@ -1109,7 +1103,7 @@ class EvalLibTests(unittest.TestCase):
                 summary,
                 {
                     "eval_id": 1,
-                    "config": "with_skill",
+                    "run_type": "skill",
                     "status": "exception",
                     "error": "boom",
                 },
@@ -1119,10 +1113,10 @@ class EvalLibTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 runner.print_failed_runs(
                     [
-                        {"eval_id": 1, "config": "with_skill", "status": "success"},
+                        {"eval_id": 1, "run_type": "skill", "status": "success"},
                         {
                             "eval_id": 2,
-                            "config": "without_skill",
+                            "run_type": "baseline",
                             "status": "error",
                             "error": "failed",
                         },
@@ -1130,9 +1124,9 @@ class EvalLibTests(unittest.TestCase):
                 )
 
             self.assertNotIn("eval-1", stdout.getvalue())
-            self.assertIn("eval-2 [without_skill]: failed", stdout.getvalue())
+            self.assertIn("eval-2 [baseline]: failed", stdout.getvalue())
 
-    def test_eval_run_job_for_config_uses_prepared_paths(self):
+    def test_eval_run_job_for_run_type_uses_prepared_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             runner = EvalRun(
@@ -1146,7 +1140,7 @@ class EvalLibTests(unittest.TestCase):
                     max_parallel=1,
                     timeout=30,
                     total_timeout=None,
-                    configs=["with_skill"],
+                    run_types=["skill"],
                     run_root=temp_path / "prepared",
                 ),
                 FakeProvider(),
@@ -1155,40 +1149,40 @@ class EvalLibTests(unittest.TestCase):
                 [],
             )
 
-            job = runner.job_for_config(
+            job = runner.job_for_run_type(
                 {"id": 1},
-                "with_skill",
+                "skill",
                 PreparedEval(
                     eval_id=1,
                     eval_name="unit",
-                    with_skill_path=temp_path / "with_skill",
-                    without_skill_path=temp_path / "without_skill",
+                    skill_run_path=temp_path / "skill",
+                    baseline_run_path=temp_path / "baseline",
                     skill_file=temp_path / "SKILL.md",
-                    with_skill_fixture_path=temp_path / "fixture",
-                    without_skill_fixture_path=None,
+                    skill_fixture_path=temp_path / "fixture",
+                    baseline_fixture_path=None,
                 ),
             )
 
-            self.assertEqual(job.run_dir, str(temp_path / "with_skill"))
+            self.assertEqual(job.run_dir, str(temp_path / "skill"))
             self.assertEqual(job.fixture_path, str(temp_path / "fixture"))
             job_prepared_eval = PreparedEval(
                 eval_id=1,
                 eval_name="unit",
-                with_skill_path=temp_path / "with_skill",
-                without_skill_path=temp_path / "without_skill",
+                skill_run_path=temp_path / "skill",
+                baseline_run_path=temp_path / "baseline",
                 skill_file=temp_path / "SKILL.md",
-                with_skill_fixture_path=None,
-                without_skill_fixture_path=temp_path / "without_fixture",
+                skill_fixture_path=None,
+                baseline_fixture_path=temp_path / "without_fixture",
             )
             self.assertEqual(
-                runner.run_dir_for_config(job_prepared_eval, "without_skill"),
-                str(temp_path / "without_skill"),
+                runner.run_dir_for_run_type(job_prepared_eval, "baseline"),
+                str(temp_path / "baseline"),
             )
             self.assertEqual(
-                runner.fixture_path_for_config(job_prepared_eval, "without_skill"),
+                runner.fixture_path_for_run_type(job_prepared_eval, "baseline"),
                 str(temp_path / "without_fixture"),
             )
-            self.assertIsNone(runner.run_dir_for_config(job_prepared_eval, "other"))
+            self.assertIsNone(runner.run_dir_for_run_type(job_prepared_eval, "other"))
 
     def test_eval_run_records_completed_future_and_writes_manifest(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1204,7 +1198,7 @@ class EvalLibTests(unittest.TestCase):
                     max_parallel=1,
                     timeout=30,
                     total_timeout=None,
-                    configs=["with_skill"],
+                    run_types=["skill"],
                     run_root=temp_path / "prepared",
                 ),
                 FakeProvider(),
@@ -1214,11 +1208,11 @@ class EvalLibTests(unittest.TestCase):
             )
             iteration_dir = temp_path / "iteration"
             iteration_dir.mkdir()
-            job = EvalJobSpec({"id": 1}, "with_skill", "run", None)
+            job = EvalJobSpec({"id": 1}, "skill", "run", None)
             future = mock.Mock()
             future.result.return_value = {
                 "eval_id": 1,
-                "config": "with_skill",
+                "run_type": "skill",
                 "status": "success",
                 "cost_usd": 0.5,
             }
@@ -1252,7 +1246,7 @@ class EvalLibTests(unittest.TestCase):
             final_summaries = summaries + [
                 {
                     "eval_id": 2,
-                    "config": "without_skill",
+                    "run_type": "baseline",
                     "status": "error",
                     "error": "failed",
                 }
@@ -1266,7 +1260,7 @@ class EvalLibTests(unittest.TestCase):
                 )
 
             self.assertIn("failed runs:", stdout.getvalue())
-            self.assertIn("eval-2 [without_skill]: failed", stdout.getvalue())
+            self.assertIn("eval-2 [baseline]: failed", stdout.getvalue())
 
     def test_eval_run_submit_jobs_passes_resolved_job_fields(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1283,7 +1277,7 @@ class EvalLibTests(unittest.TestCase):
                     max_parallel=1,
                     timeout=30,
                     total_timeout=None,
-                    configs=["with_skill"],
+                    run_types=["skill"],
                     run_root=temp_path / "prepared",
                     grading_job_factory=grading_job_factory,
                 ),
@@ -1297,7 +1291,7 @@ class EvalLibTests(unittest.TestCase):
             executor.submit.return_value = future
             job = EvalJobSpec(
                 {"id": 1},
-                "with_skill",
+                "skill",
                 str(temp_path / "run"),
                 str(temp_path / "fixture"),
             )
@@ -1307,7 +1301,7 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(futures, {future: job})
             submitted = executor.submit.call_args.args
             self.assertEqual(submitted[1:], executor.submit.call_args.args[1:])
-            self.assertEqual(submitted[2], "with_skill")
+            self.assertEqual(submitted[2], "skill")
             self.assertEqual(submitted[3], str(temp_path / "run"))
             self.assertEqual(submitted[4], str(temp_path / "fixture"))
             self.assertEqual(submitted[7], "fake-model")
@@ -1333,10 +1327,10 @@ class CodexProviderTests(unittest.TestCase):
 
         start_command = provider.build_command(
             session_id=None,
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=0,
             model="gpt-5.4",
-            working_dir="F:/tmp/eval-1/with_skill",
+            working_dir="F:/tmp/eval-1/skill",
         )
 
         self.assertTrue(
@@ -1359,7 +1353,7 @@ class CodexProviderTests(unittest.TestCase):
                 "features.plugins=false",
                 "-",
                 "--cd",
-                "F:/tmp/eval-1/with_skill",
+                "F:/tmp/eval-1/skill",
                 "--model",
                 "gpt-5.4",
             ],
@@ -1367,10 +1361,10 @@ class CodexProviderTests(unittest.TestCase):
 
         resume_command = provider.build_command(
             session_id="thread-123",
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=1,
             model="gpt-5.4",
-            working_dir="F:/tmp/eval-1/with_skill",
+            working_dir="F:/tmp/eval-1/skill",
         )
 
         self.assertEqual(
@@ -1427,7 +1421,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         command = provider.build_command(
             session_id="session-123",
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=0,
             model="claude-sonnet-4-5",
             effort="high",
@@ -1439,7 +1433,7 @@ class ClaudeProviderTests(unittest.TestCase):
 
         default_command = provider.build_command(
             session_id="session-123",
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=0,
             model=None,
         )
@@ -1478,7 +1472,7 @@ class GitEnvironmentTests(unittest.TestCase):
     def test_stop_git_fsmonitor_daemons_stops_repos_under_run_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            repo_path = temp_path / "workdirs" / "eval-1" / "with_skill" / "repo"
+            repo_path = temp_path / "workdirs" / "eval-1" / "skill" / "repo"
             repo_path.mkdir(parents=True)
             (repo_path / ".git").mkdir()
 

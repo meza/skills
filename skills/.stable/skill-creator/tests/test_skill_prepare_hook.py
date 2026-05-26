@@ -26,21 +26,21 @@ class SkillPrepareHookTests(unittest.TestCase):
         return PreparedEval(
             eval_id=eval_id,
             eval_name=f"eval-{eval_id}",
-            with_skill_path=run_root / "workdirs" / f"eval-{eval_id}" / "with_skill",
-            without_skill_path=run_root
+            skill_run_path=run_root / "workdirs" / f"eval-{eval_id}" / "skill",
+            baseline_run_path=run_root
             / "workdirs"
             / f"eval-{eval_id}"
-            / "without_skill",
+            / "baseline",
             skill_file=run_root
             / "workdirs"
             / f"eval-{eval_id}"
-            / "with_skill"
+            / "skill"
             / ".codex"
             / "skills"
             / "demo"
             / "SKILL.md",
-            with_skill_fixture_path=None,
-            without_skill_fixture_path=None,
+            skill_fixture_path=None,
+            baseline_fixture_path=None,
         )
 
     def test_missing_skill_prepare_script_is_noop(self):
@@ -209,7 +209,7 @@ class SkillPrepareHookTests(unittest.TestCase):
                 encoding="utf-8",
             )
             prepared_run = self._prepared_run(temp_path / "runs")
-            (prepared_run.evals[0].with_skill_path.parent).mkdir(parents=True)
+            (prepared_run.evals[0].skill_run_path.parent).mkdir(parents=True)
 
             skill_prepare_hook.run_skill_prepare_hook(
                 skill_path=skill_path,

@@ -2,13 +2,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export async function writeSampleIteration(root: string, options: { iteration?: number } = {}): Promise<void> {
-  await mkdir(join(root, 'eval-1', 'with_skill', 'turn-1', 'outputs'), {
+  await mkdir(join(root, 'eval-1', 'skill', 'turn-1', 'outputs'), {
     recursive: true
   });
-  await mkdir(join(root, 'eval-1', 'without_skill', 'turn-1', 'outputs'), {
+  await mkdir(join(root, 'eval-1', 'baseline', 'turn-1', 'outputs'), {
     recursive: true
   });
-  await mkdir(join(root, 'iteration-0', 'eval-1', 'with_skill', 'turn-1', 'outputs'), {
+  await mkdir(join(root, 'iteration-0', 'eval-1', 'skill', 'turn-1', 'outputs'), {
     recursive: true
   });
 
@@ -23,7 +23,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
     runs: [
       {
         eval_id: 1,
-        config: 'with_skill',
+        run_type: 'skill',
         session_id: '019e64c2-2d87-7a21-a12c-d569bab5c067',
         status: 'success',
         duration_seconds: 24,
@@ -31,7 +31,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
       },
       {
         eval_id: 1,
-        config: 'without_skill',
+        run_type: 'baseline',
         session_id: '019e64c2-2d2f-7ff2-a16c-9359a2b2304c',
         status: 'success',
         duration_seconds: 18,
@@ -47,8 +47,8 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
       effort: 'high'
     },
     summary: {
-      with_skill: { pass_rate: { mean: 1 }, time_seconds: { mean: 24 }, tokens: { mean: 1200 } },
-      without_skill: { pass_rate: { mean: 0 }, time_seconds: { mean: 18 }, tokens: { mean: 900 } }
+      skill: { pass_rate: { mean: 1 }, time_seconds: { mean: 24 }, tokens: { mean: 1200 } },
+      baseline: { pass_rate: { mean: 0 }, time_seconds: { mean: 18 }, tokens: { mean: 900 } }
     }
   });
   await writeJson(join(root, 'eval-1', 'eval_metadata.json'), {
@@ -62,21 +62,21 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
       }
     ]
   });
-  await writeRun(root, 'eval-1', 'with_skill', {
+  await writeRun(root, 'eval-1', 'skill', {
     passed: true,
     evidence: 'The answer starts with feat!: and explains the migration.',
     response: 'feat!: support signing key rotation',
     totalTokens: 1200,
     duration: 24
   });
-  await writeRun(root, 'eval-1', 'without_skill', {
+  await writeRun(root, 'eval-1', 'baseline', {
     passed: false,
     evidence: 'The answer uses fix: and omits the breaking-change impact.',
     response: 'fix: update auth signing',
     totalTokens: 900,
     duration: 18
   });
-  await writeRun(join(root, 'iteration-0'), 'eval-1', 'with_skill', {
+  await writeRun(join(root, 'iteration-0'), 'eval-1', 'skill', {
     passed: false,
     evidence: 'Previous iteration used chore: and missed the breaking change.',
     response: 'chore: update auth config',
@@ -88,7 +88,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
 async function writeRun(
   root: string,
   evalDir: string,
-  config: string,
+  runType: string,
   run: {
     duration: number;
     evidence: string;
@@ -97,26 +97,26 @@ async function writeRun(
     totalTokens: number;
   }
 ): Promise<void> {
-  const configRoot = join(root, evalDir, config);
-  await mkdir(join(configRoot, 'turn-1', 'outputs'), { recursive: true });
-  await writeJson(join(configRoot, 'run_artifacts.json'), {
+  const runTypeRoot = join(root, evalDir, runType);
+  await mkdir(join(runTypeRoot, 'turn-1', 'outputs'), { recursive: true });
+  await writeJson(join(runTypeRoot, 'run_artifacts.json'), {
     skill_name: 'conventional-commit-message',
-    config,
+    run_type: runType,
     artifacts: {
-      results_dir_path: configRoot,
-      working_dir_path: join(configRoot, 'work'),
-      raw_output_path: join(configRoot, 'raw_output.jsonl'),
-      timing_path: join(configRoot, 'timing.json'),
+      results_dir_path: runTypeRoot,
+      working_dir_path: join(runTypeRoot, 'work'),
+      raw_output_path: join(runTypeRoot, 'raw_output.jsonl'),
+      timing_path: join(runTypeRoot, 'timing.json'),
       turns: [
         {
           turn: 1,
-          response_path: join(configRoot, 'turn-1', 'outputs', 'response.md'),
-          transcript_path: join(configRoot, 'turn-1', 'outputs', 'transcript.md')
+          response_path: join(runTypeRoot, 'turn-1', 'outputs', 'response.md'),
+          transcript_path: join(runTypeRoot, 'turn-1', 'outputs', 'transcript.md')
         }
       ]
     }
   });
-  await writeJson(join(configRoot, 'grading.json'), {
+  await writeJson(join(runTypeRoot, 'grading.json'), {
     expectations: [
       {
         text: 'The response uses a breaking-change marker.',
@@ -135,14 +135,14 @@ async function writeRun(
       overall: run.passed ? 'The run satisfies the eval.' : 'The run misses the main requirement.'
     }
   });
-  await writeJson(join(configRoot, 'timing.json'), {
+  await writeJson(join(runTypeRoot, 'timing.json'), {
     total_tokens: run.totalTokens,
     total_duration_seconds: run.duration
   });
-  await writeFile(join(configRoot, 'raw_output.jsonl'), '{"type":"final"}\n', 'utf-8');
-  await writeFile(join(configRoot, 'turn-1', 'outputs', 'response.md'), run.response, 'utf-8');
+  await writeFile(join(runTypeRoot, 'raw_output.jsonl'), '{"type":"final"}\n', 'utf-8');
+  await writeFile(join(runTypeRoot, 'turn-1', 'outputs', 'response.md'), run.response, 'utf-8');
   await writeFile(
-    join(configRoot, 'turn-1', 'outputs', 'transcript.md'),
+    join(runTypeRoot, 'turn-1', 'outputs', 'transcript.md'),
     `USER: Generate a commit message\nASSISTANT: ${run.response}`,
     'utf-8'
   );

@@ -15,11 +15,11 @@ class ClaudeProviderCommandTests(unittest.TestCase):
     def test_first_turn_command_starts_named_session(self):
         command = ClaudeProvider().build_command(
             session_id="session-123",
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=0,
             model="claude-sonnet-4-5",
             effort="high",
-            working_dir="F:/tmp/eval-1/with_skill",
+            working_dir="F:/tmp/eval-1/skill",
         )
 
         self.assertEqual(
@@ -32,7 +32,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "--session-id",
                 "session-123",
                 "--name",
-                "eval-1-with_skill",
+                "eval-1-skill",
                 "--output-format",
                 "stream-json",
                 "--verbose",
@@ -46,7 +46,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
     def test_resume_command_uses_default_effort_and_existing_session(self):
         command = ClaudeProvider().build_command(
             session_id="session-123",
-            session_name="eval-1-with_skill",
+            session_name="eval-1-skill",
             turn_index=1,
             model=None,
         )
@@ -72,7 +72,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ClaudeProvider requires a session_id"):
             ClaudeProvider().build_command(
                 session_id=None,
-                session_name="eval-1-with_skill",
+                session_name="eval-1-skill",
                 turn_index=0,
                 model=None,
             )
@@ -86,7 +86,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
         command = ClaudeProvider().build_grading_command(
             model="claude-sonnet-4-5",
             effort="high",
-            working_dir="F:/tmp/eval-1/with_skill",
+            working_dir="F:/tmp/eval-1/skill",
             output_schema="F:/schemas/grading.schema.json",
         )
 

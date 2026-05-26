@@ -21,7 +21,7 @@ export function App({
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const reviewRuns = useMemo(
-    () => initialIteration.runs.filter((run) => run.config !== 'without_skill'),
+    () => initialIteration.runs.filter((run) => run.runType === 'skill'),
     [initialIteration.runs]
   );
   const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] ?? initialIteration.runs[0]));
@@ -146,7 +146,7 @@ export function App({
             <Metric
               label="vs Baseline"
               tone="primary"
-              value={formatDeltaPercent(selectedRun.comparisons.withoutSkill?.passRateDelta)}
+              value={formatDeltaPercent(selectedRun.comparisons.baseline?.passRateDelta)}
             />
           </div>
         </section>
@@ -270,7 +270,7 @@ function ExpectationCard({
   run: RunView;
   updateDraft: (updater: (draft: FeedbackDraft) => FeedbackDraft) => void;
 }) {
-  const baseline = run.comparisons.withoutSkill?.expectations.find((candidate) => candidate.text === expectation.text);
+  const baseline = run.comparisons.baseline?.expectations.find((candidate) => candidate.text === expectation.text);
   const baselineStatus = expectationStatus(baseline);
   const showEvidence = !expectation.passed;
   const label =
@@ -565,7 +565,7 @@ function TranscriptPanel({ run, skillName }: { run: RunView; skillName: string }
 }
 
 function runKey(run: RunView | undefined): string {
-  return run ? `${run.evalId}:${run.config}` : '';
+  return run ? `${run.evalId}:${run.runType}` : '';
 }
 
 function filterIcon(filter: Filter): string {
@@ -595,7 +595,7 @@ function artifactHref(path: string | undefined): string {
 }
 
 function displayWorkingDirectory(path: string): string {
-  return path.replace(/[\\/](?:with_skill|without_skill)(?=[\\/]|$)/gu, '');
+  return path.replace(/[\\/](?:skill|baseline)(?=[\\/]|$)/gu, '');
 }
 
 function reviewLabel(reviewState: ReviewState): string {

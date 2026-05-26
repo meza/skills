@@ -5,19 +5,19 @@ Prepare isolated run directories for skill evals.
 The orchestrator provides a skill directory, a base run root, and a provider.
 The module reads <skill>/evals/evals.json, stages any shared fixture source,
 creates a fresh prepared run root, and prepares one working directory for each
-eval configuration:
+eval run type:
 
     <run-root>/
       fixtures/                 # cloned or reused fixture source, when needed
       <skill>-eval-runs-xxxxxx/  # fresh prepared run root for this invocation
         eval-1/
-          with_skill/            # provider-specific skills/<skill-name>/ copy
-          without_skill/         # no skill copy
+          skill/                 # provider-specific skills/<skill-name>/ copy
+          baseline/              # no skill copy
 
 Each eval directory is isolated from every other eval directory. Within an eval,
-the with_skill and without_skill configurations receive separate fixture copies
+the skill and baseline run types receive separate fixture copies
 so changes made by one run cannot contaminate the other. Files listed in an
-eval's files[] entry are copied into both configurations.
+eval's files[] entry are copied into both run types.
 
 FixturePreparer returns a PreparedRun object as the in-memory handoff to the
 eval runner:
@@ -31,11 +31,11 @@ eval runner:
             PreparedEval(
                 eval_id=1,
                 eval_name="basic",
-                with_skill_path=Path("<prepared-run-root>/eval-1/with_skill"),
-                without_skill_path=Path("<prepared-run-root>/eval-1/without_skill"),
-                skill_file=Path("<prepared-run-root>/eval-1/with_skill/.../SKILL.md"),
-                with_skill_fixture_path=None,
-                without_skill_fixture_path=None,
+                skill_run_path=Path("<prepared-run-root>/eval-1/skill"),
+                baseline_run_path=Path("<prepared-run-root>/eval-1/baseline"),
+                skill_file=Path("<prepared-run-root>/eval-1/skill/.../SKILL.md"),
+                skill_fixture_path=None,
+                baseline_fixture_path=None,
             )
         ],
     )
@@ -52,7 +52,7 @@ from pathlib import Path
 
 from .eval_definitions import select_evals
 
-CONFIGURATIONS = ("with_skill", "without_skill")
+RUN_TYPES = ("skill", "baseline")
 PROVIDER_SKILL_ROOTS = {
     "claude": ".claude",
     "codex": ".codex",
@@ -73,24 +73,22 @@ class PrepareFixtureOptions:
 class PreparedEval:
     eval_id: int
     eval_name: str
-    with_skill_path: Path
-    without_skill_path: Path
+    skill_run_path: Path
+    baseline_run_path: Path
     skill_file: Path
-    with_skill_fixture_path: Path | None
-    without_skill_fixture_path: Path | None
+    skill_fixture_path: Path | None
+    baseline_fixture_path: Path | None
 
     def to_dict(self) -> dict:
         return {
             "eval_id": self.eval_id,
             "eval_name": self.eval_name,
-            "with_skill_path": str(self.with_skill_path),
-            "without_skill_path": str(self.without_skill_path),
+            "skill_run_path": str(self.skill_run_path),
+            "baseline_run_path": str(self.baseline_run_path),
             "skill_file": str(self.skill_file),
-            "with_skill_fixture_path": _optional_path_to_string(
-                self.with_skill_fixture_path
-            ),
-            "without_skill_fixture_path": _optional_path_to_string(
-                self.without_skill_fixture_path
+            "skill_fixture_path": _optional_path_to_string(self.skill_fixture_path),
+            "baseline_fixture_path": _optional_path_to_string(
+                self.baseline_fixture_path
             ),
         }
 
@@ -334,7 +332,7 @@ def copy_eval_files(
     """Copy eval input files into the run directory, preserving relative paths.
 
     File paths are relative to the skill root. They are copied into both
-    with_skill and without_skill working directories so the agent can access
+    skill and baseline working directories so the agent can access
     them naturally by browsing the run directory.
     """
     skill_root = skill_path.resolve()
@@ -418,12 +416,12 @@ def copy_fixture(
     fixture_staging: Path,
     eval_dir: Path,
     run_dir: Path,
-    config: str,
+    run_type: str,
     fixture_name: str,
     fixture_in_workdir: bool,
     eval_id: str,
 ) -> str:
-    """Copy one eval fixture for a single run configuration."""
+    """Copy one eval fixture for a single run type."""
     source = fixture_staging / fixture_name
     if not source.exists():
         print(
@@ -438,7 +436,7 @@ def copy_fixture(
         shutil.copytree(source, dest)
         return str(dest)
 
-    external_dir = eval_dir / f"{config}_fixtures"
+    external_dir = eval_dir / f"{run_type}_fixtures"
     external_dir.mkdir(parents=True, exist_ok=True)
     dest = external_dir / fixture_name
     if not dest.exists():
@@ -446,19 +444,19 @@ def copy_fixture(
     return str(dest)
 
 
-def prepare_configuration(
+def prepare_run_type(
     skill_path: Path,
     run_root: Path,
     eval_def: dict,
-    config: str,
+    run_type: str,
     fixture_staging: Path | None,
     skill_name: str,
     skill_root: str,
 ) -> dict:
-    """Prepare one eval/configuration working directory."""
+    """Prepare one eval run-type working directory."""
     eval_id = str(eval_def["id"])
     eval_dir = run_root / f"eval-{eval_id}"
-    run_dir = eval_dir / config
+    run_dir = eval_dir / run_type
     run_dir.mkdir(parents=True, exist_ok=True)
     write_eval_gitignore(run_dir)
 
@@ -469,7 +467,7 @@ def prepare_configuration(
             fixture_staging=fixture_staging,
             eval_dir=eval_dir,
             run_dir=run_dir,
-            config=config,
+            run_type=run_type,
             fixture_name=fixture_name,
             fixture_in_workdir=eval_def.get("fixture_in_workdir", True),
             eval_id=eval_id,
@@ -479,13 +477,13 @@ def prepare_configuration(
     if eval_files:
         copy_eval_files(skill_path, run_dir, eval_files, eval_id)
 
-    if config == "with_skill":
+    if run_type == "skill":
         copy_skill(skill_path, run_dir, skill_name, skill_root)
 
     entry = {"path": str(run_dir)}
     if fixture_path:
         entry["fixture_path"] = fixture_path
-    if config == "with_skill":
+    if run_type == "skill":
         entry["skill_file"] = str(
             run_dir / skill_root / "skills" / skill_name / "SKILL.md"
         )
@@ -495,19 +493,17 @@ def prepare_configuration(
 def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedEval:
     """Build the prepared run entry for one eval."""
     eval_id = str(eval_def["id"])
-    with_skill_entry = run_paths["with_skill"]
-    without_skill_entry = run_paths["without_skill"]
+    skill_entry = run_paths["skill"]
+    baseline_entry = run_paths["baseline"]
     return PreparedEval(
         eval_id=eval_def["id"],
         eval_name=eval_def.get("eval_name", f"eval-{eval_id}"),
-        with_skill_path=Path(with_skill_entry["path"]),
-        without_skill_path=Path(without_skill_entry["path"]),
-        skill_file=Path(with_skill_entry["skill_file"]),
-        with_skill_fixture_path=_optional_string_to_path(
-            with_skill_entry.get("fixture_path")
-        ),
-        without_skill_fixture_path=_optional_string_to_path(
-            without_skill_entry.get("fixture_path")
+        skill_run_path=Path(skill_entry["path"]),
+        baseline_run_path=Path(baseline_entry["path"]),
+        skill_file=Path(skill_entry["skill_file"]),
+        skill_fixture_path=_optional_string_to_path(skill_entry.get("fixture_path")),
+        baseline_fixture_path=_optional_string_to_path(
+            baseline_entry.get("fixture_path")
         ),
     )
 
@@ -524,19 +520,19 @@ def prepare_eval(
     skill_name: str,
     skill_root: str,
 ) -> PreparedEval:
-    """Prepare all configurations for one eval and return its manifest entry."""
+    """Prepare all run types for one eval and return its manifest entry."""
     reset_prepared_eval_dir(run_root, eval_def["id"])
     run_paths = {
-        config: prepare_configuration(
+        run_type: prepare_run_type(
             skill_path=skill_path,
             run_root=run_root,
             eval_def=eval_def,
-            config=config,
+            run_type=run_type,
             fixture_staging=fixture_staging,
             skill_name=skill_name,
             skill_root=skill_root,
         )
-        for config in CONFIGURATIONS
+        for run_type in RUN_TYPES
     }
     return build_prepared_eval(eval_def, run_paths)
 

@@ -42,9 +42,9 @@ class GradingResultAggregatorTests(unittest.TestCase):
     def test_aggregates_grading_outputs_for_iteration(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             iteration_dir = Path(temp_dir) / "results" / "iteration-1"
-            config_dir = iteration_dir / "eval-1" / "with_skill"
-            config_dir.mkdir(parents=True)
-            (config_dir / "grading.json").write_text(
+            run_type_dir = iteration_dir / "eval-1" / "skill"
+            run_type_dir.mkdir(parents=True)
+            (run_type_dir / "grading.json").write_text(
                 json.dumps(
                     {
                         "executive_summary": "The skill partially succeeded.",
@@ -79,7 +79,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            (config_dir / "timing.json").write_text(
+            (run_type_dir / "timing.json").write_text(
                 json.dumps(
                     {
                         "total_duration_seconds": 12.5,
@@ -143,7 +143,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                 },
             )
             self.assertEqual(
-                aggregated["summary"]["with_skill"]["pass_rate"]["mean"],
+                aggregated["summary"]["skill"]["pass_rate"]["mean"],
                 0.5,
             )
             self.assertFalse((iteration_dir / "aggregated_results.md").exists())

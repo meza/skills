@@ -174,7 +174,7 @@ Every eval uses the same layout. A one-turn eval just has `turn-1/`.
 iteration-N/
 └── eval-<ID>/
     ├── eval_metadata.json          # turns[{prompt, expectations}], eval_id, eval_name
-    ├── with_skill/
+    ├── skill/
     │   ├── turn-1/
     │   │   └── outputs/
     │   │       ├── response.md     # extracted post-run from agent output file
@@ -186,7 +186,7 @@ iteration-N/
     │   ├── outputs/                # any files the agent modified
     │   ├── grading.json
     │   └── timing.json
-    └── without_skill/
+    └── baseline/
         ├── turn-1/...
         ├── turn-2/...
         ├── outputs/
@@ -195,9 +195,9 @@ iteration-N/
 ```
 
 Key placement rules:
-- **eval_metadata.json**: at the eval directory level (parent of config dirs). The viewer checks `run_dir/eval_metadata.json` and `run_dir.parent/eval_metadata.json`. Placing it at the eval level means both with_skill and without_skill runs share the same metadata.
-- **grading.json**: at the config directory level (sibling to `outputs/`). The grader saves to `{outputs_dir}/../grading.json`. The viewer and aggregation script both look for it here.
-- **timing.json**: at the config directory level.
+- **eval_metadata.json**: at the eval directory level (parent of run type dirs). The viewer checks `run_dir/eval_metadata.json` and `run_dir.parent/eval_metadata.json`. Placing it at the eval level means both `skill` and `baseline` runs share the same metadata.
+- **grading.json**: at the run type directory level (sibling to `outputs/`). The grader saves to `{outputs_dir}/../grading.json`. The viewer and aggregation script both look for it here.
+- **timing.json**: at the run type directory level.
 - **Eval directory names**: use the numeric ID from evals.json prefixed with `eval-` (e.g., `eval-1/`, `eval-2/`). Put the human-readable name in `eval_name` inside eval_metadata.json. The aggregation script requires the `eval-` prefix.
 
 ### Step 1: Run evals through the orchestrator
@@ -223,16 +223,16 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
   --model <model-id> \
   --effort <effort> \
   --eval-ids 1,3 \
-  --config with_skill
+  --skip-baseline
 ```
 
-`--config` accepts only `with_skill` or `without_skill`. If omitted, both configurations run. `--eval-ids` is a comma-separated list of eval IDs from `evals/evals.json`.
+By default, both the skill run and baseline run execute. Use `--skip-baseline` to run only the skill-enabled eval. `--eval-ids` is a comma-separated list of eval IDs from `evals/evals.json`.
 
 **Run root (required):** This is the base directory where the orchestrator stages fixtures, creates a unique prepared run root, and writes results. Keep it under the current working directory so eval artifacts stay contained to the session. Each invocation creates a fresh child directory named like `<skill>-eval-runs-xxxxxxx/`.
 
 Run `evaluate_skill.py` in the background because it takes a while. Use a second terminal, your shell's background-job support, or any equivalent launcher available in your environment.
 
-**How it works:** The orchestrator prepares isolated run directories in memory, then starts each eval run as its own provider CLI process in one of those prepared directories. For `with_skill` runs, the prepared directory contains the skill in the provider-specific discovery folder. For `without_skill` runs, the prepared directory does not contain the skill. The prompts are otherwise identical.
+**How it works:** The orchestrator prepares isolated run directories in memory, then starts each eval run as its own provider CLI process in one of those prepared directories. For `skill` runs, the prepared directory contains the skill in the provider-specific discovery folder. For `baseline` runs, the prepared directory does not contain the skill. The prompts are otherwise identical.
 
 Multi-turn evals use `--session-id` for turn 1 and `--resume` for subsequent turns. Each turn's prompt is piped via stdin to avoid shell escaping issues.
 
@@ -250,7 +250,7 @@ The result iteration lives under `<prepared-run-root>/results/iteration-1/`. The
 **Fixture sources:** `evals/evals.json` can define a top-level `fixture_repo` and optional `fixture_ref` so eval fixtures come from a shared repository at a pinned commit, tag, or branch. If you already have a local pinned checkout, use `fixture_base_path` instead.
 
 **Baseline notes:**
-- **Creating a new skill**: the `without_skill` directory has no skill at all. True baseline.
+- **Creating a new skill**: the `baseline` directory has no skill at all. True baseline.
 - **Improving an existing skill**: snapshot the old version before editing (`cp -r <skill-path> <workspace>/skill-snapshot/`). Pass the snapshot path as `--skill-path` to build baseline directories containing the old version.
 
 ### Step 2: Monitor progress and draft expectations
@@ -276,7 +276,7 @@ Once `evaluate_skill.py` finishes, spawn grader subagents for each run. One grad
 
 The graders are not optional bookkeeping. They are the primary qualitative review pass for the loop, and they exist in part to save your context window. Do not start reading transcripts and outputs run-by-run to form your own qualitative judgments before the graders do. That defeats the point of parallel grading and burns context on work the graders are already supposed to do. Before the graders finish, your job is orchestration: confirm the expected files exist, launch graders, and fix pipeline breakage if something is missing or obviously malformed. Do not substitute your own intermediary review for the graders' review.
 
-1. **Grade each run** — each grader reads `scripts/evaluate/instructions/grading.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the config directory level (e.g., `eval-1/with_skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
+1. **Grade each run** — each grader reads `scripts/evaluate/instructions/grading.md` and follows ALL steps including Step 6 (Critique the Evals). The grader saves results to `{outputs_dir}/../grading.json`, which places it at the run type directory level (e.g., `eval-1/skill/grading.json`). See the directory layout reference above. The grading.json must include ALL fields from the grader spec: `expectations` (with `text`, `passed`, `evidence`), `summary` (with `passed`, `failed`, `total`, `pass_rate`), and `eval_feedback` (with `suggestions` and `overall`). The `eval_feedback` field powers the "AI Summary" panel in the viewer. Without it the panel is empty and the user sees no qualitative observations. The grader must always include eval_feedback with substantive analysis of what worked, what didn't, and what the expectations missed. For expectations that can be checked programmatically, write and run a script rather than eyeballing it.
 
    For multi-turn evals, pass the grader both the response.md and transcript.md for each turn. These are extracted post-run from the agent's output file. The transcript is what makes process assertions ("agent read the codebase before responding") verifiable. Without it the grader can only see what the agent said, not what it did.
 
@@ -292,8 +292,8 @@ The graders are not optional bookkeeping. They are the primary qualitative revie
    ```bash
    python <skill-creator-path>/scripts/aggregate_benchmark.py <workspace>/iteration-N --skill-name <name>
    ```
-   This produces `benchmark.json` and `benchmark.md` with pass_rate, time, and tokens for each configuration, with mean and stddev and the delta. If generating benchmark.json manually, see `references/schemas.md` for the exact schema the viewer expects.
-Put each with_skill version before its baseline counterpart.
+   This produces `benchmark.json` and `benchmark.md` with pass_rate, time, and tokens for each run type, with mean and stddev and the delta. If generating benchmark.json manually, see `references/schemas.md` for the exact schema the viewer expects.
+Put each skill run before its baseline counterpart.
 
 3. **Do an analyst pass** — read the benchmark data and surface patterns the aggregate stats might hide. See `agents/analyzer.md` (the "Analyzing Benchmark Results" section) for what to look for — things like assertions that always pass regardless of skill (non-discriminating), high-variance evals (possibly flaky), and time/token tradeoffs. Write the observations into the `notes` array in `benchmark.json`. Include both positive findings (what the skill does well) and patterns worth investigating. These notes appear in the viewer's Benchmark tab under "Analysis Notes".
 
@@ -317,7 +317,7 @@ Put each with_skill version before its baseline counterpart.
 Note: please use `serve_viewer.py` to create the viewer; there's no need to write custom HTML.
 
 5. **Present a debrief to the user.** After the viewer is live, your final message should be a substantive summary the user can discuss with you before opening the viewer. Build this debrief from the graders' `grading.json` outputs, the aggregated benchmark, and the analyst notes. Do not replace that synthesis with a fresh top-to-bottom manual review of every transcript unless you are drilling into a specific discrepancy the graders surfaced. Include:
-   - The headline numbers (with_skill vs without_skill pass rates and the delta)
+   - The headline numbers (skill vs baseline pass rates and the delta)
    - What worked well (evals where the skill clearly helped)
    - What did not work (evals that failed or regressed)
    - Patterns you noticed in the transcripts (e.g. the skill caused agents to waste time on something unproductive, or agents ignored a key instruction)
@@ -336,7 +336,7 @@ The "Outputs" tab shows one test case at a time:
 - **Feedback**: a textbox that auto-saves as they type
 - **Previous Feedback** (iteration 2+): their comments from last time, shown below the textbox
 
-The "Benchmark" tab shows the stats summary: pass rates, timing, and token usage for each configuration, with per-eval breakdowns and analyst observations.
+The "Benchmark" tab shows the stats summary: pass rates, timing, and token usage for each run type, with per-eval breakdowns and analyst observations.
 
 Navigation is via prev/next buttons or arrow keys. When done, they click "Submit All Reviews" which saves all feedback to `feedback.json`.
 
@@ -347,9 +347,9 @@ When the user tells you they're done, read `feedback.json`:
 ```json
 {
   "reviews": [
-    {"run_id": "eval-0-with_skill", "feedback": "the chart is missing axis labels", "timestamp": "..."},
-    {"run_id": "eval-1-with_skill", "feedback": "", "timestamp": "..."},
-    {"run_id": "eval-2-with_skill", "feedback": "perfect, love this", "timestamp": "..."}
+    {"eval_id": 0, "feedback": "the chart is missing axis labels", "timestamp": "..."},
+    {"eval_id": 1, "feedback": "", "timestamp": "..."},
+    {"eval_id": 2, "feedback": "perfect, love this", "timestamp": "..."}
   ],
   "status": "complete"
 }
@@ -396,7 +396,7 @@ This task is pretty important (we are trying to create billions a year in econom
 After improving the skill:
 
 1. Apply your improvements to the skill
-2. Run `evaluate_skill.py` again. The orchestrator creates a fresh run tree every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline is always `without_skill` (no skill) -- that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
+2. Run `evaluate_skill.py` again. The orchestrator creates a fresh run tree every time so there is no risk of contamination from previous iterations. If you're creating a new skill, the baseline has no skill -- that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
 3. Launch the reviewer with `--previous-workspace` pointing at the previous iteration
 4. Wait for the user to review and tell you they're done
 5. Read the new feedback, improve again, repeat
@@ -420,7 +420,7 @@ This is optional, requires subagents, and most users won't need it. The human re
 
 In Claude.ai, the core workflow is the same (draft → test → review → improve → repeat), but because Claude.ai doesn't have subagents, some mechanics change. Here's what to adapt:
 
-**Running test cases**: No subagents means no parallel execution. For each test case, read the skill's SKILL.md, then follow its instructions to accomplish the test prompt yourself. Do them one at a time. This is less rigorous than independent subagents (you wrote the skill and you're also running it, so you have full context), but it's a useful sanity check — and the human review step compensates. Skip the `without_skill` baseline runs — just use the skill to complete the task as requested.
+**Running test cases**: No subagents means no parallel execution. For each test case, read the skill's SKILL.md, then follow its instructions to accomplish the test prompt yourself. Do them one at a time. This is less rigorous than independent subagents (you wrote the skill and you're also running it, so you have full context), but it's a useful sanity check — and the human review step compensates. Skip the baseline runs — just use the skill to complete the task as requested.
 
 **Reviewing results**: If you can't open a browser (e.g., Claude.ai's VM has no display, or you're on a remote server), skip the eval viewer entirely. Instead, present results directly in the conversation. Mirror the same qualitative review the viewer would normally support: show the prompt, show the output, and ask for feedback inline. If the output is a file the user needs to see (like a .docx or .xlsx), save it to the filesystem and tell them where it is so they can download and inspect it. There is no `feedback.json` in this mode, so treat the user's inline comments as the review record for the next iteration.
 

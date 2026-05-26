@@ -4,21 +4,14 @@ import json
 import sys
 from pathlib import Path
 
-from .eval_run_paths import CONFIGURATIONS
+from .eval_run_paths import RUN_TYPES
 
 
-def selected_configs(raw_config: str | None) -> list[str]:
-    """Return the requested run configuration, or both when omitted."""
-    if not raw_config:
-        return list(CONFIGURATIONS)
-
-    if raw_config not in CONFIGURATIONS:
-        print(
-            f"Error: unknown config: {raw_config}. Available: {CONFIGURATIONS}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    return [raw_config]
+def selected_run_types(skip_baseline: bool) -> list[str]:
+    """Return the run types requested for one eval invocation."""
+    if skip_baseline:
+        return ["skill"]
+    return list(RUN_TYPES)
 
 
 def load_evals_data(evals_json_path: Path) -> dict:

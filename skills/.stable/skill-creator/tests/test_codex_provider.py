@@ -205,7 +205,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         command = CodexProvider().build_grading_command(
             model="gpt-5.5",
             effort=None,
-            working_dir="F:/runs/eval-1/with_skill",
+            working_dir="F:/runs/eval-1/skill",
             output_schema="F:/schemas/grading.schema.json",
         )
 
@@ -217,7 +217,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIn("--cd", command)
         self.assertEqual(
             command[command.index("--cd") + 1],
-            "F:/runs/eval-1/with_skill",
+            "F:/runs/eval-1/skill",
         )
         self.assertIn("--model", command)
         self.assertEqual(command[command.index("--model") + 1], "gpt-5.5")

@@ -159,8 +159,8 @@ describe('App', () => {
     if (!run) {
       throw new Error('Expected a first run in the test fixture.');
     }
-    run.comparisons.withoutSkill = {
-      config: 'without_skill',
+    run.comparisons.baseline = {
+      runType: 'baseline',
       durationDelta: -2,
       expectations: [],
       finalResponse: 'better baseline',
@@ -196,8 +196,8 @@ describe('App', () => {
         text: 'Uses a breaking-change commit message when required'
       }
     ];
-    failedRun.comparisons.withoutSkill = {
-      config: 'without_skill',
+    failedRun.comparisons.baseline = {
+      runType: 'baseline',
       durationDelta: 0,
       expectations: [
         {
@@ -241,7 +241,7 @@ describe('App', () => {
     expect(screen.getByText('No evidence was recorded for this expectation.')).toBeInTheDocument();
   });
 
-  it('omits empty baseline evidence while keeping with-skill evidence', () => {
+  it('omits empty baseline evidence while keeping skill evidence', () => {
     const view = iterationView();
     const run = view.runs[0];
     if (!run) {
@@ -255,8 +255,8 @@ describe('App', () => {
         text: 'Requires the breaking-change footer.'
       }
     ];
-    run.comparisons.withoutSkill = {
-      config: 'without_skill',
+    run.comparisons.baseline = {
+      runType: 'baseline',
       durationDelta: 0,
       expectations: [],
       finalResponse: '',
@@ -472,24 +472,24 @@ function iterationView(): IterationView {
     runs: [
       {
         artifactPaths: {
-          grading: 'F:/runs/eval-1/with_skill/grading.json',
-          rawOutput: 'F:/runs/eval-1/with_skill/raw_output.jsonl',
-          response: 'F:/runs/eval-1/with_skill/turn-1/outputs/response.md',
-          runArtifacts: 'F:/runs/eval-1/with_skill/run_artifacts.json',
-          timing: 'F:/runs/eval-1/with_skill/timing.json',
-          transcript: 'F:/runs/eval-1/with_skill/turn-1/outputs/transcript.md'
+          grading: 'F:/runs/eval-1/skill/grading.json',
+          rawOutput: 'F:/runs/eval-1/skill/raw_output.jsonl',
+          response: 'F:/runs/eval-1/skill/turn-1/outputs/response.md',
+          runArtifacts: 'F:/runs/eval-1/skill/run_artifacts.json',
+          timing: 'F:/runs/eval-1/skill/timing.json',
+          transcript: 'F:/runs/eval-1/skill/turn-1/outputs/transcript.md'
         },
         comparisons: {
           previousIteration: {
-            config: 'with_skill',
+            runType: 'skill',
             durationDelta: -6,
             expectations: [],
             finalResponse: 'chore: update auth config',
             passRateDelta: 1,
             tokenDelta: -200
           },
-          withoutSkill: {
-            config: 'without_skill',
+          baseline: {
+            runType: 'baseline',
             durationDelta: 6,
             expectations: [
               {
@@ -505,7 +505,7 @@ function iterationView(): IterationView {
             tokenDelta: 300
           }
         },
-        config: 'with_skill',
+        runType: 'skill',
         durationSeconds: 24,
         evalId: 1,
         evalName: 'breaking-change-returns-full-message-when-needed',
@@ -547,19 +547,19 @@ function iterationView(): IterationView {
             transcript: 'USER: Generate a commit message'
           }
         ],
-        workingDirectory: 'F:/workdirs/eval-1/with_skill'
+        workingDirectory: 'F:/workdirs/eval-1/skill'
       },
       {
         artifactPaths: {
-          grading: 'F:/runs/eval-1/without_skill/grading.json',
-          rawOutput: 'F:/runs/eval-1/without_skill/raw_output.jsonl',
-          response: 'F:/runs/eval-1/without_skill/turn-1/outputs/response.md',
-          runArtifacts: 'F:/runs/eval-1/without_skill/run_artifacts.json',
-          timing: 'F:/runs/eval-1/without_skill/timing.json',
-          transcript: 'F:/runs/eval-1/without_skill/turn-1/outputs/transcript.md'
+          grading: 'F:/runs/eval-1/baseline/grading.json',
+          rawOutput: 'F:/runs/eval-1/baseline/raw_output.jsonl',
+          response: 'F:/runs/eval-1/baseline/turn-1/outputs/response.md',
+          runArtifacts: 'F:/runs/eval-1/baseline/run_artifacts.json',
+          timing: 'F:/runs/eval-1/baseline/timing.json',
+          transcript: 'F:/runs/eval-1/baseline/turn-1/outputs/transcript.md'
         },
         comparisons: {},
-        config: 'without_skill',
+        runType: 'baseline',
         durationSeconds: 18,
         evalId: 1,
         evalName: 'breaking-change-returns-full-message-when-needed',
@@ -579,7 +579,7 @@ function iterationView(): IterationView {
         tokenCount: 900,
         turns: [],
         userComments: '',
-        workingDirectory: 'F:/workdirs/eval-1/without_skill'
+        workingDirectory: 'F:/workdirs/eval-1/baseline'
       }
     ],
     summary: {

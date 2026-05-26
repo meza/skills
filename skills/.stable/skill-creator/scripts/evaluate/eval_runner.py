@@ -31,17 +31,17 @@ class EvalRunOptions:
     max_parallel: int
     timeout: int
     total_timeout: int | None
-    configs: list[str]
+    run_types: list[str]
     run_root: Path
     grading_job_factory: Callable | None = None
 
 
 @dataclass(frozen=True)
 class EvalJobSpec:
-    """Resolved inputs needed to run one eval/config pair."""
+    """Resolved inputs needed to run one eval/run-type pair."""
 
     eval_def: dict
-    config: str
+    run_type: str
     run_dir: str
     fixture_path: str | None
 
@@ -82,7 +82,7 @@ class EvalProgress:
             "elapsed_seconds": round(elapsed, 1),
             "cost_usd": round(cost_so_far, 6),
             "completed_runs": [
-                f"eval-{summary.get('eval_id')}/{summary.get('config')}: "
+                f"eval-{summary.get('eval_id')}/{summary.get('run_type')}: "
                 f"{summary.get('status')}"
                 for summary in self.summaries
             ],
@@ -92,7 +92,7 @@ class EvalProgress:
 
 @dataclass
 class EvalRun:
-    """Run all selected eval/config pairs for one iteration."""
+    """Run all selected eval/run-type pairs for one iteration."""
 
     options: EvalRunOptions
     provider: object
@@ -135,58 +135,58 @@ class EvalRun:
         for eval_def in self.evals_list:
             eval_id = str(eval_def["id"])
             prepared_eval = prepared_by_eval_id.get(eval_id)
-            for config in self.options.configs:
-                job = self.job_for_config(
+            for run_type in self.options.run_types:
+                job = self.job_for_run_type(
                     eval_def,
-                    config,
+                    run_type,
                     prepared_eval,
                 )
                 if job is not None:
                     jobs.append(job)
         return jobs
 
-    def job_for_config(
+    def job_for_run_type(
         self,
         eval_def: dict,
-        config: str,
+        run_type: str,
         prepared_eval: "PreparedEval | None",
     ) -> EvalJobSpec | None:
-        run_dir = self.run_dir_for_config(prepared_eval, config)
+        run_dir = self.run_dir_for_run_type(prepared_eval, run_type)
         if not run_dir:
             print(
-                f"Warning: no run directory for eval {eval_def['id']} config {config}",
+                f"Warning: no run directory for eval {eval_def['id']} run type {run_type}",
                 file=sys.stderr,
             )
             return None
 
-        fixture_path = self.fixture_path_for_config(prepared_eval, config)
-        return EvalJobSpec(eval_def, config, run_dir, fixture_path)
+        fixture_path = self.fixture_path_for_run_type(prepared_eval, run_type)
+        return EvalJobSpec(eval_def, run_type, run_dir, fixture_path)
 
-    def run_dir_for_config(
-        self, prepared_eval: "PreparedEval | None", config: str
+    def run_dir_for_run_type(
+        self, prepared_eval: "PreparedEval | None", run_type: str
     ) -> str | None:
         if prepared_eval is None:
             return None
-        if config == "with_skill":
-            return str(prepared_eval.with_skill_path)
-        if config == "without_skill":
-            return str(prepared_eval.without_skill_path)
+        if run_type == "skill":
+            return str(prepared_eval.skill_run_path)
+        if run_type == "baseline":
+            return str(prepared_eval.baseline_run_path)
         return None
 
-    def fixture_path_for_config(
-        self, prepared_eval: "PreparedEval", config: str
+    def fixture_path_for_run_type(
+        self, prepared_eval: "PreparedEval", run_type: str
     ) -> str | None:
-        if config == "with_skill":
-            fixture_path = prepared_eval.with_skill_fixture_path
+        if run_type == "skill":
+            fixture_path = prepared_eval.skill_fixture_path
         else:
-            fixture_path = prepared_eval.without_skill_fixture_path
+            fixture_path = prepared_eval.baseline_fixture_path
         return str(fixture_path) if fixture_path else None
 
     def print_launch_summary(self, total_jobs: int) -> None:
         print(
             f"Launching {total_jobs} runs "
-            f"({len(self.evals_list)} evals x {len(self.options.configs)} configs: "
-            f"{', '.join(self.options.configs)})"
+            f"({len(self.evals_list)} evals x {len(self.options.run_types)} run types: "
+            f"{', '.join(self.options.run_types)})"
         )
         print(
             f"Max parallel: {self.options.max_parallel}, "
@@ -234,7 +234,7 @@ class EvalRun:
             future = executor.submit(
                 run_single_job,
                 job.eval_def,
-                job.config,
+                job.run_type,
                 job.run_dir,
                 job.fixture_path,
                 iteration_dir,
@@ -252,13 +252,13 @@ class EvalRun:
         try:
             return future.result()
         except Exception as error:
-            return self.exception_summary(job.eval_id, job.config, error)
+            return self.exception_summary(job.eval_id, job.run_type, error)
 
-    def exception_summary(self, eval_id: int, config: str, error: Exception) -> dict:
-        print(f"  [{config}] eval-{eval_id} EXCEPTION: {error}", file=sys.stderr)
+    def exception_summary(self, eval_id: int, run_type: str, error: Exception) -> dict:
+        print(f"  [{run_type}] eval-{eval_id} EXCEPTION: {error}", file=sys.stderr)
         return {
             "eval_id": eval_id,
-            "config": config,
+            "run_type": run_type,
             "status": "exception",
             "error": str(error),
         }
@@ -312,4 +312,4 @@ class EvalRun:
             if summary.get("status") == "success":
                 continue
             error = summary.get("error", summary.get("status"))
-            print(f"    eval-{summary['eval_id']} [{summary['config']}]: {error}")
+            print(f"    eval-{summary['eval_id']} [{summary['run_type']}]: {error}")

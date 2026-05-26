@@ -1,4 +1,4 @@
-"""Run one prepared eval configuration and write its artifacts."""
+"""Run one prepared eval run type and write its artifacts."""
 
 import contextlib
 import json
@@ -277,7 +277,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
 @dataclass
 class EvalJob:
     eval_def: dict
-    config: str
+    run_type: str
     run_dir: str
     fixture_path: str | None
     iteration_dir: Path
@@ -305,11 +305,11 @@ class EvalJob:
         return self.eval_def.get("turns", [])
 
     @property
-    def config_dir(self) -> Path:
-        return self.iteration_dir / f"eval-{self.eval_id}" / self.config
+    def run_type_dir(self) -> Path:
+        return self.iteration_dir / f"eval-{self.eval_id}" / self.run_type
 
     def run(self) -> dict:
-        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.run_type_dir.mkdir(parents=True, exist_ok=True)
         if self.deadline and time.time() >= self.deadline:
             return self.skipped_summary()
 
@@ -322,7 +322,7 @@ class EvalJob:
                 self.provider,
                 process_env,
                 self.run_dir,
-                self.config_dir,
+                self.run_type_dir,
             ) as provider_env:
                 self.run_turns(provider_env)
         finally:
@@ -354,7 +354,7 @@ class EvalJob:
             f"Total timeout exceeded before turn {turn_idx + 1}/{len(self.turns)}"
         )
         print(
-            f"  [{self.config}] eval-{self.eval_id} turn "
+            f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} SKIPPED (total timeout)",
             flush=True,
         )
@@ -399,14 +399,14 @@ class EvalJob:
     ) -> tuple[str, str, int, bool, int]:
         cmd = self.provider.build_command(
             session_id=self.session_id,
-            session_name=f"eval-{self.eval_id}-{self.config}",
+            session_name=f"eval-{self.eval_id}-{self.run_type}",
             turn_index=turn_idx,
             model=self.model,
             effort=self.effort,
             working_dir=self.run_dir,
         )
         print(
-            f"  [{self.config}] eval-{self.eval_id} turn "
+            f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} starting...",
             flush=True,
         )
@@ -428,7 +428,7 @@ class EvalJob:
             f"after {int(effective_timeout)}s"
         )
         print(
-            f"  [{self.config}] eval-{self.eval_id} turn "
+            f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} TIMEOUT",
             flush=True,
         )
@@ -438,7 +438,7 @@ class EvalJob:
         self.status = "error"
         self.error_message = stderr[:500] if stderr else f"Exit code {returncode}"
         print(
-            f"  [{self.config}] eval-{self.eval_id} turn "
+            f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} ERROR: {self.error_message[:100]}",
             flush=True,
         )
@@ -452,13 +452,13 @@ class EvalJob:
         self.input_tokens += turn_result.input_tokens
         self.output_tokens += turn_result.output_tokens
         print(
-            f"  [{self.config}] eval-{self.eval_id} turn "
+            f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} done ({turn_result.duration_ms}ms)",
             flush=True,
         )
 
     def write_turn_outputs(self, turn_idx: int, turn_result) -> None:
-        turn_dir = self.config_dir / f"turn-{turn_idx + 1}" / "outputs"
+        turn_dir = self.run_type_dir / f"turn-{turn_idx + 1}" / "outputs"
         turn_dir.mkdir(parents=True, exist_ok=True)
         (turn_dir / "response.md").write_text(
             turn_result.response,
@@ -470,23 +470,23 @@ class EvalJob:
         )
 
     def write_run_artifacts(self) -> None:
-        (self.config_dir / "transcript.md").write_text(
+        (self.run_type_dir / "transcript.md").write_text(
             self.run_transcript(),
             encoding="utf-8",
         )
-        (self.config_dir / "timing.json").write_text(
+        (self.run_type_dir / "timing.json").write_text(
             json.dumps(self.timing(), indent=2),
             encoding="utf-8",
         )
         raw_lines = [json.dumps(event) for event in self.all_events]
-        (self.config_dir / "raw_output.jsonl").write_text(
+        (self.run_type_dir / "raw_output.jsonl").write_text(
             "\n".join(raw_lines),
             encoding="utf-8",
         )
 
     def run_transcript(self) -> str:
         transcript_parts = []
-        for turn_dir in sorted(self.config_dir.glob("turn-*/outputs")):
+        for turn_dir in sorted(self.run_type_dir.glob("turn-*/outputs")):
             transcript_path = turn_dir / "transcript.md"
             if transcript_path.exists():
                 transcript_parts.append(transcript_path.read_text(encoding="utf-8"))
@@ -515,7 +515,7 @@ class EvalJob:
         summary = {
             "eval_id": self.eval_id,
             "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
-            "config": self.config,
+            "run_type": self.run_type,
             "session_id": self.session_id,
             "status": self.status,
             "duration_ms": self.duration_ms,
@@ -528,14 +528,14 @@ class EvalJob:
 
     def skipped_summary(self) -> dict:
         print(
-            f"  [{self.config}] eval-{self.eval_id} SKIPPED "
+            f"  [{self.run_type}] eval-{self.eval_id} SKIPPED "
             "(total timeout exceeded)",
             flush=True,
         )
         return {
             "eval_id": self.eval_id,
             "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
-            "config": self.config,
+            "run_type": self.run_type,
             "session_id": self.session_id,
             "status": "skipped",
             "error": "Total timeout exceeded before job started",
@@ -547,7 +547,7 @@ class EvalJob:
 
 def run_single_job(
     eval_def: dict,
-    config: str,
+    run_type: str,
     run_dir: str,
     fixture_path: str | None,
     iteration_dir: Path,
@@ -558,10 +558,10 @@ def run_single_job(
     deadline: float | None = None,
     grading_job_factory: Callable[["EvalJob"], object] | None = None,
 ) -> dict:
-    """Run all turns of one eval and configuration combination."""
+    """Run all turns of one eval and run-type combination."""
     return EvalJob(
         eval_def=eval_def,
-        config=config,
+        run_type=run_type,
         run_dir=run_dir,
         fixture_path=fixture_path,
         iteration_dir=iteration_dir,

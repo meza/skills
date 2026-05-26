@@ -1,4 +1,4 @@
-"""Grade one completed eval configuration."""
+"""Grade one completed eval run type."""
 
 import json
 import os
@@ -24,13 +24,13 @@ def create_grading_job_factory(
     effort: str | None,
     timeout: int,
 ):
-    """Create grading jobs for completed eval/config runs."""
+    """Create grading jobs for completed eval run types."""
 
     def factory(eval_job) -> "GradingJob":
         return GradingJob(
             eval_def=eval_job.eval_def,
-            config=eval_job.config,
-            config_dir=eval_job.config_dir,
+            run_type=eval_job.run_type,
+            run_type_dir=eval_job.run_type_dir,
             skill_name=skill_name,
             provider=provider,
             model=model,
@@ -46,11 +46,11 @@ def create_grading_job_factory(
 
 @dataclass
 class GradingJob:
-    """Run a schema-constrained grader for one completed eval/config directory."""
+    """Run a schema-constrained grader for one completed eval run-type directory."""
 
     eval_def: dict
-    config: str
-    config_dir: Path
+    run_type: str
+    run_type_dir: Path
     skill_name: str
     provider: Provider
     model: str | None
@@ -66,37 +66,37 @@ class GradingJob:
         command = self.provider.build_grading_command(
             model=self.model,
             effort=self.effort,
-            working_dir=str(self.config_dir),
+            working_dir=str(self.run_type_dir),
             output_schema=str(self.schema_path),
         )
         with self.provider.process_environment(
             os.environ,
-            str(self.config_dir),
-            self.config_dir,
+            str(self.run_type_dir),
+            self.run_type_dir,
         ) as process_env:
             stdout, stderr, returncode, timed_out, _duration_ms = run_with_timeout(
                 command,
                 prompt,
-                str(self.config_dir),
+                str(self.run_type_dir),
                 self.timeout,
                 env=process_env,
             )
 
         if timed_out:
-            raise TimeoutError(f"Grading eval-{self.eval_id}/{self.config} timed out")
+            raise TimeoutError(f"Grading eval-{self.eval_id}/{self.run_type} timed out")
         if returncode != 0 and not stdout.strip():
             raise RuntimeError(stderr or f"Grading exited with code {returncode}")
 
         result = self.provider.parse_output(stdout, prompt)
         grading_data = json.loads(result.response)
         self.validate_grading_data(grading_data)
-        (self.config_dir / "grading.json").write_text(
+        (self.run_type_dir / "grading.json").write_text(
             json.dumps(grading_data, indent=2),
             encoding="utf-8",
         )
 
     def write_run_artifacts_manifest(self) -> None:
-        (self.config_dir / "run_artifacts.json").write_text(
+        (self.run_type_dir / "run_artifacts.json").write_text(
             json.dumps(self.run_result(), indent=2),
             encoding="utf-8",
         )
@@ -123,24 +123,24 @@ class GradingJob:
         return {
             "skill_name": self.skill_name,
             "eval": self.eval_def,
-            "config": self.config,
+            "run_type": self.run_type,
             "artifacts": self.artifacts(),
             "schema_path": str(self.schema_path),
         }
 
     def artifacts(self) -> dict:
         return {
-            "results_dir_path": str(self.config_dir),
+            "results_dir_path": str(self.run_type_dir),
             "working_dir_path": self.run_dir,
-            "run_transcript_path": str(self.config_dir / "transcript.md"),
-            "raw_output_path": str(self.config_dir / "raw_output.jsonl"),
-            "timing_path": str(self.config_dir / "timing.json"),
+            "run_transcript_path": str(self.run_type_dir / "transcript.md"),
+            "raw_output_path": str(self.run_type_dir / "raw_output.jsonl"),
+            "timing_path": str(self.run_type_dir / "timing.json"),
             "turns": self.turn_artifacts(),
         }
 
     def turn_artifacts(self) -> list[dict]:
         artifacts = []
-        for turn_dir in sorted(self.config_dir.glob("turn-*/outputs")):
+        for turn_dir in sorted(self.run_type_dir.glob("turn-*/outputs")):
             artifacts.append(
                 {
                     "turn": int(turn_dir.parent.name.removeprefix("turn-")),

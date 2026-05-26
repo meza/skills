@@ -32,20 +32,18 @@ describe('iteration repository', () => {
     expect(iteration.runs[0]).toMatchObject({
       evalId: 1,
       evalName: 'breaking-change-returns-full-message-when-needed',
-      config: 'with_skill',
+      runType: 'skill',
       status: 'success',
       passRate: 1,
       providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
       tokenCount: 1200,
       durationSeconds: 24,
       reviewState: 'not_reviewed',
-      workingDirectory: join(root, 'eval-1', 'with_skill', 'work')
+      workingDirectory: join(root, 'eval-1', 'skill', 'work')
     });
-    expect(iteration.runs[0]?.artifactPaths.runArtifacts).toBe(
-      join(root, 'eval-1', 'with_skill', 'run_artifacts.json')
-    );
-    expect(iteration.runs[0]?.comparisons.withoutSkill).toMatchObject({
-      config: 'without_skill',
+    expect(iteration.runs[0]?.artifactPaths.runArtifacts).toBe(join(root, 'eval-1', 'skill', 'run_artifacts.json'));
+    expect(iteration.runs[0]?.comparisons.baseline).toMatchObject({
+      runType: 'baseline',
       passRateDelta: 1,
       tokenDelta: 300,
       durationDelta: 6
@@ -91,18 +89,12 @@ describe('iteration repository', () => {
     ]);
     expect(iteration.runs[0]?.expectations).toHaveLength(6);
     expect(iteration.runs[0]?.turns).toHaveLength(2);
-    expect(iteration.runs[1]?.comparisons.withoutSkill).toMatchObject({
-      config: 'without_skill',
+    expect(iteration.runs[1]?.comparisons.baseline).toMatchObject({
+      runType: 'baseline',
       durationDelta: 0,
       passRateDelta: 0.5,
       tokenDelta: 24_840
     });
-    expect(iteration.runs[3]?.issues).toContainEqual(
-      expect.objectContaining({
-        severity: 'warning',
-        state: 'missing_comparison_target'
-      })
-    );
     expect(iteration.runs[4]?.issues.map((issue) => issue.state)).toEqual(
       expect.arrayContaining([
         'failed_execution',
@@ -117,7 +109,7 @@ describe('iteration repository', () => {
 
   it('uses real grader turn results and falls back when recorded artifact paths reference renamed iteration folders', async () => {
     await writeFile(
-      join(root, 'eval-1', 'with_skill', 'grading.json'),
+      join(root, 'eval-1', 'skill', 'grading.json'),
       JSON.stringify({
         executive_summary: 'The run satisfied all turn expectations.',
         results: {
@@ -145,32 +137,14 @@ describe('iteration repository', () => {
       'utf-8'
     );
     await writeFile(
-      join(root, 'eval-1', 'with_skill', 'run_artifacts.json'),
+      join(root, 'eval-1', 'skill', 'run_artifacts.json'),
       JSON.stringify({
         artifacts: {
           turns: [
             {
               turn: 1,
-              response_path: join(
-                root,
-                '..',
-                'iteration-5',
-                'eval-1',
-                'with_skill',
-                'turn-1',
-                'outputs',
-                'response.md'
-              ),
-              transcript_path: join(
-                root,
-                '..',
-                'iteration-5',
-                'eval-1',
-                'with_skill',
-                'turn-1',
-                'outputs',
-                'transcript.md'
-              )
+              response_path: join(root, '..', 'iteration-5', 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'),
+              transcript_path: join(root, '..', 'iteration-5', 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md')
             }
           ]
         }
@@ -221,15 +195,15 @@ describe('iteration repository', () => {
   });
 
   it('surfaces missing artifacts as run issues instead of hiding the run', async () => {
-    await rm(join(root, 'eval-1', 'with_skill', 'grading.json'));
-    await rm(join(root, 'eval-1', 'with_skill', 'raw_output.jsonl'));
-    await rm(join(root, 'eval-1', 'with_skill', 'timing.json'));
-    await rm(join(root, 'eval-1', 'with_skill', 'turn-1', 'outputs', 'response.md'));
-    await rm(join(root, 'eval-1', 'with_skill', 'turn-1', 'outputs', 'transcript.md'));
+    await rm(join(root, 'eval-1', 'skill', 'grading.json'));
+    await rm(join(root, 'eval-1', 'skill', 'raw_output.jsonl'));
+    await rm(join(root, 'eval-1', 'skill', 'timing.json'));
+    await rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
+    await rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
 
     const iteration = await loadIteration(root);
 
-    const run = iteration.runs.find((candidate) => candidate.config === 'with_skill');
+    const run = iteration.runs.find((candidate) => candidate.runType === 'skill');
     expect(run?.issues.map((issue) => issue.state)).toEqual(
       expect.arrayContaining([
         'missing_grading',
@@ -243,7 +217,7 @@ describe('iteration repository', () => {
   });
 
   it('surfaces invalid grading and failed execution states', async () => {
-    await writeFile(join(root, 'eval-1', 'with_skill', 'grading.json'), '{', 'utf-8');
+    await writeFile(join(root, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
     const manifestPath = join(root, 'run_manifest.json');
     const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
     manifest.runs[0].status = 'failed';
@@ -252,7 +226,7 @@ describe('iteration repository', () => {
 
     const iteration = await loadIteration(root);
 
-    const run = iteration.runs.find((candidate) => candidate.config === 'with_skill');
+    const run = iteration.runs.find((candidate) => candidate.runType === 'skill');
     expect(run?.issues).toContainEqual(
       expect.objectContaining({
         message: 'Invalid grading.json',
@@ -268,7 +242,7 @@ describe('iteration repository', () => {
   });
 
   it('writes viewer feedback without mutating evaluator artifacts', async () => {
-    const gradingPath = join(root, 'eval-1', 'with_skill', 'grading.json');
+    const gradingPath = join(root, 'eval-1', 'skill', 'grading.json');
     const before = await readFile(gradingPath, 'utf-8');
 
     await saveFeedback(root, {
@@ -469,7 +443,7 @@ describe('iteration repository', () => {
     manifest.runs[0].status = 'queued';
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
     await writeFile(
-      join(root, 'eval-1', 'with_skill', 'run_artifacts.json'),
+      join(root, 'eval-1', 'skill', 'run_artifacts.json'),
       JSON.stringify({ artifacts: { turns: [{}] } }),
       'utf-8'
     );
@@ -482,14 +456,7 @@ describe('iteration repository', () => {
       provider: 'codex',
       skillName: 'conventional-commit-message'
     });
-    expect(iteration.runs[0]?.comparisons.withoutSkill).toBeUndefined();
-    expect(iteration.runs[0]?.issues).toContainEqual(
-      expect.objectContaining({
-        artifact: 'without_skill',
-        severity: 'warning',
-        state: 'missing_comparison_target'
-      })
-    );
+    expect(iteration.runs[0]?.comparisons.baseline).toBeUndefined();
     expect(iteration.runs[0]?.status).toBe('artifact_error');
     expect(iteration.runs[0]?.issues.map((issue) => issue.state)).toEqual(
       expect.arrayContaining(['missing_response', 'missing_transcript'])
@@ -504,7 +471,7 @@ describe('iteration repository', () => {
     const iteration = await loadIteration(iterationRoot);
 
     expect(iteration.runs[0]?.comparisons.previousIteration).toMatchObject({
-      config: 'with_skill',
+      runType: 'skill',
       passRateDelta: 0
     });
   });
@@ -512,15 +479,11 @@ describe('iteration repository', () => {
   it('handles grading and metadata without expectation arrays', async () => {
     await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
     await writeFile(
-      join(root, 'eval-1', 'with_skill', 'grading.json'),
+      join(root, 'eval-1', 'skill', 'grading.json'),
       JSON.stringify({ summary: { pass_rate: 1 }, eval_feedback: { overall: 'No expectations.' } }),
       'utf-8'
     );
-    await writeFile(
-      join(root, 'eval-1', 'with_skill', 'run_artifacts.json'),
-      JSON.stringify({ artifacts: {} }),
-      'utf-8'
-    );
+    await writeFile(join(root, 'eval-1', 'skill', 'run_artifacts.json'), JSON.stringify({ artifacts: {} }), 'utf-8');
 
     const iteration = await loadIteration(root);
 
@@ -530,7 +493,7 @@ describe('iteration repository', () => {
 
   it('handles grader turn entries without expectation arrays', async () => {
     await writeFile(
-      join(root, 'eval-1', 'with_skill', 'grading.json'),
+      join(root, 'eval-1', 'skill', 'grading.json'),
       JSON.stringify({
         results: {
           turns: [{ turn: 1 }]

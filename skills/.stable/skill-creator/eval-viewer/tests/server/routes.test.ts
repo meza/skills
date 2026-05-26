@@ -34,16 +34,16 @@ describe('viewer server routes', () => {
     const server = await buildServer({ resultRoot: root });
     const response = await server.inject({
       method: 'GET',
-      url: '/api/runs/1/with_skill'
+      url: '/api/runs/1/skill'
     });
     const missing = await server.inject({
       method: 'GET',
-      url: '/api/runs/9/with_skill'
+      url: '/api/runs/9/skill'
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      config: 'with_skill',
+      runType: 'skill',
       evalId: 1
     });
     expect(missing.statusCode).toBe(404);
@@ -109,7 +109,7 @@ describe('viewer server routes', () => {
 
   it('serves artifact text only from inside the result root', async () => {
     const server = await buildServer({ resultRoot: root });
-    const artifactPath = join(root, 'eval-1', 'with_skill', 'raw_output.jsonl');
+    const artifactPath = join(root, 'eval-1', 'skill', 'raw_output.jsonl');
 
     const response = await server.inject({
       method: 'GET',

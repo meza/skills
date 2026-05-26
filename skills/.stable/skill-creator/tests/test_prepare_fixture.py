@@ -94,25 +94,25 @@ class PrepareFixtureContractTests(unittest.TestCase):
             self.assertEqual(eval_entry.eval_id, 1)
             self.assertEqual(eval_entry.eval_name, "basic")
             self.assertEqual(
-                eval_entry.with_skill_path,
-                prepared_run.run_root / "workdirs" / "eval-1" / "with_skill",
+                eval_entry.skill_run_path,
+                prepared_run.run_root / "workdirs" / "eval-1" / "skill",
             )
             self.assertEqual(
-                eval_entry.without_skill_path,
-                prepared_run.run_root / "workdirs" / "eval-1" / "without_skill",
+                eval_entry.baseline_run_path,
+                prepared_run.run_root / "workdirs" / "eval-1" / "baseline",
             )
             self.assertEqual(
                 eval_entry.skill_file,
-                eval_entry.with_skill_path
+                eval_entry.skill_run_path
                 / ".claude"
                 / "skills"
                 / "demo-skill"
                 / "SKILL.md",
             )
-            self.assertIsNone(eval_entry.with_skill_fixture_path)
-            self.assertIsNone(eval_entry.without_skill_fixture_path)
+            self.assertIsNone(eval_entry.skill_fixture_path)
+            self.assertIsNone(eval_entry.baseline_fixture_path)
 
-    def test_places_skill_only_in_with_skill_provider_root(self):
+    def test_places_skill_only_in_skill_provider_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
@@ -122,17 +122,17 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             self.assertTrue(
                 (
-                    eval_entry.with_skill_path
+                    eval_entry.skill_run_path
                     / ".claude"
                     / "skills"
                     / "demo-skill"
                     / "SKILL.md"
                 ).exists()
             )
-            self.assertFalse((eval_entry.without_skill_path / ".claude").exists())
+            self.assertFalse((eval_entry.baseline_run_path / ".claude").exists())
             self.assertEqual(
                 eval_entry.skill_file,
-                eval_entry.with_skill_path
+                eval_entry.skill_run_path
                 / ".claude"
                 / "skills"
                 / "demo-skill"
@@ -151,24 +151,24 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             self.assertTrue(
                 (
-                    eval_entry.with_skill_path
+                    eval_entry.skill_run_path
                     / ".codex"
                     / "skills"
                     / "demo-skill"
                     / "SKILL.md"
                 ).exists()
             )
-            self.assertFalse((eval_entry.with_skill_path / ".claude").exists())
+            self.assertFalse((eval_entry.skill_run_path / ".claude").exists())
             self.assertEqual(
                 eval_entry.skill_file,
-                eval_entry.with_skill_path
+                eval_entry.skill_run_path
                 / ".codex"
                 / "skills"
                 / "demo-skill"
                 / "SKILL.md",
             )
 
-    def test_copies_eval_files_into_both_configurations(self):
+    def test_copies_eval_files_into_both_run_types(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(
@@ -192,13 +192,13 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             self.assertEqual(
                 (
-                    eval_entry.with_skill_path / "evals" / "files" / "input.txt"
+                    eval_entry.skill_run_path / "evals" / "files" / "input.txt"
                 ).read_text(encoding="utf-8"),
                 "sample",
             )
             self.assertEqual(
                 (
-                    eval_entry.without_skill_path / "evals" / "files" / "input.txt"
+                    eval_entry.baseline_run_path / "evals" / "files" / "input.txt"
                 ).read_text(encoding="utf-8"),
                 "sample",
             )
@@ -226,13 +226,13 @@ class PrepareFixtureContractTests(unittest.TestCase):
             prepared_run = self._run_prepare(skill_path, temp_path / "runs")
             eval_entry = self._prepared_eval(prepared_run)
 
-            with_fixture = eval_entry.with_skill_fixture_path
-            without_fixture = eval_entry.without_skill_fixture_path
+            with_fixture = eval_entry.skill_fixture_path
+            without_fixture = eval_entry.baseline_fixture_path
             self.assertEqual(with_fixture.name, "sample-project")
             self.assertEqual(without_fixture.name, "sample-project")
-            self.assertTrue(with_fixture.is_relative_to(eval_entry.with_skill_path))
+            self.assertTrue(with_fixture.is_relative_to(eval_entry.skill_run_path))
             self.assertTrue(
-                without_fixture.is_relative_to(eval_entry.without_skill_path)
+                without_fixture.is_relative_to(eval_entry.baseline_run_path)
             )
             self.assertEqual(
                 (with_fixture / "README.md").read_text(encoding="utf-8"), "fixture"
@@ -269,11 +269,11 @@ class PrepareFixtureContractTests(unittest.TestCase):
             prepared_run = self._run_prepare(skill_path, temp_path / "runs")
             eval_entry = self._prepared_eval(prepared_run)
 
-            with_fixture = eval_entry.with_skill_fixture_path
-            without_fixture = eval_entry.without_skill_fixture_path
-            self.assertFalse(with_fixture.is_relative_to(eval_entry.with_skill_path))
+            with_fixture = eval_entry.skill_fixture_path
+            without_fixture = eval_entry.baseline_fixture_path
+            self.assertFalse(with_fixture.is_relative_to(eval_entry.skill_run_path))
             self.assertFalse(
-                without_fixture.is_relative_to(eval_entry.without_skill_path)
+                without_fixture.is_relative_to(eval_entry.baseline_run_path)
             )
             self.assertEqual(
                 (with_fixture / "README.md").read_text(encoding="utf-8"), "fixture"
@@ -293,8 +293,8 @@ class PrepareFixtureContractTests(unittest.TestCase):
             first = self._run_prepare(skill_path, run_base)
             second = self._run_prepare(skill_path, run_base)
 
-            first_path = self._prepared_eval(first).with_skill_path
-            second_path = self._prepared_eval(second).with_skill_path
+            first_path = self._prepared_eval(first).skill_run_path
+            second_path = self._prepared_eval(second).skill_run_path
             self.assertEqual(first.run_root, run_base)
             self.assertEqual(second.run_root, run_base)
             self.assertEqual(first_path, second_path)
@@ -320,7 +320,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             first = self._run_prepare(skill_path, run_root)
             stale_file = (
-                first.run_root / "workdirs" / "eval-1" / "with_skill" / "stale.txt"
+                first.run_root / "workdirs" / "eval-1" / "skill" / "stale.txt"
             )
             stale_file.write_text("stale", encoding="utf-8")
             preserved_result = first.run_root / "results" / "iteration-1" / "marker.txt"
@@ -337,7 +337,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
             self.assertFalse(stale_workdir.exists())
             self.assertEqual(preserved_result.read_text(encoding="utf-8"), "keep")
             self.assertEqual(
-                (second.evals[0].with_skill_fixture_path / "README.md").read_text(
+                (second.evals[0].skill_fixture_path / "README.md").read_text(
                     encoding="utf-8"
                 ),
                 "fixture",

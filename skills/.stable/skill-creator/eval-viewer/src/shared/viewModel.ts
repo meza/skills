@@ -33,11 +33,11 @@ export interface TurnView {
 }
 
 export interface RunComparisonView {
-  config: string;
   durationDelta: number;
   expectations: ExpectationView[];
   finalResponse: string;
   passRateDelta: number;
+  runType: string;
   tokenDelta: number;
 }
 
@@ -51,10 +51,9 @@ export interface RunView {
     transcript?: string;
   };
   comparisons: {
+    baseline?: RunComparisonView;
     previousIteration?: RunComparisonView;
-    withoutSkill?: RunComparisonView;
   };
-  config: string;
   durationSeconds: number;
   evalId: number;
   evalName: string;
@@ -66,6 +65,7 @@ export interface RunView {
   providerSessionId?: string;
   feedback: RunFeedbackView;
   reviewState: ReviewState;
+  runType: string;
   status: RunStatus;
   tokenCount: number;
   turns: TurnView[];

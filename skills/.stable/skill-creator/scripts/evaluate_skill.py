@@ -79,7 +79,7 @@ def execute(args: argparse.Namespace) -> dict:
             prepared_run,
             SkillEvalRunOptions(
                 eval_ids=args.eval_ids,
-                config=args.config,
+                skip_baseline=args.skip_baseline,
                 model=args.model,
                 effort=args.effort,
                 max_parallel=args.max_parallel,
@@ -146,10 +146,9 @@ def main() -> None:
         help="Comma-separated list of eval IDs to run. If omitted, all evals run.",
     )
     parser.add_argument(
-        "--config",
-        default=None,
-        choices=("with_skill", "without_skill"),
-        help="Configuration to run. If omitted, both configurations run.",
+        "--skip-baseline",
+        action="store_true",
+        help="Run only the skill-enabled eval, skipping the baseline run.",
     )
     parser.add_argument(
         "--max-parallel",

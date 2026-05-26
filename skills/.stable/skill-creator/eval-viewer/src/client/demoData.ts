@@ -5,23 +5,23 @@ export const demoIteration: IterationView = {
   runs: [
     {
       artifactPaths: {
-        grading: 'eval-1/with_skill/grading.json',
-        rawOutput: 'eval-1/with_skill/raw_output.jsonl',
-        response: 'eval-1/with_skill/turn-1/outputs/response.md',
-        timing: 'eval-1/with_skill/timing.json',
-        transcript: 'eval-1/with_skill/turn-1/outputs/transcript.md'
+        grading: 'eval-1/skill/grading.json',
+        rawOutput: 'eval-1/skill/raw_output.jsonl',
+        response: 'eval-1/skill/turn-1/outputs/response.md',
+        timing: 'eval-1/skill/timing.json',
+        transcript: 'eval-1/skill/turn-1/outputs/transcript.md'
       },
       comparisons: {
         previousIteration: {
-          config: 'with_skill',
+          runType: 'skill',
           durationDelta: -6,
           expectations: [],
           finalResponse: 'chore: update auth config',
           passRateDelta: 1,
           tokenDelta: -200
         },
-        withoutSkill: {
-          config: 'without_skill',
+        baseline: {
+          runType: 'baseline',
           durationDelta: 6,
           expectations: [],
           finalResponse: 'fix: update auth signing',
@@ -29,7 +29,7 @@ export const demoIteration: IterationView = {
           tokenDelta: 300
         }
       },
-      config: 'with_skill',
+      runType: 'skill',
       durationSeconds: 24,
       evalId: 1,
       evalName: 'breaking-change-returns-full-message-when-needed',
@@ -72,14 +72,14 @@ export const demoIteration: IterationView = {
     },
     {
       artifactPaths: {
-        grading: 'eval-1/without_skill/grading.json',
-        rawOutput: 'eval-1/without_skill/raw_output.jsonl',
-        response: 'eval-1/without_skill/turn-1/outputs/response.md',
-        timing: 'eval-1/without_skill/timing.json',
-        transcript: 'eval-1/without_skill/turn-1/outputs/transcript.md'
+        grading: 'eval-1/baseline/grading.json',
+        rawOutput: 'eval-1/baseline/raw_output.jsonl',
+        response: 'eval-1/baseline/turn-1/outputs/response.md',
+        timing: 'eval-1/baseline/timing.json',
+        transcript: 'eval-1/baseline/turn-1/outputs/transcript.md'
       },
       comparisons: {},
-      config: 'without_skill',
+      runType: 'baseline',
       durationSeconds: 18,
       evalId: 1,
       evalName: 'breaking-change-returns-full-message-when-needed',

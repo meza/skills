@@ -17,12 +17,12 @@ import type {
 } from '../shared/viewModel.js';
 
 interface ManifestRun {
-  config?: string;
   cost_usd?: number;
   duration_seconds?: number;
   error?: string;
   eval_id?: number | string;
   eval_name?: string;
+  run_type?: string;
   session_id?: string;
   status?: string;
   total_tokens?: number;
@@ -118,14 +118,14 @@ export async function readArtifactText(resultRoot: string, artifactPath: string)
 
 async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: FeedbackArtifact): Promise<RunView> {
   const evalId = numberValue(manifestRun.eval_id, 0);
-  const config = textValue(manifestRun.config, 'unknown');
+  const runType = textValue(manifestRun.run_type, 'unknown');
   const evalDir = join(resultRoot, `eval-${evalId}`);
-  const configDir = join(evalDir, config);
+  const runTypeDir = join(evalDir, runType);
   const metadata = await readOptionalJson(join(evalDir, 'eval_metadata.json'));
-  const gradingPath = join(configDir, 'grading.json');
-  const timingPath = join(configDir, 'timing.json');
-  const rawOutputPath = join(configDir, 'raw_output.jsonl');
-  const artifactsPath = join(configDir, 'run_artifacts.json');
+  const gradingPath = join(runTypeDir, 'grading.json');
+  const timingPath = join(runTypeDir, 'timing.json');
+  const rawOutputPath = join(runTypeDir, 'raw_output.jsonl');
+  const artifactsPath = join(runTypeDir, 'run_artifacts.json');
   const gradingResult = await readArtifactJson(gradingPath, 'grading.json', 'missing_grading', 'invalid_grading');
   const artifactsResult = await readArtifactJson(
     artifactsPath,
@@ -137,7 +137,7 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   const artifactRoot = objectValue(artifactsResult.value?.artifacts);
   const metadataTurns = metadataTurnsFrom(metadata);
   const gradedTurns = gradedTurnExpectations(gradingResult.value);
-  const turns = await loadTurns(metadataTurns, artifactRoot.turns, configDir, gradedTurns);
+  const turns = await loadTurns(metadataTurns, artifactRoot.turns, runTypeDir, gradedTurns);
   const expectations = expectationsFrom(gradingResult.value, metadataTurns);
   const issues = [
     ...gradingResult.issues,
@@ -153,13 +153,12 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     artifactPaths: {
       grading: gradingPath,
       rawOutput: rawOutputPath,
-      response: firstTurnPath(artifactsResult.value, 'response_path', configDir),
+      response: firstTurnPath(artifactsResult.value, 'response_path', runTypeDir),
       runArtifacts: artifactsPath,
       timing: timingPath,
-      transcript: firstTurnPath(artifactsResult.value, 'transcript_path', configDir)
+      transcript: firstTurnPath(artifactsResult.value, 'transcript_path', runTypeDir)
     },
     comparisons: {},
-    config,
     durationSeconds: numberValue(timing?.total_duration_seconds ?? manifestRun.duration_seconds, 0),
     evalId,
     evalName: textValue(
@@ -177,6 +176,7 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     providerSessionId: textValue(manifestRun.session_id, ''),
     feedback: runFeedback,
     reviewState: review?.review_state ?? 'not_reviewed',
+    runType,
     status: statusFor(manifestRun, issues),
     tokenCount: numberValue(timing?.total_tokens ?? manifestRun.total_tokens, 0),
     turns,
@@ -220,28 +220,17 @@ async function loadTurns(
 
 function addComparisons(runs: RunView[], resultRoot: string): RunView[] {
   return runs.map((run) => {
-    const withoutSkillTarget = runs.find(
-      (candidate) => candidate.evalId === run.evalId && candidate.config === 'without_skill'
+    const baselineTarget = runs.find(
+      (candidate) => candidate.evalId === run.evalId && candidate.runType === 'baseline'
     );
-    const withoutSkill = run.config === 'with_skill' ? comparisonAgainst(run, withoutSkillTarget) : undefined;
-    const comparisonIssues =
-      run.config === 'with_skill' && !withoutSkillTarget
-        ? [
-            {
-              artifact: 'without_skill',
-              message: 'Missing without_skill comparison target.',
-              severity: 'warning' as const,
-              state: 'missing_comparison_target' as const
-            }
-          ]
-        : [];
+    const baseline = run.runType === 'skill' ? comparisonAgainst(run, baselineTarget) : undefined;
     return {
       ...run,
       comparisons: {
-        previousIteration: previousIterationComparison(run, resultRoot),
-        withoutSkill
+        baseline,
+        previousIteration: previousIterationComparison(run, resultRoot)
       },
-      issues: [...run.issues, ...comparisonIssues]
+      issues: run.issues
     };
   });
 }
@@ -251,11 +240,11 @@ function comparisonAgainst(current: RunView, target: RunView | undefined): RunCo
     return undefined;
   }
   return {
-    config: target.config,
     durationDelta: current.durationSeconds - target.durationSeconds,
     expectations: target.expectations,
     finalResponse: target.finalResponse,
     passRateDelta: current.passRate - target.passRate,
+    runType: target.runType,
     tokenDelta: current.tokenCount - target.tokenCount
   };
 }
@@ -268,23 +257,22 @@ function previousIterationComparison(current: RunView, resultRoot: string): RunC
     Number.isFinite(currentNumber) && currentNumber > 0
       ? join(parent, `iteration-${currentNumber - 1}`)
       : join(resultRoot, 'iteration-0');
-  const previousRun = previousRunCache(previousRoot, current.evalId, current.config);
+  const previousRun = previousRunCache(previousRoot, current.evalId, current.runType);
   if (!previousRun) {
     return undefined;
   }
   return comparisonAgainst(current, previousRun);
 }
 
-function previousRunCache(previousRoot: string, evalId: number, config: string): RunView | undefined {
-  const configDir = join(previousRoot, `eval-${evalId}`, config);
+function previousRunCache(previousRoot: string, evalId: number, runType: string): RunView | undefined {
+  const runTypeDir = join(previousRoot, `eval-${evalId}`, runType);
   try {
-    const grading = readJsonSync(join(configDir, 'grading.json'));
-    const timing = readJsonSync(join(configDir, 'timing.json'));
-    const response = readTextSync(join(configDir, 'turn-1', 'outputs', 'response.md'));
+    const grading = readJsonSync(join(runTypeDir, 'grading.json'));
+    const timing = readJsonSync(join(runTypeDir, 'timing.json'));
+    const response = readTextSync(join(runTypeDir, 'turn-1', 'outputs', 'response.md'));
     return {
       artifactPaths: {},
       comparisons: {},
-      config,
       durationSeconds: numberValue(timing.total_duration_seconds, 0),
       evalId,
       evalName: `eval-${evalId}`,
@@ -295,6 +283,7 @@ function previousRunCache(previousRoot: string, evalId: number, config: string):
       issues: [],
       passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
       reviewState: 'not_reviewed',
+      runType,
       status: 'success',
       tokenCount: numberValue(timing.total_tokens, 0),
       turns: []

@@ -15,10 +15,10 @@ export async function buildServer(options: ServerOptions) {
   const server = Fastify({ logger: false });
 
   server.get('/api/iteration', async () => loadIteration(options.resultRoot));
-  server.get<{ Params: { config: string; evalId: string } }>('/api/runs/:evalId/:config', async (request, reply) => {
+  server.get<{ Params: { evalId: string; runType: string } }>('/api/runs/:evalId/:runType', async (request, reply) => {
     const iteration = await loadIteration(options.resultRoot);
     const run = iteration.runs.find(
-      (candidate) => candidate.evalId === Number(request.params.evalId) && candidate.config === request.params.config
+      (candidate) => candidate.evalId === Number(request.params.evalId) && candidate.runType === request.params.runType
     );
     if (!run) {
       return reply.code(404).send({ error: 'Run not found.' });

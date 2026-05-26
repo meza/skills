@@ -48,9 +48,9 @@ class GradingJobTests(unittest.TestCase):
     def test_create_grading_job_factory_uses_default_schema_and_instructions(self):
         eval_job = mock.Mock()
         eval_job.eval_def = {"id": 1}
-        eval_job.config = "with_skill"
-        eval_job.config_dir = Path("F:/runs/eval-1/with_skill")
-        eval_job.run_dir = "F:/runs/workdirs/eval-1/with_skill"
+        eval_job.run_type = "skill"
+        eval_job.run_type_dir = Path("F:/runs/eval-1/skill")
+        eval_job.run_dir = "F:/runs/workdirs/eval-1/skill"
         provider = FakeProvider()
 
         grading_job = create_grading_job_factory(
@@ -63,9 +63,9 @@ class GradingJobTests(unittest.TestCase):
 
         self.assertIsInstance(grading_job, GradingJob)
         self.assertEqual(grading_job.eval_def, {"id": 1})
-        self.assertEqual(grading_job.config, "with_skill")
-        self.assertEqual(grading_job.config_dir, Path("F:/runs/eval-1/with_skill"))
-        self.assertEqual(grading_job.run_dir, "F:/runs/workdirs/eval-1/with_skill")
+        self.assertEqual(grading_job.run_type, "skill")
+        self.assertEqual(grading_job.run_type_dir, Path("F:/runs/eval-1/skill"))
+        self.assertEqual(grading_job.run_dir, "F:/runs/workdirs/eval-1/skill")
         self.assertEqual(grading_job.skill_name, "sample-skill")
         self.assertIs(grading_job.provider, provider)
         self.assertEqual(grading_job.model, "gpt-test")
@@ -112,10 +112,10 @@ class GradingJobTests(unittest.TestCase):
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_dir = (
-                Path(temp_dir) / "results" / "iteration-1" / "eval-1" / "with_skill"
+            run_type_dir = (
+                Path(temp_dir) / "results" / "iteration-1" / "eval-1" / "skill"
             )
-            outputs_dir = config_dir / "turn-1" / "outputs"
+            outputs_dir = run_type_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
@@ -140,8 +140,8 @@ class GradingJobTests(unittest.TestCase):
                             }
                         ],
                     },
-                    config="with_skill",
-                    config_dir=config_dir,
+                    run_type="skill",
+                    run_type_dir=run_type_dir,
                     skill_name="sample-skill",
                     provider=FakeProvider(),
                     model="gpt-test",
@@ -153,11 +153,11 @@ class GradingJobTests(unittest.TestCase):
                 grading_job.run()
 
             self.assertEqual(
-                json.loads((config_dir / "grading.json").read_text(encoding="utf-8")),
+                json.loads((run_type_dir / "grading.json").read_text(encoding="utf-8")),
                 grading_payload,
             )
             run_artifacts = json.loads(
-                (config_dir / "run_artifacts.json").read_text(encoding="utf-8")
+                (run_type_dir / "run_artifacts.json").read_text(encoding="utf-8")
             )
             self.assertEqual(run_artifacts, grading_job.run_result())
             self.assertIn(
@@ -169,7 +169,7 @@ class GradingJobTests(unittest.TestCase):
                 [
                     "fake-provider",
                     "--cwd",
-                    str(config_dir),
+                    str(run_type_dir),
                     "--schema",
                     str(DEFAULT_GRADING_SCHEMA_PATH),
                 ],
@@ -177,10 +177,10 @@ class GradingJobTests(unittest.TestCase):
 
     def test_run_rejects_provider_json_that_fails_grading_validation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_dir = (
-                Path(temp_dir) / "results" / "iteration-1" / "eval-1" / "with_skill"
+            run_type_dir = (
+                Path(temp_dir) / "results" / "iteration-1" / "eval-1" / "skill"
             )
-            outputs_dir = config_dir / "turn-1" / "outputs"
+            outputs_dir = run_type_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
@@ -205,8 +205,8 @@ class GradingJobTests(unittest.TestCase):
                             }
                         ],
                     },
-                    config="with_skill",
-                    config_dir=config_dir,
+                    run_type="skill",
+                    run_type_dir=run_type_dir,
                     skill_name="sample-skill",
                     provider=FakeProvider(),
                     model="gpt-test",
@@ -216,13 +216,13 @@ class GradingJobTests(unittest.TestCase):
                     grader_instructions_path=instructions_path,
                 ).run()
 
-            self.assertFalse((config_dir / "grading.json").exists())
+            self.assertFalse((run_type_dir / "grading.json").exists())
 
     def test_run_reports_grading_timeout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            config_dir = temp_path / "results" / "iteration-1" / "eval-1" / "with_skill"
-            outputs_dir = config_dir / "turn-1" / "outputs"
+            run_type_dir = temp_path / "results" / "iteration-1" / "eval-1" / "skill"
+            outputs_dir = run_type_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
@@ -236,13 +236,13 @@ class GradingJobTests(unittest.TestCase):
                 ),
                 self.assertRaisesRegex(
                     TimeoutError,
-                    "Grading eval-1/with_skill timed out",
+                    "Grading eval-1/skill timed out",
                 ),
             ):
                 GradingJob(
                     eval_def={"id": 1, "turns": []},
-                    config="with_skill",
-                    config_dir=config_dir,
+                    run_type="skill",
+                    run_type_dir=run_type_dir,
                     skill_name="sample-skill",
                     provider=FakeProvider(),
                     model=None,
@@ -255,8 +255,8 @@ class GradingJobTests(unittest.TestCase):
     def test_run_reports_grading_process_error_without_stdout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            config_dir = temp_path / "results" / "iteration-1" / "eval-1" / "with_skill"
-            outputs_dir = config_dir / "turn-1" / "outputs"
+            run_type_dir = temp_path / "results" / "iteration-1" / "eval-1" / "skill"
+            outputs_dir = run_type_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
@@ -272,8 +272,8 @@ class GradingJobTests(unittest.TestCase):
             ):
                 GradingJob(
                     eval_def={"id": 1, "turns": []},
-                    config="with_skill",
-                    config_dir=config_dir,
+                    run_type="skill",
+                    run_type_dir=run_type_dir,
                     skill_name="sample-skill",
                     provider=FakeProvider(),
                     model=None,
@@ -286,18 +286,18 @@ class GradingJobTests(unittest.TestCase):
     def test_build_prompt_injects_run_result_json_with_artifact_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            config_dir = temp_path / "results" / "iteration-1" / "eval-1" / "with_skill"
-            run_dir = temp_path / "workdirs" / "eval-1" / "with_skill"
-            outputs_dir = config_dir / "turn-1" / "outputs"
+            run_type_dir = temp_path / "results" / "iteration-1" / "eval-1" / "skill"
+            run_dir = temp_path / "workdirs" / "eval-1" / "skill"
+            outputs_dir = run_type_dir / "turn-1" / "outputs"
             outputs_dir.mkdir(parents=True)
             run_dir.mkdir(parents=True)
             (outputs_dir / "response.md").write_text("answer", encoding="utf-8")
             (outputs_dir / "transcript.md").write_text("transcript", encoding="utf-8")
-            (config_dir / "transcript.md").write_text(
+            (run_type_dir / "transcript.md").write_text(
                 "full transcript", encoding="utf-8"
             )
-            (config_dir / "raw_output.jsonl").write_text("{}", encoding="utf-8")
-            (config_dir / "timing.json").write_text("{}", encoding="utf-8")
+            (run_type_dir / "raw_output.jsonl").write_text("{}", encoding="utf-8")
+            (run_type_dir / "timing.json").write_text("{}", encoding="utf-8")
             instructions_path = temp_path / "grader.md"
             instructions_path.write_text(
                 "Grade {skill_name}.\n{run_result_json}",
@@ -316,8 +316,8 @@ class GradingJobTests(unittest.TestCase):
                         }
                     ],
                 },
-                config="with_skill",
-                config_dir=config_dir,
+                run_type="skill",
+                run_type_dir=run_type_dir,
                 run_dir=str(run_dir),
                 skill_name="sample-skill",
                 provider=FakeProvider(),
@@ -347,10 +347,10 @@ class GradingJobTests(unittest.TestCase):
                 ],
             },
         )
-        self.assertEqual(run_result["config"], "with_skill")
+        self.assertEqual(run_result["run_type"], "skill")
         self.assertEqual(
             run_result["artifacts"]["results_dir_path"],
-            str(config_dir),
+            str(run_type_dir),
         )
         self.assertEqual(
             run_result["artifacts"]["working_dir_path"],
@@ -358,15 +358,15 @@ class GradingJobTests(unittest.TestCase):
         )
         self.assertEqual(
             run_result["artifacts"]["run_transcript_path"],
-            str(config_dir / "transcript.md"),
+            str(run_type_dir / "transcript.md"),
         )
         self.assertEqual(
             run_result["artifacts"]["raw_output_path"],
-            str(config_dir / "raw_output.jsonl"),
+            str(run_type_dir / "raw_output.jsonl"),
         )
         self.assertEqual(
             run_result["artifacts"]["timing_path"],
-            str(config_dir / "timing.json"),
+            str(run_type_dir / "timing.json"),
         )
         self.assertEqual(run_result["schema_path"], str(schema_path))
         self.assertEqual(

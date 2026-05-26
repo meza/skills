@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from .eval_definitions import load_evals_data, select_evals, selected_configs
+from .eval_definitions import load_evals_data, select_evals, selected_run_types
 from .eval_runner import EvalRun, EvalRunOptions
 from .grading import create_grading_job_factory
 from .prepare_fixture import PreparedRun
@@ -16,7 +16,7 @@ DEFAULT_TIMEOUT_SECONDS = 600
 @dataclass(frozen=True)
 class SkillEvalRunOptions:
     eval_ids: str | None = None
-    config: str | None = None
+    skip_baseline: bool = False
     model: str | None = None
     effort: str | None = None
     max_parallel: int = DEFAULT_MAX_PARALLEL
@@ -51,7 +51,7 @@ class SkillEvalRunner:
             timeout=self.options.timeout,
             total_timeout=None,
             run_root=self.prepared_run.run_root,
-            configs=selected_configs(self.options.config),
+            run_types=selected_run_types(self.options.skip_baseline),
             grading_job_factory=create_grading_job_factory(
                 provider=provider,
                 skill_name=evals_data.get("skill_name", self.prepared_run.skill_name),

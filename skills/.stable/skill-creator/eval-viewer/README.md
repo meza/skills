@@ -66,7 +66,7 @@ It must show:
 - skill name
 - provider, model, and effort
 - eval ids and names
-- configs run for each eval
+- run types for each eval
 - run status
 - pass rate, timing, and token usage
 - grader executive summaries
@@ -75,7 +75,7 @@ It must show:
 - evidence for each expectation
 - prompts, responses, transcripts, raw outputs, timing, and artifact paths
 
-When both `with_skill` and `without_skill` exist for an eval, the frontend must
+When both `skill` and `baseline` exist for an eval, the frontend must
 support comparing them.
 
 When earlier iterations are available, the frontend must support comparing the

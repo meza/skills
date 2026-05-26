@@ -94,29 +94,29 @@ def load_eval_graded_runs(eval_dir: Path) -> list[dict]:
     eval_id, eval_name = load_eval_metadata(eval_dir)
     return [
         load_graded_run(
-            config_dir / "grading.json", eval_id, eval_name, config_dir.name
+            run_type_dir / "grading.json", eval_id, eval_name, run_type_dir.name
         )
-        for config_dir in sorted(eval_dir.iterdir())
-        if is_graded_config_dir(config_dir)
+        for run_type_dir in sorted(eval_dir.iterdir())
+        if is_graded_run_type_dir(run_type_dir)
     ]
 
 
-def is_graded_config_dir(config_dir: Path) -> bool:
-    return config_dir.is_dir() and (config_dir / "grading.json").exists()
+def is_graded_run_type_dir(run_type_dir: Path) -> bool:
+    return run_type_dir.is_dir() and (run_type_dir / "grading.json").exists()
 
 
 def load_graded_run(
     grading_path: Path,
     eval_id: int,
     eval_name: str | None,
-    config: str,
+    run_type: str,
 ) -> dict:
     grading = json.loads(grading_path.read_text(encoding="utf-8"))
     summary = grading.get("summary") or {}
     run = {
         "eval_id": eval_id,
         "eval_name": eval_name,
-        "configuration": config,
+        "run_type": run_type,
         "result": {
             "pass_rate": summary.get("pass_rate", 0.0),
             "passed": summary.get("passed", 0),
@@ -132,8 +132,8 @@ def load_graded_run(
     return run
 
 
-def add_timing(run: dict, config_dir: Path) -> None:
-    timing_path = config_dir / "timing.json"
+def add_timing(run: dict, run_type_dir: Path) -> None:
+    timing_path = run_type_dir / "timing.json"
     timing = {}
     if timing_path.exists():
         timing = json.loads(timing_path.read_text(encoding="utf-8"))
@@ -143,16 +143,18 @@ def add_timing(run: dict, config_dir: Path) -> None:
 
 def aggregate_results(graded_runs: list[dict]) -> dict:
     summary = {}
-    configs = sorted({run["configuration"] for run in graded_runs})
-    for config in configs:
-        config_runs = [run for run in graded_runs if run["configuration"] == config]
-        summary[config] = {
+    run_types = sorted({run["run_type"] for run in graded_runs})
+    for run_type in run_types:
+        run_type_runs = [run for run in graded_runs if run["run_type"] == run_type]
+        summary[run_type] = {
             "pass_rate": calculate_stats(
-                [run["result"]["pass_rate"] for run in config_runs]
+                [run["result"]["pass_rate"] for run in run_type_runs]
             ),
             "time_seconds": calculate_stats(
-                [run["result"]["time_seconds"] for run in config_runs]
+                [run["result"]["time_seconds"] for run in run_type_runs]
             ),
-            "tokens": calculate_stats([run["result"]["tokens"] for run in config_runs]),
+            "tokens": calculate_stats(
+                [run["result"]["tokens"] for run in run_type_runs]
+            ),
         }
     return summary
