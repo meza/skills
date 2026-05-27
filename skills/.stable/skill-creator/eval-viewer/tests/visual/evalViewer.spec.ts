@@ -249,8 +249,27 @@ test('mobile success state keeps controls visible and contained', async ({ page 
   await expect(page.getByRole('heading', { name: 'Executive Summary' })).toBeVisible();
   await expect(page.locator('.run-pager > span')).toHaveText('1 / 4');
   await expectNoHorizontalOverflow(page);
+  await expectResponsiveSingleColumnLayout(page);
 
   await expect(page).toHaveScreenshot('viewer-mobile-success-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('tablet baseline expectation state keeps controls visible and contained', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: 'baseline' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Expectations Breakdown' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('1/4 requirements passed')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await expectResponsiveSingleColumnLayout(page);
+
+  await expect(page).toHaveScreenshot('viewer-tablet-baseline-expectations-state.png', {
     fullPage: true,
     maxDiffPixelRatio: 0.02
   });
@@ -368,6 +387,30 @@ async function expectNoHorizontalOverflow(page: Page) {
       Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+}
+
+async function expectResponsiveSingleColumnLayout(page: Page) {
+  const layout = await page.evaluate(() => {
+    const sideNav = document.querySelector('.side-nav');
+    const content = document.querySelector('.content');
+    if (!sideNav || !content) {
+      throw new Error('Missing responsive layout elements');
+    }
+    const sideNavRect = sideNav.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    return {
+      contentLeft: contentRect.left,
+      contentWidth: contentRect.width,
+      sideNavLeft: sideNavRect.left,
+      sideNavWidth: sideNavRect.width,
+      viewportWidth: document.documentElement.clientWidth
+    };
+  });
+
+  expect(layout.sideNavLeft).toBe(0);
+  expect(layout.contentLeft).toBe(0);
+  expect(layout.sideNavWidth).toBeGreaterThanOrEqual(layout.viewportWidth - 1);
+  expect(layout.contentWidth).toBeGreaterThanOrEqual(layout.viewportWidth - 1);
 }
 
 async function scrollContentToTop(page: Page) {

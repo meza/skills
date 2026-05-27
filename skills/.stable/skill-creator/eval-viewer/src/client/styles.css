@@ -895,6 +895,11 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 64px auto auto;
+  }
+
   .main-layout {
     display: contents;
   }
