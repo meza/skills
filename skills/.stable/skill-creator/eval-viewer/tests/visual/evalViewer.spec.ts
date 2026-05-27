@@ -45,6 +45,52 @@ test('failed expectation state shows evidence comparison', async ({ page }) => {
   });
 });
 
+test('successful expectation hover state gives the status bar a neon glow', async ({ page }) => {
+  await page.goto('/');
+
+  const successfulExpectation = page.locator('.expectation.pass').first();
+  await expect(successfulExpectation).toBeVisible();
+  await successfulExpectation.hover();
+  await page.waitForTimeout(300);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-successful-expectation-hover-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('failed expectation hover state gives the status bar a neon glow', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  const failedExpectation = page.locator('.expectation.fail').first();
+  await expect(failedExpectation).toBeVisible();
+  await failedExpectation.hover();
+  await page.waitForTimeout(300);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-failed-expectation-hover-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('feedback hover state gives the review rail a neon glow', async ({ page }) => {
+  await page.goto('/');
+
+  const feedback = page.locator('.feedback');
+  await feedback.scrollIntoViewIfNeeded();
+  await feedback.hover();
+  await page.waitForTimeout(300);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-feedback-hover-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
 test('baseline expectation toggle shows baseline grading results', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
@@ -141,7 +187,7 @@ test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
     'Expectation order needs a quick reviewer check.'
   );
   await expect(page.getByLabel('Review comments')).toHaveValue('Draft review notes before finalizing this run.');
-  await expect(page.getByText('Saved')).toHaveCount(0);
+  await expect(page.getByText('Saved', { exact: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await page.locator('.feedback').scrollIntoViewIfNeeded();
 
@@ -160,7 +206,7 @@ test('feedback workflow has visual coverage and persists only filled values', as
   await page.getByLabel('Review comments').fill(comments);
   await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
 
-  await expect(page.getByText('Saved')).toBeVisible();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
   await expect(page.getByLabel('Review comments')).toHaveValue(comments);
   await expectNoHorizontalOverflow(page);
@@ -208,7 +254,7 @@ test('past feedback state loads saved review content', async ({ page }) => {
   await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
   await page.getByLabel('Review comments').fill(comments);
   await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
-  await expect(page.getByText('Saved')).toBeVisible();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
   await page.reload();
 

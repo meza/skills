@@ -17,7 +17,7 @@ describe('server entrypoint', () => {
     });
 
     expect(buildServer).toHaveBeenCalledWith({ resultRoot: expect.stringMatching(/eval-viewer$/) });
-    expect(listen).toHaveBeenCalledWith({ host: '127.0.0.1', port: 4123 });
+    expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: 4123 });
   });
 
   it('uses the shared viewer port when PORT is not set', async () => {
@@ -30,6 +30,6 @@ describe('server entrypoint', () => {
       env: {}
     });
 
-    expect(listen).toHaveBeenCalledWith({ host: '127.0.0.1', port: DEFAULT_PORT });
+    expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: DEFAULT_PORT });
   });
 });

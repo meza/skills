@@ -91,6 +91,13 @@
 
   --transition-fast: 120ms ease;
   --transition-default: 160ms ease;
+  --transition-glow: 250ms ease;
+  --transition-card-hover-in-duration: 255ms ease;
+  --transition-rail-glow:
+    background var(--transition-glow), border-left-color var(--transition-glow), box-shadow var(--transition-glow);
+  --transition-card-hover-in:
+    background var(--transition-card-hover-in-duration), border-left-color var(--transition-card-hover-in-duration),
+    box-shadow var(--transition-glow);
   --transition-interactive:
     background-color var(--transition-default), border-color var(--transition-default),
     box-shadow var(--transition-default), color var(--transition-default), filter var(--transition-default),
