@@ -11,7 +11,7 @@ await api.listen({ host: '127.0.0.1', port: apiPort });
 
 const vite = await createServer({
   server: {
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     port: DEFAULT_PORT,
     proxy: {
       '/api': `http://127.0.0.1:${apiPort}`
