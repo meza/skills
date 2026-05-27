@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.00001
+    }
+  },
   testDir: 'tests/visual',
   use: {
     baseURL: 'http://127.0.0.1:4277',

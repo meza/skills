@@ -44,7 +44,7 @@ it('filters failed runs and shows artifact errors clearly', async () => {
 
   await user.click(screen.getByRole('button', { name: /^fail$/i }));
 
-  const navigation = screen.getByRole('navigation', { name: /runs/i });
+  const navigation = screen.getByRole('navigation', { name: /evals/i });
   expect(within(navigation).getByText('breaking-change-returns-full-message-when-needed')).toBeInTheDocument();
   expect(within(navigation).getByText('artifact-error-with-passing-grades')).toBeInTheDocument();
   expect(document.body).not.toHaveTextContent('with_skill');
@@ -72,10 +72,49 @@ it('filters passing runs', async () => {
 
   await user.click(screen.getByRole('button', { name: /^pass$/i }));
 
-  const navigation = screen.getByRole('navigation', { name: /runs/i });
+  const navigation = screen.getByRole('navigation', { name: /evals/i });
   expect(within(navigation).getByText('breaking-change-returns-full-message-when-needed')).toBeInTheDocument();
   expect(document.body).not.toHaveTextContent('with_skill');
   expect(document.body).not.toHaveTextContent('without_skill');
+});
+
+it('labels partial pass-rate runs as failed in navigation', () => {
+  const view = iterationView();
+  const run = view.runs[0];
+  if (!run) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  run.passRate = 0.86;
+  run.status = 'success';
+  renderApp({ initialIteration: view });
+
+  const navigation = screen.getByRole('navigation', { name: /evals/i });
+  const runLink = within(navigation).getByRole('button', {
+    name: /breaking-change-returns-full-message-when-needed/i
+  });
+  expect(within(runLink).getByText('fail')).toBeInTheDocument();
+  expect(within(runLink).queryByText('success')).not.toBeInTheDocument();
+});
+
+it('sorts eval navigation by eval id ascending', () => {
+  const view = iterationView();
+  const run = view.runs[0];
+  if (!run) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs = [
+    { ...run, evalId: 3, evalName: 'third-eval' },
+    { ...run, evalId: 1, evalName: 'first-eval' },
+    { ...run, evalId: 2, evalName: 'second-eval' }
+  ];
+  renderApp({ initialIteration: view });
+
+  const navigation = screen.getByRole('navigation', { name: /evals/i });
+  expect(
+    within(navigation)
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+  ).toEqual(['first-evalsuccess', 'second-evalsuccess', 'third-evalsuccess']);
 });
 
 it('moves through runs with the prototype pager controls', async () => {

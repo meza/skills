@@ -15,6 +15,7 @@ test('success run state matches the prototype shell', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Executive Summary' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Expectations Breakdown' })).toBeVisible();
   await expect(page.getByText('6/6 requirements passed')).toBeVisible();
+  await expect(page.getByText('Eval ID: 1')).toBeVisible();
   await expect(page.locator('.run-pager > span')).toHaveText('1 / 4');
   await expectNoHorizontalOverflow(page);
   await expectDesktopLayout(page);
@@ -22,8 +23,7 @@ test('success run state matches the prototype shell', async ({ page }) => {
   await scrollContentToTop(page);
 
   await expect(page).toHaveScreenshot('viewer-success-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -40,8 +40,7 @@ test('failed expectation state shows evidence comparison', async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-failure-evidence-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -55,8 +54,7 @@ test('successful expectation hover state gives the status bar a neon glow', asyn
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-successful-expectation-hover-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -71,8 +69,7 @@ test('failed expectation hover state gives the status bar a neon glow', async ({
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-failed-expectation-hover-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -86,8 +83,7 @@ test('feedback hover state gives the review rail a neon glow', async ({ page }) 
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-feedback-hover-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -104,8 +100,7 @@ test('baseline expectation toggle shows baseline grading results', async ({ page
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-baseline-expectations-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -120,9 +115,7 @@ test('expectation section heading shows result toggle hover glow', async ({ page
   await page.waitForTimeout(300);
   await expectNoHorizontalOverflow(page);
 
-  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-toggle-hover-state.png', {
-    maxDiffPixelRatio: 0.02
-  });
+  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-toggle-hover-state.png');
 });
 
 test('expectation section heading shows active result toggle hover glow', async ({ page }) => {
@@ -136,9 +129,7 @@ test('expectation section heading shows active result toggle hover glow', async 
   await page.waitForTimeout(300);
   await expectNoHorizontalOverflow(page);
 
-  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-active-toggle-hover-state.png', {
-    maxDiffPixelRatio: 0.02
-  });
+  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-active-toggle-hover-state.png');
 });
 
 test('long run title keeps pager readable', async ({ page }) => {
@@ -150,8 +141,7 @@ test('long run title keeps pager readable', async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-long-title-pager-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -167,8 +157,7 @@ test('missing artifact state stays reviewable without invented panels', async ({
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-missing-artifact-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -185,27 +174,25 @@ test('pass filter state shows only successful runs', async ({ page }) => {
   await scrollContentToTop(page);
 
   await expect(page).toHaveScreenshot('viewer-pass-filter-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
 test('fail filter state shows only artifact error runs', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'fail' }).click();
+  await page.getByRole('button', { name: 'fail', exact: true }).click();
 
-  await expect(page.getByRole('button', { name: 'fail' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'fail', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toHaveCount(0);
-  await expect(page.getByText('artifact_error')).toBeVisible();
+  await expect(page.getByRole('button', { name: /missing-artifact-smoke fail/i })).toBeVisible();
   await page.getByRole('button', { name: /missing-artifact-smoke/i }).click();
   await expect(page.getByRole('heading', { name: /missing-artifact-smoke/i })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await scrollContentToTop(page);
 
   await expect(page).toHaveScreenshot('viewer-fail-filter-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -224,8 +211,7 @@ test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
   await page.locator('.feedback').scrollIntoViewIfNeeded();
 
   await expect(page).toHaveScreenshot('viewer-feedback-draft-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -245,8 +231,7 @@ test('feedback workflow has visual coverage and persists only filled values', as
   await page.locator('.feedback').scrollIntoViewIfNeeded();
 
   await expect(page).toHaveScreenshot('viewer-feedback-saved-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 
   const artifact = JSON.parse(await readFile(feedbackPath, 'utf-8')) as {
@@ -296,8 +281,7 @@ test('past feedback state loads saved review content', async ({ page }) => {
   await page.locator('.feedback').scrollIntoViewIfNeeded();
 
   await expect(page).toHaveScreenshot('viewer-past-feedback-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -312,8 +296,7 @@ test('execution history and metadata state stays aligned', async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-history-metadata-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -330,8 +313,7 @@ test('mobile success state keeps controls visible and contained', async ({ page 
   await expectResponsiveSingleColumnLayout(page);
 
   await expect(page).toHaveScreenshot('viewer-mobile-success-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -348,8 +330,7 @@ test('tablet baseline expectation state keeps controls visible and contained', a
   await expectResponsiveSingleColumnLayout(page);
 
   await expect(page).toHaveScreenshot('viewer-tablet-baseline-expectations-state.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
+    fullPage: true
   });
 });
 
@@ -361,12 +342,19 @@ async function expectPrototypeShell(page: Page) {
   await expect(page.locator('.metadata').getByRole('link', { name: /view all artifacts/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();
-  await expect(page.getByText('artifact_error')).toBeVisible();
+  await expect(page.getByRole('button', { name: /missing-artifact-smoke fail/i })).toBeVisible();
+  await expect(page.getByText('Evals', { exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Evals' }).locator('.run-link > span:first-child')).toHaveText([
+    'internal-refactor-stays-refactor',
+    'user-visible-fix-avoids-code-narration',
+    'breaking-change-returns-full-message-when-needed',
+    'missing-artifact-smoke'
+  ]);
   await expect(page.locator('body')).not.toContainText('with_skill');
   await expect(page.locator('body')).not.toContainText('without_skill');
   await expect(page.getByRole('button', { name: 'all' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'pass' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'fail' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'fail', exact: true })).toBeVisible();
   await expect(page.locator('.filters .material-symbols-outlined')).toHaveText(['list', 'check_circle', 'error']);
   await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Feedback' })).toBeVisible();

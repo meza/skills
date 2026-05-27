@@ -21,7 +21,8 @@ export function App({
 }) {
   const [filter, setFilter] = useState<RunFilter>('all');
   const reviewRuns = useMemo(
-    () => initialIteration.runs.filter((run) => run.runType === 'skill'),
+    () =>
+      initialIteration.runs.filter((run) => run.runType === 'skill').sort((left, right) => left.evalId - right.evalId),
     [initialIteration.runs]
   );
   const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] ?? initialIteration.runs[0]));

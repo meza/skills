@@ -85,20 +85,6 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: numb
 function currentRuns(): RichRun[] {
   return [
     richRun({
-      evalId: 1,
-      evalName: 'internal-refactor-stays-refactor',
-      expectations: [
-        pass('The message classifies internal-only restructuring as refactor.', 1),
-        pass('The subject avoids claiming a user-visible fix.', 1),
-        pass('The answer inspects the staged diff before choosing the type.', 1),
-        pass('The explanation does not invent public behavior.', 2),
-        pass('The final output contains only the commit message.', 2),
-        pass('The commit subject stays concise and conventional.', 2)
-      ],
-      finalResponse: 'refactor: centralize signing key lookup',
-      sessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067'
-    }),
-    richRun({
       evalId: 2,
       evalName: 'user-visible-fix-avoids-code-narration',
       expectations: [
@@ -123,6 +109,20 @@ function currentRuns(): RichRun[] {
       finalResponse: 'refactor: update session validator',
       sessionId: '019e64c2-2d1c-7711-8713-279fb734a695',
       totalTokens: 88_219
+    }),
+    richRun({
+      evalId: 1,
+      evalName: 'internal-refactor-stays-refactor',
+      expectations: [
+        pass('The message classifies internal-only restructuring as refactor.', 1),
+        pass('The subject avoids claiming a user-visible fix.', 1),
+        pass('The answer inspects the staged diff before choosing the type.', 1),
+        pass('The explanation does not invent public behavior.', 2),
+        pass('The final output contains only the commit message.', 2),
+        pass('The commit subject stays concise and conventional.', 2)
+      ],
+      finalResponse: 'refactor: centralize signing key lookup',
+      sessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067'
     }),
     richRun({
       evalId: 3,

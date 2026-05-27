@@ -1,6 +1,6 @@
 import type { RunView } from '../../shared/viewModel.js';
 import { runKey } from '../feedbackDraft.js';
-import { filterIcon, type RunFilter } from '../runFilters.js';
+import { filterIcon, type RunFilter, reviewStatusLabel } from '../runFilters.js';
 
 const FILTERS: RunFilter[] = ['all', 'pass', 'fail'];
 
@@ -42,22 +42,25 @@ export function RunNavigation({
           </button>
         ))}
       </div>
-      <div className="filter-label">Runs</div>
-      <nav aria-label="Runs" className="run-list">
-        {runs.map((run) => (
-          <button
-            aria-pressed={runKey(run) === runKey(selectedRun)}
-            className={run.passRate === 1 ? 'run-link pass' : 'run-link fail'}
-            key={runKey(run)}
-            onClick={() => onRunSelect(run)}
-            type="button">
-            <span>{run.evalName}</span>
-            <small>
-              <i aria-hidden="true" />
-              <span>{run.status}</span>
-            </small>
-          </button>
-        ))}
+      <div className="filter-label">Evals</div>
+      <nav aria-label="Evals" className="run-list">
+        {runs.map((run) => {
+          const reviewStatus = reviewStatusLabel(run);
+          return (
+            <button
+              aria-pressed={runKey(run) === runKey(selectedRun)}
+              className={reviewStatus === 'success' ? 'run-link pass' : 'run-link fail'}
+              key={runKey(run)}
+              onClick={() => onRunSelect(run)}
+              type="button">
+              <span>{run.evalName}</span>
+              <small>
+                <i aria-hidden="true" />
+                <span>{reviewStatus}</span>
+              </small>
+            </button>
+          );
+        })}
       </nav>
     </aside>
   );

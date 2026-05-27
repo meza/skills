@@ -17,7 +17,7 @@ export function RunSummary({
     <>
       <section className="run-header">
         <div>
-          <span className="eyebrow">Run ID: {run.evalId}</span>
+          <span className="eyebrow">Eval ID: {run.evalId}</span>
           <h2>{run.evalName}</h2>
         </div>
         <div className="run-pager">
