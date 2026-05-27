@@ -18,6 +18,7 @@ export default defineConfig({
     timeout: 120_000,
     url: 'http://127.0.0.1:4277'
   },
+  workers: 1,
   projects: [
     {
       name: 'chromium',

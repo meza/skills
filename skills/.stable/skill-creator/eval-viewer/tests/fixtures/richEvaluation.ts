@@ -128,6 +128,10 @@ function currentRuns(): RichRun[] {
       evalId: 3,
       evalName: 'breaking-change-returns-full-message-when-needed',
       expectations: [
+        pass('The response preserves the full breaking-change contract.'),
+        pass('The subject communicates the public compatibility impact.'),
+        pass('The body gives operators a clear migration path.'),
+        pass('The final answer avoids burying the breaking change in prose.'),
         pass('The transcript shows the agent inspected the staged git change set before composing the message.', 1),
         pass('The response is a full Conventional Commit message with a subject and breaking-change body.', 1),
         pass('The subject starts with `feat` and marks the change as breaking with `!`.', 1),

@@ -92,7 +92,7 @@ button:disabled {
 .run-pager,
 .section-heading > span,
 .metric span,
-.expectation-group h4,
+.expectation-section-heading,
 .status-badge,
 .result-toggle button,
 .inline-feedback span,
@@ -447,7 +447,7 @@ button:disabled {
 .expectations {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--page-section-gap);
 }
 
 .section-heading {
@@ -508,17 +508,261 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.expectation-group {
+.expectation-section {
+  --section-accent: var(--color-accent);
+  --section-count-color: var(--color-success-emphasis);
+  --section-underline-color: oklch(from var(--section-accent) 62% c h);
+  --section-underline-hover-color: color-mix(in oklch, var(--section-underline-color) 50%, var(--section-accent));
+  --section-underline-width: min(120px, 16%);
+
   display: flex;
   flex-direction: column;
-  gap: var(--stack-gap);
+  gap: 20px;
 }
 
-.expectation-group h4 {
-  color: var(--color-text-subtle);
-  font-size: var(--text-meta-size);
-  margin: 0;
+.expectation-section[data-state='open'] {
+  --section-underline-color: var(--section-accent);
+  --section-underline-width: 90%;
+}
+
+.expectation-section[data-variant='overall'] {
+  --section-count-color: var(--color-success-emphasis);
+  --section-underline-color: oklch(from var(--section-accent) 64% c h);
+  --section-underline-width: min(240px, 20%);
+}
+
+.expectation-section[data-variant='overall'][data-state='open'] {
+  --section-underline-color: oklch(from var(--section-accent) 64% c h);
+  --section-underline-width: min(240px, 20%);
+}
+
+.expectation-section.fail {
+  --section-accent: var(--color-danger);
+  --section-count-color: var(--color-danger);
+}
+
+.expectation-section-heading {
+  align-items: center;
+  background:
+    linear-gradient(90deg, oklch(from var(--section-accent) l c h / 4%), oklch(from var(--color-surface) l c h / 8%))
+    left / 0 100% no-repeat,
+    linear-gradient(90deg, oklch(from var(--section-accent) l c h / 8%), oklch(from var(--color-surface) l c h / 20%)),
+    oklch(from var(--color-surface) l c h / 20%);
+  border: 0;
+  border-left: var(--border-width-accent) solid var(--section-accent);
+  color: var(--color-accent);
+  display: flex;
+  gap: var(--inline-gap);
+  height: 56px;
+  min-height: 56px;
+  padding: 0 var(--stack-gap);
+  position: relative;
+  text-align: left;
   text-transform: uppercase;
+  transition:
+    background-size 320ms ease,
+    box-shadow var(--transition-glow),
+    color var(--transition-default);
+  width: 100%;
+}
+
+.expectation-section-heading::before {
+  background: var(--section-accent);
+  border-radius: var(--radius-pill);
+  bottom: 0;
+  box-shadow:
+    0 0 5px oklch(from var(--section-accent) l c h / 58%),
+    0 0 12px 1px oklch(from var(--section-accent) l c h / 28%);
+  content: '';
+  left: calc(-1 * var(--border-width-accent));
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transition: opacity var(--transition-glow);
+  width: var(--border-width-accent);
+}
+
+.expectation-section-heading::after {
+  background-color: var(--section-underline-color);
+  bottom: -1px;
+  box-shadow:
+    0 0 10px oklch(from var(--section-underline-color) l c h / 72%),
+    0 0 20px oklch(from var(--section-underline-color) l c h / 34%);
+  content: '';
+  height: var(--border-width-accent);
+  left: 0;
+  position: absolute;
+  transition:
+    background-color var(--transition-glow),
+    box-shadow var(--transition-glow),
+    width 320ms ease;
+  width: var(--section-underline-width);
+}
+
+.expectation-section-heading .material-symbols-outlined {
+  color: var(--section-accent);
+  filter: drop-shadow(0 0 8px oklch(from var(--section-accent) l c h / 62%));
+  font-size: var(--icon-size-default);
+}
+
+.expectation-section[data-variant='overall'] .expectation-section-heading {
+  background: transparent;
+  border-left: 0;
+  height: 48px;
+  min-height: 48px;
+  padding-inline: 0 var(--stack-gap);
+}
+
+.expectation-section[data-variant='overall'] .expectation-section-heading::before {
+  display: none;
+}
+
+.expectation-section[data-variant='overall'] .expectation-section-heading .material-symbols-outlined {
+  filter: drop-shadow(0 0 8px oklch(from var(--section-accent) l c h / 70%));
+}
+
+.expectation-section-title,
+.expectation-section-count {
+  font-size: var(--text-meta-size);
+  letter-spacing: 0.12em;
+}
+
+.expectation-section-title {
+  color: var(--color-accent);
+}
+
+.expectation-section-count {
+  color: var(--section-count-color);
+}
+
+.expectation-section[data-variant='overall'] .expectation-section-count {
+  display: none;
+}
+
+.expectation-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-left: var(--section-gap);
+}
+
+.expectation-section-body[hidden] {
+  display: none;
+}
+
+.expectation-section-heading:hover {
+  --section-underline-width: min(240px, 32%);
+
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--section-accent) l c h / 12%),
+    oklch(from var(--color-surface) l c h / 28%) 36%,
+    transparent 58%
+  );
+}
+
+.expectation-section[data-state='open'] .expectation-section-heading:hover {
+  --section-underline-width: 90%;
+
+  background:
+    linear-gradient(90deg, oklch(from var(--section-accent) l c h / 4%), oklch(from var(--color-surface) l c h / 8%))
+    left / 100% 100% no-repeat,
+    linear-gradient(90deg, oklch(from var(--section-accent) l c h / 8%), oklch(from var(--color-surface) l c h / 20%)),
+    oklch(from var(--color-surface) l c h / 20%);
+}
+
+.expectation-section-heading:hover::before {
+  opacity: 1;
+}
+
+.expectation-section[data-state='closed'] .expectation-section-heading {
+  background:
+    linear-gradient(
+      90deg,
+      oklch(from var(--section-accent) l c h / 12%),
+      oklch(from var(--color-surface) l c h / 28%) 72%,
+      transparent
+    )
+    left / 0 100% no-repeat;
+  border-left-color: var(--section-accent);
+  transition:
+    background-size 320ms ease,
+    box-shadow var(--transition-glow),
+    color var(--transition-default);
+}
+
+.expectation-section[data-variant='overall'][data-state='closed'] .expectation-section-heading {
+  background: transparent;
+  border-left: 0;
+}
+
+.expectation-section[data-state='closed'] .expectation-section-heading:hover::after {
+  --section-underline-color: var(--section-underline-hover-color);
+}
+
+.expectation-section[data-state='closed'].fail .expectation-section-heading {
+  border-left-color: var(--color-danger);
+}
+
+.expectation-section[data-state='closed'].fail .expectation-section-heading:hover::after {
+  --section-underline-color: var(--section-underline-hover-color);
+}
+
+.expectation-section[data-state='closed'] .expectation-section-heading:hover {
+  background:
+    linear-gradient(
+      90deg,
+      oklch(from var(--section-accent) l c h / 12%),
+      oklch(from var(--color-surface) l c h / 28%) 72%,
+      transparent
+    )
+    left / min(120px, 16%) 100% no-repeat;
+  transition:
+    background-size 320ms ease,
+    box-shadow var(--transition-glow),
+    color var(--transition-default);
+}
+
+.expectation-section[data-variant='overall'][data-state='closed'] .expectation-section-heading:hover {
+  --section-underline-color: var(--section-underline-hover-color);
+  --section-underline-width: min(312px, 26%);
+
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--section-accent) l c h / 6%),
+    oklch(from var(--color-surface) l c h / 8%) 34%,
+    transparent 48%
+  );
+}
+
+.expectation-section[data-variant='overall'] .expectation-section-heading:hover,
+.expectation-section[data-variant='overall'][data-state='open'] .expectation-section-heading:hover {
+  --section-underline-width: min(312px, 26%);
+
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--section-accent) l c h / 6%),
+    oklch(from var(--color-surface) l c h / 8%) 34%,
+    transparent 48%
+  );
+}
+
+.expectation-section-heading:active {
+  transform: none;
+}
+
+.expectation-section-heading:focus-visible {
+  outline: var(--border-width-accent) solid var(--section-accent);
+  outline-offset: 2px;
+}
+
+.expectation-section:first-of-type {
+  margin-top: calc(-1 * var(--compact-gap));
+}
+
+.expectation-section-heading span {
+  margin: 0;
 }
 
 .expectation {
@@ -540,6 +784,7 @@ button:disabled {
 
 .expectation::before {
   background: var(--rail-glow-color);
+  border-radius: var(--radius-pill);
   bottom: 0;
   box-shadow:
     0 -5px 10px -5px oklch(from var(--rail-glow-color) l c h / 50%),
@@ -649,7 +894,7 @@ div.expectation-main {
   width: 32px;
 }
 
-.fail .status-icon {
+.expectation.fail .status-icon {
   background: oklch(from var(--color-danger) l c h / 10%);
   border-color: oklch(from var(--color-danger) l c h / 30%);
   color: var(--color-danger);
@@ -792,6 +1037,7 @@ div.expectation-main {
 
 .feedback::before {
   background: var(--rail-glow-color);
+  border-radius: var(--radius-pill);
   bottom: 0;
   box-shadow:
     0 -4px 9px -5px oklch(from var(--rail-glow-color) l c h / 48%),

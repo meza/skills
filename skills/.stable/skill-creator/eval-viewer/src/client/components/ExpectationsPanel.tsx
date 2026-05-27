@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
-import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
+import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
+import { ExpectationSection } from './ExpectationSection.js';
 
 type ExpectationResultMode = 'skill' | 'baseline';
 
@@ -20,7 +21,7 @@ export function ExpectationsPanel({
   const displayedExpectations = resultMode === 'baseline' ? baselineExpectations : run.expectations;
   const comparisonExpectations = resultMode === 'baseline' ? run.expectations : baselineExpectations;
   const overall = displayedExpectations.filter((expectation) => expectation.scope === 'overall');
-  const turns = displayedExpectations.filter((expectation) => expectation.scope === 'turn');
+  const turns = turnExpectationGroups(displayedExpectations);
   const passed = displayedExpectations.filter((expectation) => expectation.passed).length;
 
   useEffect(() => {
@@ -52,242 +53,46 @@ export function ExpectationsPanel({
           {passed}/{displayedExpectations.length} requirements passed
         </span>
       </div>
-      <ExpectationGroup
+      <ExpectationSection
         allowFeedback={resultMode === 'skill'}
         comparisonExpectations={comparisonExpectations}
         comparisonLabel={resultMode === 'baseline' ? 'Skill' : 'Baseline'}
+        defaultOpen
         draft={draft}
         expectations={overall}
-        label="Overall Constraints"
+        label="Overall Expectations"
         resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
+        variant="overall"
         updateDraft={updateDraft}
       />
-      <ExpectationGroup
-        allowFeedback={resultMode === 'skill'}
-        comparisonExpectations={comparisonExpectations}
-        comparisonLabel={resultMode === 'baseline' ? 'Skill' : 'Baseline'}
-        draft={draft}
-        expectations={turns}
-        label="Execution Turn Grading"
-        resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
-        updateDraft={updateDraft}
-      />
+      {turns.map((turn, index) => (
+        <ExpectationSection
+          allowFeedback={resultMode === 'skill'}
+          comparisonExpectations={comparisonExpectations}
+          comparisonLabel={resultMode === 'baseline' ? 'Skill' : 'Baseline'}
+          defaultOpen={index === 0}
+          draft={draft}
+          expectations={turn.expectations}
+          key={turn.turn}
+          label={`Turn ${turn.turn}`}
+          resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
+          updateDraft={updateDraft}
+          variant="turn"
+        />
+      ))}
     </section>
   );
 }
 
-function ExpectationGroup({
-  allowFeedback,
-  comparisonExpectations,
-  comparisonLabel,
-  draft,
-  expectations,
-  label,
-  resultLabel,
-  updateDraft
-}: {
-  allowFeedback: boolean;
-  comparisonExpectations: ExpectationView[];
-  comparisonLabel: string;
-  draft: RunFeedbackView;
-  expectations: ExpectationView[];
-  label: string;
-  resultLabel: string;
-  updateDraft: FeedbackDraftUpdater;
-}) {
-  if (expectations.length === 0) {
-    return null;
-  }
-  return (
-    <div className="expectation-group">
-      <h4>{label}</h4>
-      {expectations.map((expectation, index) => (
-        <ExpectationCard
-          allowFeedback={allowFeedback}
-          comment={allowFeedback ? expectationComment(draft, expectation, expectations, index) : ''}
-          comparisonExpectation={expectationComparison(comparisonExpectations, expectation)}
-          comparisonLabel={comparisonLabel}
-          expectation={expectation}
-          expectations={expectations}
-          index={index}
-          key={expectation.id ?? `${expectation.scope}-${expectation.turn ?? 0}-${expectation.text}`}
-          resultLabel={resultLabel}
-          updateDraft={updateDraft}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ExpectationCard({
-  allowFeedback,
-  comment,
-  comparisonExpectation,
-  comparisonLabel,
-  expectation,
-  expectations,
-  index,
-  resultLabel,
-  updateDraft
-}: {
-  allowFeedback: boolean;
-  comment: string;
-  comparisonExpectation: ExpectationView | undefined;
-  comparisonLabel: string;
-  expectation: ExpectationView;
-  expectations: ExpectationView[];
-  index: number;
-  resultLabel: string;
-  updateDraft: FeedbackDraftUpdater;
-}) {
-  const showEvidence = !expectation.passed;
-  const feedbackRef = useRef<HTMLTextAreaElement>(null);
-  const feedbackId = useId();
-  const feedbackStartsOpen = !expectation.passed || comment.trim().length > 0;
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(feedbackStartsOpen);
-  const label =
-    expectation.scope === 'overall'
-      ? `Feedback for overall expectation ${index + 1}`
-      : `Feedback for turn ${expectation.turn as number} expectation ${
-          turnExpectationIndex(expectations, expectation, index) + 1
-        }`;
-
-  useEffect(() => {
-    const feedback = feedbackRef.current;
-    if (feedback) {
-      feedback.textContent = '';
+function turnExpectationGroups(
+  expectations: ExpectationView[]
+): Array<{ expectations: ExpectationView[]; turn: number }> {
+  const turns = new Map<number, ExpectationView[]>();
+  for (const expectation of expectations) {
+    if (expectation.scope !== 'turn' || expectation.turn === undefined) {
+      continue;
     }
-  }, []);
-
-  return (
-    <article className={expectation.passed ? 'expectation pass' : 'expectation fail'}>
-      {allowFeedback ? (
-        <button
-          aria-controls={feedbackId}
-          aria-expanded={isFeedbackOpen}
-          aria-label={`Toggle feedback for ${expectation.text}`}
-          className="expectation-main"
-          onClick={() => setIsFeedbackOpen((current) => !current)}
-          type="button">
-          <ExpectationCardHeader
-            comparisonExpectation={comparisonExpectation}
-            comparisonLabel={comparisonLabel}
-            expectation={expectation}
-          />
-        </button>
-      ) : (
-        <div className="expectation-main">
-          <ExpectationCardHeader
-            comparisonExpectation={comparisonExpectation}
-            comparisonLabel={comparisonLabel}
-            expectation={expectation}
-          />
-        </div>
-      )}
-      {showEvidence && (expectation.evidence || comparisonExpectation?.evidence) && (
-        <div className="evidence-grid">
-          <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
-          <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
-        </div>
-      )}
-      {showEvidence && !expectation.evidence && !comparisonExpectation?.evidence ? (
-        <p className="empty-copy">No evidence was recorded for this expectation.</p>
-      ) : null}
-      {allowFeedback ? (
-        <div aria-hidden={!isFeedbackOpen} className="inline-feedback" id={feedbackId}>
-          <textarea
-            aria-label={label}
-            onChange={(event) => {
-              const nextComment = event.currentTarget.value;
-              updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
-            }}
-            placeholder="Add feedback for this expectation..."
-            ref={feedbackRef}
-            tabIndex={isFeedbackOpen ? undefined : -1}
-            value={comment}
-          />
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function ExpectationCardHeader({
-  comparisonExpectation,
-  comparisonLabel,
-  expectation
-}: {
-  comparisonExpectation: ExpectationView | undefined;
-  comparisonLabel: string;
-  expectation: ExpectationView;
-}) {
-  return (
-    <>
-      <div className="status-icon">
-        <span className="material-symbols-outlined">{expectation.passed ? 'check' : 'close'}</span>
-      </div>
-      <div>
-        <p className="expectation-text">{expectation.text}</p>
-      </div>
-      <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
-    </>
-  );
-}
-
-function StatusBadge({
-  comparison,
-  comparisonLabel,
-  passed
-}: {
-  comparison: ExpectationView | undefined;
-  comparisonLabel: string;
-  passed: boolean;
-}) {
-  return (
-    <span className={passed ? 'status-badge pass' : 'status-badge fail'}>
-      {passed ? 'PASS' : 'FAIL'} |{' '}
-      <em>
-        {comparisonLabel}: {expectationStatus(comparison)}
-      </em>
-    </span>
-  );
-}
-
-function EvidenceBlock({ label, muted = false, text }: { label: string; muted?: boolean; text: string }) {
-  if (!text) {
-    return null;
+    turns.set(expectation.turn, [...(turns.get(expectation.turn) ?? []), expectation]);
   }
-  return (
-    <div className={muted ? 'evidence muted' : 'evidence'}>
-      <span>{label}</span>
-      <p>{text}</p>
-    </div>
-  );
-}
-
-function expectationComparison(
-  comparisonExpectations: ExpectationView[],
-  expectation: ExpectationView
-): ExpectationView | undefined {
-  return comparisonExpectations.find(
-    (candidate) =>
-      candidate.text === expectation.text &&
-      candidate.scope === expectation.scope &&
-      candidate.turn === expectation.turn
-  );
-}
-
-function expectationStatus(expectation: ExpectationView | undefined): string {
-  if (!expectation) {
-    return 'N/A';
-  }
-  return expectation.passed ? 'PASS' : 'FAIL';
-}
-
-function turnExpectationIndex(expectations: ExpectationView[], expectation: ExpectationView, index: number): number {
-  return (
-    expectations
-      .slice(0, index + 1)
-      .filter((candidate) => candidate.scope === 'turn' && candidate.turn === expectation.turn).length - 1
-  );
+  return [...turns.entries()].map(([turn, turnExpectations]) => ({ expectations: turnExpectations, turn }));
 }

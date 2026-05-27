@@ -127,6 +127,7 @@ it('keeps turn expectation feedback aligned across turn and expectation position
   renderApp({ initialIteration: view, saveFeedback });
 
   await user.type(screen.getByLabelText('Feedback for turn 1 expectation 2'), 'Second expectation note.');
+  await user.click(screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i }));
   await user.type(screen.getByLabelText('Feedback for turn 2 expectation 1'), 'Later turn note.');
   await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
 
