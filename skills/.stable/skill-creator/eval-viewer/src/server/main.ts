@@ -21,7 +21,7 @@ export function resultRootFromArgs(argv: string[]): string {
 
 export async function startServer(options: StartServerOptions): Promise<void> {
   const server = await options.buildServer({ resultRoot: resultRootFromArgs(options.argv) });
-  await server.listen({ host: '127.0.0.1', port: Number(options.env.PORT ?? DEFAULT_PORT) });
+  await server.listen({ host: '0.0.0.0', port: Number(options.env.PORT ?? DEFAULT_PORT) });
 }
 
 /* v8 ignore next 3 -- direct CLI launch is covered through startServer(). */

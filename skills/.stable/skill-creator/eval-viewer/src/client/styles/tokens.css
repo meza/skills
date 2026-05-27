@@ -21,13 +21,13 @@
   --color-text: oklch(91.388% 0.0189 var(--hue-text));
   --color-text-muted: oklch(82.638% 0.0186 var(--hue-accent));
   --color-text-subtle: oklch(65.411% 0.0184 var(--hue-accent));
-  --color-accent: oklch(81.137% 0.138 var(--hue-accent));
-  --color-accent-contrast: oklch(30.322% 0.0516 var(--hue-accent));
-  --color-action-text: oklch(22.147% 0.0377 var(--hue-accent));
-  --color-success: oklch(81.022% 0.2192 var(--hue-success));
-  --color-success-emphasis: oklch(89.605% 0.2316 var(--hue-success));
-  --color-danger: oklch(83.83% 0.0891 var(--hue-danger));
-  --color-feedback-accent: oklch(84.492% 0.1334 var(--hue-feedback));
+  --color-accent: oklch(81.137% 0.1591 var(--hue-accent));
+  --color-accent-contrast: oklch(30.322% 0.0595 var(--hue-accent));
+  --color-action-text: oklch(22.147% 0.0434 var(--hue-accent));
+  --color-success: oklch(81.022% 0.2354 var(--hue-success));
+  --color-success-emphasis: oklch(89.605% 0.2544 var(--hue-success));
+  --color-danger: oklch(83.83% 0.1008 var(--hue-danger));
+  --color-feedback-accent: oklch(84.492% 0.1538 var(--hue-feedback));
 
   --text-label-size: 10px;
   --text-meta-size: 12px;
