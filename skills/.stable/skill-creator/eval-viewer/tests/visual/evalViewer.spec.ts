@@ -45,6 +45,24 @@ test('failed expectation state shows evidence comparison', async ({ page }) => {
   });
 });
 
+test('baseline expectation toggle shows baseline grading results', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: 'baseline' }).click();
+
+  await expect(page.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('1/4 requirements passed')).toBeVisible();
+  await expect(page.getByText('Skill: PASS').first()).toBeVisible();
+  await expect(page.getByText('Baseline Evidence').first()).toBeVisible();
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-baseline-expectations-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
 test('long run title keeps pager readable', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();

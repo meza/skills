@@ -37,6 +37,39 @@ describe('App', () => {
     expect(document.body).not.toHaveTextContent('without_skill');
   });
 
+  it('switches the expectations breakdown between skill and baseline results', async () => {
+    const user = userEvent.setup();
+    render(<App initialIteration={iterationView()} />);
+
+    expect(screen.getByRole('button', { name: 'skill' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('1/1 requirements passed')).toBeInTheDocument();
+    expect(screen.getAllByText(/PASS/)[0]).toHaveTextContent('Baseline: FAIL');
+    expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'baseline' }));
+
+    expect(screen.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('0/1 requirements passed')).toBeInTheDocument();
+    expect(screen.getAllByText(/FAIL/)[0]).toHaveTextContent('Skill: PASS');
+    expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+    expect(screen.getByText('The answer uses fix: and omits the breaking-change impact.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
+  });
+
+  it('disables baseline expectation viewing when no baseline grading exists', () => {
+    const view = iterationView();
+    const run = view.runs[0];
+    if (!run) {
+      throw new Error('Expected a first run in the test fixture.');
+    }
+    run.comparisons = {};
+
+    render(<App initialIteration={view} />);
+
+    expect(screen.getByRole('button', { name: 'skill' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'baseline' })).toBeDisabled();
+  });
+
   it('filters failed runs and shows artifact errors clearly', async () => {
     const view = iterationView();
     const failedRun = view.runs[0];

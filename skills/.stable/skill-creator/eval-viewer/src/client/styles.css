@@ -90,6 +90,7 @@ button:disabled {
 .metric span,
 .expectation-group h4,
 .status-badge,
+.result-toggle button,
 .inline-feedback span,
 .metadata dt,
 .metadata dd,
@@ -371,7 +372,8 @@ button:disabled {
 }
 
 .card-title,
-.section-heading > div {
+.section-heading > div,
+.expectation-heading-main > div:first-child {
   align-items: center;
   display: flex;
   gap: 12px;
@@ -448,8 +450,49 @@ button:disabled {
   align-items: center;
   border-bottom: 1px solid rgba(58, 73, 75, 0.45);
   display: flex;
+  gap: 18px;
   justify-content: space-between;
   padding-bottom: 12px;
+}
+
+.expectation-heading-main {
+  flex-wrap: wrap;
+}
+
+.result-toggle {
+  background: rgba(25, 27, 36, 0.86);
+  border: 1px solid rgba(58, 73, 75, 0.35);
+  border-radius: 999px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+.result-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: #b9cacb;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  min-height: 30px;
+  padding: 0 14px;
+  text-transform: uppercase;
+}
+
+.result-toggle button[aria-pressed='true'] {
+  background: #00dbe7;
+  box-shadow: 0 0 14px rgba(0, 219, 231, 0.28);
+  color: #00363a;
+}
+
+.result-toggle button:hover:not(:disabled) {
+  color: #e1e1ef;
+}
+
+.result-toggle button[aria-pressed='true']:hover:not(:disabled) {
+  color: #00363a;
+  filter: brightness(1.08);
 }
 
 .section-heading > span {
