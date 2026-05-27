@@ -644,17 +644,18 @@ button:disabled {
   color: var(--color-danger);
 }
 
-.expectation h5,
 .expectation p {
   margin: 0;
 }
 
-.expectation h5 {
+.expectation-text {
+  color: var(--color-text);
   font-size: var(--text-expectation-title-size);
+  font-weight: 400;
   line-height: var(--text-expectation-title-line-height);
 }
 
-.expectation-main p,
+.expectation-main p:not(.expectation-text),
 .empty-copy {
   color: var(--color-text-muted);
   line-height: var(--text-body-line-height);

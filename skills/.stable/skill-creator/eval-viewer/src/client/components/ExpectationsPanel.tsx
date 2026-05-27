@@ -140,7 +140,6 @@ function ExpectationCard({
   resultLabel: string;
   updateDraft: FeedbackDraftUpdater;
 }) {
-  const comparisonStatus = expectationStatus(comparisonExpectation);
   const showEvidence = !expectation.passed;
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const label =
@@ -163,8 +162,7 @@ function ExpectationCard({
           <span className="material-symbols-outlined">{expectation.passed ? 'check' : 'close'}</span>
         </div>
         <div>
-          <h5>{expectation.text}</h5>
-          {expectation.turn ? <p>Turn {expectation.turn}</p> : null}
+          <p className="expectation-text">{expectation.text}</p>
         </div>
         <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
       </div>
@@ -178,9 +176,6 @@ function ExpectationCard({
         <p className="empty-copy">No evidence was recorded for this expectation.</p>
       ) : null}
       <div className="inline-feedback">
-        <span>
-          {expectationStatus(expectation)} | {comparisonLabel}: {comparisonStatus}
-        </span>
         {allowFeedback ? (
           <textarea
             aria-label={label}

@@ -79,21 +79,28 @@ it('loads a representative workspace with comparisons, large counts, failures, a
     skillName: 'conventional-commit-message'
   });
   expect(iteration.runs.map((run) => run.evalName)).toEqual([
+    'user-visible-fix-avoids-code-narration',
+    'user-visible-fix-avoids-code-narration',
     'internal-refactor-stays-refactor',
-    'user-visible-fix-avoids-code-narration',
-    'user-visible-fix-avoids-code-narration',
     'breaking-change-returns-full-message-when-needed',
     'missing-artifact-smoke'
   ]);
-  expect(iteration.runs[0]?.expectations).toHaveLength(6);
-  expect(iteration.runs[0]?.turns).toHaveLength(2);
-  expect(iteration.runs[1]?.comparisons.baseline).toMatchObject({
+  const internalRun = iteration.runs.find(
+    (run) => run.evalName === 'internal-refactor-stays-refactor' && run.runType === 'skill'
+  );
+  const userVisibleRun = iteration.runs.find(
+    (run) => run.evalName === 'user-visible-fix-avoids-code-narration' && run.runType === 'skill'
+  );
+  const missingArtifactRun = iteration.runs.find((run) => run.evalName === 'missing-artifact-smoke');
+  expect(internalRun?.expectations).toHaveLength(6);
+  expect(internalRun?.turns).toHaveLength(2);
+  expect(userVisibleRun?.comparisons.baseline).toMatchObject({
     runType: 'baseline',
     durationDelta: 0,
     passRateDelta: 0.5,
     tokenDelta: 24_840
   });
-  expect(iteration.runs[4]?.issues.map((issue) => issue.state)).toEqual(
+  expect(missingArtifactRun?.issues.map((issue) => issue.state)).toEqual(
     expect.arrayContaining([
       'failed_execution',
       'invalid_grading',
