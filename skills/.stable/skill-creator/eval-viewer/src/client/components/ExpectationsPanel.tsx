@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
 import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
 
@@ -142,12 +142,20 @@ function ExpectationCard({
 }) {
   const comparisonStatus = expectationStatus(comparisonExpectation);
   const showEvidence = !expectation.passed;
+  const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const label =
     expectation.scope === 'overall'
       ? `Feedback for overall expectation ${index + 1}`
       : `Feedback for turn ${expectation.turn as number} expectation ${
           turnExpectationIndex(expectations, expectation, index) + 1
         }`;
+  useEffect(() => {
+    const feedback = feedbackRef.current;
+    if (feedback) {
+      feedback.textContent = '';
+    }
+  }, []);
+
   return (
     <article className={expectation.passed ? 'expectation pass' : 'expectation fail'}>
       <div className="expectation-main">
@@ -181,6 +189,7 @@ function ExpectationCard({
               updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
             }}
             placeholder="Add feedback for this expectation..."
+            ref={feedbackRef}
             value={comment}
           />
         ) : null}

@@ -13,8 +13,17 @@
 
 body {
   background:
-    linear-gradient(to right, rgb(var(--color-accent-rgb) / 5%) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--color-accent-rgb) / 5%) 1px, transparent 1px), var(--color-page);
+    linear-gradient(
+      to right,
+      oklch(from var(--color-accent) l c h / 5%) 1px,
+      oklch(from var(--color-page) l c h / 0%) 1px
+    ),
+    linear-gradient(
+      to bottom,
+      oklch(from var(--color-accent) l c h / 5%) 1px,
+      oklch(from var(--color-page) l c h / 0%) 1px
+    ),
+    var(--color-page);
   background-size: 40px 40px;
   margin: 0;
   min-height: 100vh;
@@ -56,7 +65,7 @@ button:disabled {
 .top-bar {
   align-items: center;
   backdrop-filter: var(--panel-backdrop-filter);
-  background: rgb(var(--color-page-rgb) / 88%);
+  background: oklch(from var(--color-page) l c h / 88%);
   border-bottom: var(--border-default);
   display: flex;
   grid-column: 1 / -1;
@@ -104,7 +113,7 @@ button:disabled {
 
 .side-nav {
   align-self: start;
-  background: rgb(var(--color-surface-raised-rgb) / 94%);
+  background: oklch(from var(--color-surface-raised) l c h / 94%);
   border-right: var(--border-default);
   grid-column: 1;
   grid-row: 2;
@@ -123,7 +132,7 @@ button:disabled {
 
 .brand-icon {
   align-items: center;
-  background: rgb(var(--color-accent-rgb) / 10%);
+  background: oklch(from var(--color-accent) l c h / 10%);
   border: var(--border-accent);
   color: var(--color-accent);
   display: flex;
@@ -158,7 +167,7 @@ button:disabled {
 
 .filters button {
   align-items: center;
-  background: rgb(var(--color-control-rgb) / 30%);
+  background: oklch(from var(--color-control) l c h / 30%);
   border: var(--border-default);
   border-radius: var(--radius-control);
   color: var(--color-text);
@@ -184,8 +193,8 @@ button:disabled {
 }
 
 .filters button[aria-pressed='true'] {
-  background: rgb(var(--color-accent-rgb) / 10%);
-  border-color: rgb(var(--color-accent-rgb) / 75%);
+  background: oklch(from var(--color-accent) l c h / 10%);
+  border-color: oklch(from var(--color-accent) l c h / 75%);
   color: var(--color-accent);
 }
 
@@ -194,8 +203,8 @@ button:disabled {
 }
 
 .filters button:hover:not(:disabled) {
-  background: rgb(var(--color-control-rgb) / 50%);
-  border-color: rgb(var(--color-accent-rgb) / 45%);
+  background: oklch(from var(--color-control) l c h / 50%);
+  border-color: oklch(from var(--color-accent) l c h / 45%);
   color: var(--color-accent);
 }
 
@@ -204,8 +213,8 @@ button:disabled {
 }
 
 .filters button[aria-pressed='true']:hover:not(:disabled) {
-  background: rgb(var(--color-accent-rgb) / 16%);
-  border-color: rgb(var(--color-accent-rgb) / 90%);
+  background: oklch(from var(--color-accent) l c h / 16%);
+  border-color: oklch(from var(--color-accent) l c h / 90%);
   box-shadow: var(--shadow-focus-accent);
 }
 
@@ -215,9 +224,9 @@ button:disabled {
 }
 
 .run-link {
-  background: transparent;
+  background: oklch(from var(--color-page) l c h / 0%);
   border: 0;
-  border-left: var(--border-width-accent) solid transparent;
+  border-left: var(--border-width-accent) solid oklch(from var(--color-accent) l c h / 0%);
   color: var(--color-text);
   display: flex;
   flex-direction: column;
@@ -227,17 +236,17 @@ button:disabled {
 }
 
 .run-link[aria-pressed='true'] {
-  background: rgb(var(--color-accent-rgb) / 12%);
+  background: oklch(from var(--color-accent) l c h / 12%);
   border-left-color: var(--color-accent);
   color: var(--color-accent);
 }
 
 .run-link:hover:not(:disabled) {
-  background: rgb(var(--color-control-rgb) / 30%);
+  background: oklch(from var(--color-control) l c h / 30%);
 }
 
 .run-link[aria-pressed='true']:hover:not(:disabled) {
-  background: rgb(var(--color-accent-rgb) / 18%);
+  background: oklch(from var(--color-accent) l c h / 18%);
 }
 
 .run-link span {
@@ -324,7 +333,7 @@ button:disabled {
 .run-pager button,
 .run-pager > span {
   align-items: center;
-  background: rgb(var(--color-surface-raised-rgb) / 80%);
+  background: oklch(from var(--color-surface-raised) l c h / 80%);
   border: var(--border-strong);
   border-radius: var(--radius-control);
   color: var(--color-text-muted);
@@ -347,8 +356,8 @@ button:disabled {
 }
 
 .run-pager button:hover:not(:disabled) {
-  background: rgb(var(--color-control-rgb) / 50%);
-  border-color: rgb(var(--color-accent-rgb) / 45%);
+  background: oklch(from var(--color-control) l c h / 50%);
+  border-color: oklch(from var(--color-accent) l c h / 45%);
   color: var(--color-accent);
 }
 
@@ -359,7 +368,7 @@ button:disabled {
 .summary-card,
 .feedback {
   backdrop-filter: var(--panel-backdrop-filter);
-  background: rgb(var(--color-surface-rgb) / 82%);
+  background: oklch(from var(--color-surface) l c h / 82%);
   border: var(--border-default);
   border-left: var(--border-width-accent) solid var(--color-accent);
   border-radius: var(--radius-panel);
@@ -404,7 +413,7 @@ button:disabled {
 }
 
 .metric {
-  background: rgb(var(--color-surface-muted-rgb) / 60%);
+  background: oklch(from var(--color-surface-muted) l c h / 60%);
   border: var(--border-default);
   border-radius: var(--radius-control);
   padding: var(--stack-gap);
@@ -455,7 +464,7 @@ button:disabled {
 }
 
 .result-toggle {
-  background: rgb(var(--color-surface-raised-rgb) / 86%);
+  background: oklch(from var(--color-surface-raised) l c h / 86%);
   border: var(--border-default);
   border-radius: var(--radius-pill);
   display: flex;
@@ -464,7 +473,7 @@ button:disabled {
 }
 
 .result-toggle button {
-  background: transparent;
+  background: oklch(from var(--color-page) l c h / 0%);
   border: 0;
   border-radius: var(--radius-pill);
   color: var(--color-text-muted);
@@ -511,7 +520,7 @@ button:disabled {
 
 .expectation {
   backdrop-filter: var(--panel-backdrop-filter);
-  background: rgb(var(--color-surface-rgb) / 78%);
+  background: oklch(from var(--color-surface) l c h / 78%);
   border: var(--border-subtle);
   border-left: var(--border-width-status) solid var(--color-text-subtle);
   border-radius: var(--radius-panel);
@@ -522,13 +531,21 @@ button:disabled {
 }
 
 .expectation.pass {
-  background: linear-gradient(90deg, rgb(var(--color-success-rgb) / 5%), rgb(var(--color-surface-rgb) / 78%));
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--color-success) l c h / 5%),
+    oklch(from var(--color-surface) l c h / 78%)
+  );
   border-left-color: var(--color-success);
   box-shadow: var(--shadow-success-edge);
 }
 
 .expectation.fail {
-  background: linear-gradient(90deg, rgb(var(--color-danger-rgb) / 5%), rgb(var(--color-surface-rgb) / 78%));
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--color-danger) l c h / 5%),
+    oklch(from var(--color-surface) l c h / 78%)
+  );
   border-left-color: var(--color-danger);
   box-shadow: var(--shadow-danger-edge);
 }
@@ -542,7 +559,7 @@ button:disabled {
 
 .status-icon {
   align-items: center;
-  background: rgb(var(--color-success-rgb) / 10%);
+  background: oklch(from var(--color-success) l c h / 10%);
   border: var(--border-success-muted);
   border-radius: var(--radius-circle);
   color: var(--color-success);
@@ -553,8 +570,8 @@ button:disabled {
 }
 
 .fail .status-icon {
-  background: rgb(var(--color-danger-rgb) / 10%);
-  border-color: rgb(var(--color-danger-rgb) / 30%);
+  background: oklch(from var(--color-danger) l c h / 10%);
+  border-color: oklch(from var(--color-danger) l c h / 30%);
   color: var(--color-danger);
 }
 
@@ -585,14 +602,14 @@ button:disabled {
 }
 
 .status-badge.pass {
-  background: rgb(var(--color-success-rgb) / 18%);
-  border-color: rgb(var(--color-success-rgb) / 35%);
+  background: oklch(from var(--color-success) l c h / 18%);
+  border-color: oklch(from var(--color-success) l c h / 35%);
   color: var(--color-success-emphasis);
 }
 
 .status-badge.fail {
-  background: rgb(var(--color-danger-rgb) / 16%);
-  border-color: rgb(var(--color-danger-rgb) / 35%);
+  background: oklch(from var(--color-danger) l c h / 16%);
+  border-color: oklch(from var(--color-danger) l c h / 35%);
   color: var(--color-danger);
 }
 
@@ -610,14 +627,14 @@ button:disabled {
 }
 
 .evidence {
-  background: rgb(var(--color-code-surface-rgb) / 62%);
+  background: oklch(from var(--color-code-surface) l c h / 62%);
   border: var(--border-accent-subtle);
   border-radius: var(--radius-control);
   padding: 14px;
 }
 
 .evidence.muted {
-  border-color: rgb(var(--color-divider-rgb) / 35%);
+  border-color: oklch(from var(--color-divider) l c h / 35%);
   opacity: 0.8;
 }
 
@@ -654,7 +671,7 @@ button:disabled {
 
 .inline-feedback textarea,
 .feedback textarea {
-  background: rgb(var(--color-code-surface-rgb) / 78%);
+  background: oklch(from var(--color-code-surface) l c h / 78%);
   border: var(--border-input);
   border-radius: var(--radius-control);
   color: var(--color-text);
@@ -752,7 +769,7 @@ button:disabled {
 }
 
 .turn-divider span {
-  background: rgb(var(--color-divider-rgb) / 35%);
+  background: oklch(from var(--color-divider) l c h / 35%);
   height: 1px;
 }
 
@@ -770,7 +787,7 @@ button:disabled {
 
 .message > span {
   align-items: center;
-  background: rgb(var(--color-control-rgb) / 80%);
+  background: oklch(from var(--color-control) l c h / 80%);
   color: var(--color-text-muted);
   display: flex;
   height: 32px;
@@ -779,7 +796,7 @@ button:disabled {
 }
 
 .message p {
-  background: rgb(var(--color-surface-raised-rgb) / 85%);
+  background: oklch(from var(--color-surface-raised) l c h / 85%);
   border: var(--border-subtle);
   border-radius: var(--radius-control);
   font-family: var(--font-family-mono);
@@ -791,7 +808,7 @@ button:disabled {
 }
 
 .message.response > span {
-  background: rgb(var(--color-accent-rgb) / 14%);
+  background: oklch(from var(--color-accent) l c h / 14%);
   border: var(--border-accent);
   color: var(--color-accent);
 }
@@ -801,7 +818,7 @@ button:disabled {
 }
 
 .raw-context {
-  background: rgb(var(--color-code-surface-rgb) / 35%);
+  background: oklch(from var(--color-code-surface) l c h / 35%);
   border: var(--border-muted);
   border-radius: var(--radius-control);
   margin-left: 44px;
@@ -816,7 +833,7 @@ button:disabled {
 }
 
 .raw-context pre {
-  background: rgb(var(--color-black-rgb) / 32%);
+  background: oklch(from var(--color-black) l c h / 32%);
   color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--text-code-size);
@@ -830,7 +847,7 @@ button:disabled {
 
 .metadata {
   align-self: start;
-  background: rgb(var(--color-surface-muted-rgb) / 24%);
+  background: oklch(from var(--color-surface-muted) l c h / 24%);
   border: var(--border-quiet);
   border-radius: var(--radius-control);
   padding: var(--section-gap);
