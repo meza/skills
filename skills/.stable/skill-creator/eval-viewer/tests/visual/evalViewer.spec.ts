@@ -109,6 +109,38 @@ test('baseline expectation toggle shows baseline grading results', async ({ page
   });
 });
 
+test('expectation section heading shows result toggle hover glow', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: 'baseline' }).click();
+
+  const sectionHeading = page.locator('.section-heading').first();
+  await expect(sectionHeading).toBeVisible();
+  await sectionHeading.getByRole('button', { name: 'skill' }).hover();
+  await page.waitForTimeout(300);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-toggle-hover-state.png', {
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('expectation section heading shows active result toggle hover glow', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: 'baseline' }).click();
+
+  const sectionHeading = page.locator('.section-heading').first();
+  await expect(sectionHeading).toBeVisible();
+  await sectionHeading.getByRole('button', { name: 'baseline' }).hover();
+  await page.waitForTimeout(300);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-active-toggle-hover-state.png', {
+    maxDiffPixelRatio: 0.02
+  });
+});
+
 test('long run title keeps pager readable', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
