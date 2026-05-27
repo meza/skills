@@ -1,0 +1,126 @@
+:root {
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+  --font-family-icon: 'Material Symbols Outlined', sans-serif;
+
+  --color-canvas: #11131c;
+  --color-canvas-rgb: 17 19 28;
+  --color-surface: #12141d;
+  --color-surface-rgb: 18 20 29;
+  --color-surface-raised-rgb: 25 27 36;
+  --color-surface-muted-rgb: 40 41 51;
+  --color-control-rgb: 55 57 67;
+  --color-panel-rgb: 12 14 23;
+  --color-black-rgb: 0 0 0;
+  --color-border-rgb: 58 73 75;
+  --color-text-primary: #e1e1ef;
+  --color-text-secondary: #b9cacb;
+  --color-text-muted: #849495;
+  --color-text-muted-rgb: 132 148 149;
+  --color-accent: #00dbe7;
+  --color-accent-rgb: 0 219 231;
+  --color-accent-contrast: #00363a;
+  --color-accent-strong-contrast: #002022;
+  --color-success: #8fdb00;
+  --color-success-strong: #a8f928;
+  --color-success-rgb: 143 219 0;
+  --color-danger: #ffb4ab;
+  --color-danger-rgb: 255 180 171;
+  --color-feedback: #ffabf3;
+
+  --space-0: 0;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-18: 18px;
+  --space-20: 20px;
+  --space-22: 22px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-30: 30px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-44: 44px;
+  --space-50: 50px;
+  --space-54: 54px;
+  --space-56: 56px;
+  --space-64: 64px;
+  --space-72: 72px;
+  --space-96: 96px;
+
+  --font-size-10: 10px;
+  --font-size-12: 12px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-15: 15px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+  --font-size-24: 24px;
+  --font-size-28: 28px;
+  --line-height-tight: 1;
+  --line-height-20: 20px;
+  --line-height-22: 22px;
+  --line-height-24: 24px;
+  --line-height-28: 28px;
+  --line-height-32: 32px;
+  --line-height-36: 36px;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+
+  --border-width-sm: 1px;
+  --border-width-md: 2px;
+  --border-width-lg: 4px;
+  --border-subtle: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 20%);
+  --border-muted: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 25%);
+  --border-hairline: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 30%);
+  --border-default: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 35%);
+  --border-medium: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 45%);
+  --border-strong: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 50%);
+  --border-input: var(--border-width-sm) solid rgb(var(--color-border-rgb) / 55%);
+  --border-accent-subtle: var(--border-width-sm) solid rgb(var(--color-accent-rgb) / 25%);
+  --border-accent: var(--border-width-sm) solid rgb(var(--color-accent-rgb) / 35%);
+  --border-success-muted: var(--border-width-sm) solid rgb(var(--color-success-rgb) / 30%);
+  --border-success: var(--border-width-sm) solid rgb(var(--color-success-rgb) / 35%);
+  --border-danger: var(--border-width-sm) solid rgb(var(--color-danger-rgb) / 35%);
+  --border-text-muted: var(--border-width-sm) solid rgb(var(--color-text-muted-rgb) / 40%);
+
+  --shadow-accent-title: 0 0 8px rgb(var(--color-accent-rgb) / 50%);
+  --shadow-accent-soft: 0 0 14px rgb(var(--color-accent-rgb) / 12%);
+  --shadow-accent-toggle: 0 0 14px rgb(var(--color-accent-rgb) / 28%);
+  --shadow-accent-action: 0 0 20px rgb(var(--color-accent-rgb) / 30%);
+  --shadow-accent-action-hover: 0 0 26px rgb(var(--color-accent-rgb) / 42%);
+  --shadow-accent-text: 0 0 8px rgb(var(--color-accent-rgb) / 40%);
+  --shadow-success-text: 0 0 8px rgb(var(--color-success-rgb) / 40%);
+  --shadow-success-edge: -10px 0 20px -10px rgb(var(--color-success-rgb) / 20%);
+  --shadow-danger-edge: -10px 0 20px -10px rgb(var(--color-danger-rgb) / 20%);
+
+  --transition-duration-fast: 120ms;
+  --transition-duration-default: 160ms;
+  --transition-easing-standard: ease;
+  --transition-button:
+    background-color var(--transition-duration-default) var(--transition-easing-standard),
+    border-color var(--transition-duration-default) var(--transition-easing-standard),
+    box-shadow var(--transition-duration-default) var(--transition-easing-standard),
+    color var(--transition-duration-default) var(--transition-easing-standard),
+    filter var(--transition-duration-default) var(--transition-easing-standard),
+    transform var(--transition-duration-fast) var(--transition-easing-standard);
+
+  --blur-panel: blur(20px);
+  --layout-sidebar-width: 288px;
+  --layout-topbar-height: 64px;
+  --layout-content-max-width: 1040px;
+  --layout-metadata-min-width: 260px;
+  --layout-feedback-textarea-min-height: 128px;
+  --layout-raw-context-max-height: 360px;
+}
