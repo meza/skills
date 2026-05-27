@@ -4,7 +4,6 @@ import type {
   FeedbackInput,
   FeedbackTurnView,
   IterationView,
-  ReviewState,
   RunFeedbackView,
   RunView
 } from '../shared/viewModel.js';
@@ -71,94 +70,96 @@ export function App({
         <h1>Skill Evaluation</h1>
         <p>{`${initialIteration.summary.provider} / ${initialIteration.summary.model} / ${initialIteration.summary.effort}`}</p>
       </header>
-      <aside className="side-nav">
-        <div className="brand-block">
-          <span className="material-symbols-outlined brand-icon">list_alt</span>
-          <div>
-            <span className="eyebrow">Platform</span>
-            <strong>Codex</strong>
+      <div className="main-layout">
+        <aside className="side-nav">
+          <div className="brand-block">
+            <span className="material-symbols-outlined brand-icon">list_alt</span>
+            <div>
+              <span className="eyebrow">Platform</span>
+              <strong>Codex</strong>
+            </div>
           </div>
-        </div>
-        <div className="filter-label">Filters</div>
-        <div className="filters" aria-label="Filters">
-          {(['all', 'pass', 'fail'] as const).map((candidate) => (
-            <button
-              aria-pressed={filter === candidate}
-              className={`filter-${candidate}`}
-              key={candidate}
-              onClick={() => setFilter(candidate)}
-              type="button">
-              <span className="material-symbols-outlined" aria-hidden="true">
-                {filterIcon(candidate)}
+          <div className="filter-label">Filters</div>
+          <div className="filters" aria-label="Filters">
+            {(['all', 'pass', 'fail'] as const).map((candidate) => (
+              <button
+                aria-pressed={filter === candidate}
+                className={`filter-${candidate}`}
+                key={candidate}
+                onClick={() => setFilter(candidate)}
+                type="button">
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {filterIcon(candidate)}
+                </span>
+                <span>{candidate}</span>
+              </button>
+            ))}
+          </div>
+          <div className="filter-label">Runs</div>
+          <nav aria-label="Runs" className="run-list">
+            {visibleRuns.map((run) => (
+              <button
+                aria-pressed={runKey(run) === runKey(selectedRun)}
+                className={run.passRate === 1 ? 'run-link pass' : 'run-link fail'}
+                key={runKey(run)}
+                onClick={() => setSelectedKey(runKey(run))}
+                type="button">
+                <span>{run.evalName}</span>
+                <small>
+                  <i aria-hidden="true" />
+                  <span>{run.status}</span>
+                </small>
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <main className="content">
+          <section className="run-header">
+            <div>
+              <span className="eyebrow">Run ID: {selectedRun.evalId}</span>
+              <h2>{selectedRun.evalName}</h2>
+            </div>
+            <div className="run-pager">
+              <button disabled={selectedIndex === 0} onClick={() => selectRunAt(-1)} type="button">
+                <span className="material-symbols-outlined">chevron_left</span>
+              </button>
+              <span>
+                <strong>{selectedIndex + 1}</strong> / {reviewRuns.length}
               </span>
-              <span>{candidate}</span>
-            </button>
-          ))}
-        </div>
-        <div className="filter-label">Runs</div>
-        <nav aria-label="Runs" className="run-list">
-          {visibleRuns.map((run) => (
-            <button
-              aria-pressed={runKey(run) === runKey(selectedRun)}
-              className={run.passRate === 1 ? 'run-link pass' : 'run-link fail'}
-              key={runKey(run)}
-              onClick={() => setSelectedKey(runKey(run))}
-              type="button">
-              <span>{run.evalName}</span>
-              <small>
-                <i aria-hidden="true" />
-                <span>{run.status}</span>
-              </small>
-            </button>
-          ))}
-        </nav>
-      </aside>
-      <main className="content">
-        <section className="run-header">
-          <div>
-            <span className="eyebrow">Run ID: {selectedRun.evalId}</span>
-            <h2>{selectedRun.evalName}</h2>
-          </div>
-          <div className="run-pager">
-            <button disabled={selectedIndex === 0} onClick={() => selectRunAt(-1)} type="button">
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <span>
-              <strong>{selectedIndex + 1}</strong> / {reviewRuns.length}
-            </span>
-            <button disabled={selectedIndex >= reviewRuns.length - 1} onClick={() => selectRunAt(1)} type="button">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
-        </section>
-        <section className="summary-card">
-          <div className="card-title">
-            <span className="material-symbols-outlined">auto_awesome</span>
-            <h3>Executive Summary</h3>
-          </div>
-          <p>{selectedRun.executiveSummary || 'No executive summary was provided.'}</p>
-          <div className="metric-grid">
-            <Metric label="Pass Rate" tone="pass" value={formatPercent(selectedRun.passRate)} />
-            <Metric
-              label="vs Last Iteration"
-              value={formatDeltaPercent(selectedRun.comparisons.previousIteration?.passRateDelta)}
-            />
-            <Metric
-              label="vs Baseline"
-              tone="primary"
-              value={formatDeltaPercent(selectedRun.comparisons.baseline?.passRateDelta)}
-            />
-          </div>
-        </section>
-        <ExpectationsPanel draft={feedbackDraft} run={selectedRun} updateDraft={updateFeedbackDraft} />
-        <FeedbackPanel
-          draft={feedbackDraft}
-          run={selectedRun}
-          saveFeedback={saveFeedback}
-          updateDraft={updateFeedbackDraft}
-        />
-        <TranscriptPanel run={selectedRun} skillName={initialIteration.summary.skillName} />
-      </main>
+              <button disabled={selectedIndex >= reviewRuns.length - 1} onClick={() => selectRunAt(1)} type="button">
+                <span className="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+          </section>
+          <section className="summary-card">
+            <div className="card-title">
+              <span className="material-symbols-outlined">auto_awesome</span>
+              <h3>Executive Summary</h3>
+            </div>
+            <p>{selectedRun.executiveSummary || 'No executive summary was provided.'}</p>
+            <div className="metric-grid">
+              <Metric label="Pass Rate" tone="pass" value={formatPercent(selectedRun.passRate)} />
+              <Metric
+                label="vs Last Iteration"
+                value={formatDeltaPercent(selectedRun.comparisons.previousIteration?.passRateDelta)}
+              />
+              <Metric
+                label="vs Baseline"
+                tone="primary"
+                value={formatDeltaPercent(selectedRun.comparisons.baseline?.passRateDelta)}
+              />
+            </div>
+          </section>
+          <ExpectationsPanel draft={feedbackDraft} run={selectedRun} updateDraft={updateFeedbackDraft} />
+          <FeedbackPanel
+            draft={feedbackDraft}
+            run={selectedRun}
+            saveFeedback={saveFeedback}
+            updateDraft={updateFeedbackDraft}
+          />
+          <TranscriptPanel run={selectedRun} skillName={initialIteration.summary.skillName} />
+        </main>
+      </div>
     </div>
   );
 }
@@ -246,7 +247,7 @@ function ExpectationGroup({
           expectation={expectation}
           expectations={expectations}
           index={index}
-          key={`${expectation.scope}-${expectation.turn ?? 0}-${expectation.text}`}
+          key={expectation.id ?? `${expectation.scope}-${expectation.turn ?? 0}-${expectation.text}`}
           run={run}
           updateDraft={updateDraft}
         />
@@ -346,17 +347,22 @@ function EvidenceBlock({ label, muted = false, text }: { label: string; muted?: 
 }
 
 function feedbackDraftFromRun(run: RunView): FeedbackDraft {
-  const overallCount = run.expectations.filter((expectation) => expectation.scope === 'overall').length;
+  const overallExpectations = run.expectations.filter((expectation) => expectation.scope === 'overall');
   const turnShape = turnFeedbackShape(run.expectations);
   return {
     comments: run.feedback.comments || run.userComments || '',
-    overall: Array.from({ length: overallCount }, (_, index) => ({
-      comment: run.feedback.overall[index]?.comment ?? ''
+    overall: overallExpectations.map((expectation, index) => ({
+      comment: feedbackComment(run.feedback.overall, expectation.id, index),
+      expectation_id: expectation.id
     })),
     turns: turnShape.map((turn) => ({
-      expectations: turn.expectations.map((_, index) => ({
-        comment:
-          run.feedback.turns.find((candidate) => candidate.turn === turn.turn)?.expectations[index]?.comment ?? ''
+      expectations: turn.expectations.map((expectation, index) => ({
+        comment: feedbackComment(
+          run.feedback.turns.find((candidate) => candidate.turn === turn.turn)?.expectations ?? [],
+          expectation.expectation_id,
+          index
+        ),
+        expectation_id: expectation.expectation_id
       })),
       turn: turn.turn
     }))
@@ -364,13 +370,13 @@ function feedbackDraftFromRun(run: RunView): FeedbackDraft {
 }
 
 function turnFeedbackShape(expectations: ExpectationView[]): FeedbackTurnView[] {
-  const turns = new Map<number, { comment: string }[]>();
+  const turns = new Map<number, FeedbackTurnView['expectations']>();
   for (const expectation of expectations) {
     if (expectation.scope !== 'turn') {
       continue;
     }
     const turn = expectation.turn as number;
-    turns.set(turn, [...(turns.get(turn) ?? []), { comment: '' }]);
+    turns.set(turn, [...(turns.get(turn) ?? []), { comment: '', expectation_id: expectation.id }]);
   }
   return [...turns.entries()].map(([turn, expectationFeedback]) => ({
     expectations: expectationFeedback,
@@ -402,7 +408,9 @@ function updateExpectationComment(
   if (expectation.scope === 'overall') {
     return {
       ...draft,
-      overall: draft.overall.map((current, candidateIndex) => (candidateIndex === index ? { comment } : current))
+      overall: draft.overall.map((current, candidateIndex) =>
+        candidateIndex === index ? { ...current, comment } : current
+      )
     };
   }
   const turn = expectation.turn as number;
@@ -414,7 +422,7 @@ function updateExpectationComment(
         ? {
             ...candidate,
             expectations: candidate.expectations.map((current, candidateIndex) =>
-              candidateIndex === expectationIndex ? { comment } : current
+              candidateIndex === expectationIndex ? { ...current, comment } : current
             )
           }
         : candidate
@@ -422,19 +430,22 @@ function updateExpectationComment(
   };
 }
 
+function feedbackComment(
+  feedback: Array<{ comment: string; expectation_id?: string }> | undefined,
+  expectationId: string | undefined,
+  _index: number
+): string {
+  if (expectationId) {
+    return feedback?.find((candidate) => candidate.expectation_id === expectationId)?.comment ?? '';
+  }
+  return '';
+}
+
 function turnExpectationIndex(expectations: ExpectationView[], expectation: ExpectationView, index: number): number {
   return (
     expectations
       .slice(0, index + 1)
       .filter((candidate) => candidate.scope === 'turn' && candidate.turn === expectation.turn).length - 1
-  );
-}
-
-function hasFeedbackComments(draft: FeedbackDraft): boolean {
-  return (
-    draft.comments.trim().length > 0 ||
-    draft.overall.some((expectation) => expectation.comment.trim().length > 0) ||
-    draft.turns.some((turn) => turn.expectations.some((expectation) => expectation.comment.trim().length > 0))
   );
 }
 
@@ -449,19 +460,14 @@ function FeedbackPanel({
   saveFeedback: (feedback: FeedbackInput) => Promise<unknown>;
   updateDraft: (updater: (draft: FeedbackDraft) => FeedbackDraft) => void;
 }) {
-  const [reviewState, setReviewState] = useState<ReviewState>(run.reviewState);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const label = reviewLabel(saveState === 'saved' ? reviewState : run.reviewState);
   async function submitFeedback() {
-    const nextReviewState = hasFeedbackComments(draft) ? 'reviewed_with_comments' : 'reviewed_without_comments';
-    setReviewState(nextReviewState);
     setSaveState('saving');
     try {
       await saveFeedback({
         comments: draft.comments,
         evalId: run.evalId,
         overall: draft.overall,
-        reviewState: nextReviewState,
         turns: draft.turns
       });
       setSaveState('saved');
@@ -477,7 +483,6 @@ function FeedbackPanel({
             <span className="material-symbols-outlined">rate_review</span>
             <h3>Feedback</h3>
           </div>
-          <span className="review-badge">{label}</span>
         </div>
         <textarea
           aria-label="Review comments"
@@ -598,22 +603,11 @@ function displayWorkingDirectory(path: string): string {
   return path.replace(/[\\/](?:skill|baseline)(?=[\\/]|$)/gu, '');
 }
 
-function reviewLabel(reviewState: ReviewState): string {
-  if (reviewState === 'reviewed_with_comments') {
-    return 'Reviewed With Comments';
-  }
-  if (reviewState === 'reviewed_without_comments') {
-    return 'Reviewed';
-  }
-  return 'Awaiting Review';
-}
-
 async function saveFeedbackToServer(feedback: FeedbackInput): Promise<unknown> {
   const response = await fetch(`/api/feedback/${feedback.evalId}`, {
     body: JSON.stringify({
       comments: feedback.comments,
       overall: feedback.overall,
-      reviewState: feedback.reviewState,
       turns: feedback.turns
     }),
     headers: {

@@ -17,6 +17,7 @@ interface RichRun {
 
 interface RichExpectation {
   evidence: string;
+  id?: string;
   passed: boolean;
   scope: 'overall' | 'turn';
   text: string;
@@ -185,6 +186,7 @@ function richRun(
       transcript: `USER: Confirm the classification.\nASSISTANT: ${overrides.finalResponse}`
     }
   ];
+  const runType = overrides.runType ?? 'skill';
   return {
     duration: 31,
     executiveSummary:
@@ -192,9 +194,18 @@ function richRun(
     status: 'success',
     totalTokens: 113_059,
     turns,
-    runType: 'skill',
-    ...overrides
+    ...overrides,
+    runType,
+    expectations: overrides.expectations.map((expectation, index) => ({
+      ...expectation,
+      id: expectation.id ?? richExpectationId(overrides.evalId, runType, index + 1)
+    }))
   };
+}
+
+function richExpectationId(evalId: number, runType: string, index: number): string {
+  const runTypePart = runType === 'baseline' ? 2 : 1;
+  return `00000000-0000-5000-8000-${String(evalId).padStart(4, '0')}${String(runTypePart).padStart(4, '0')}${String(index).padStart(4, '0')}`;
 }
 
 function pass(text: string, turn?: number): RichExpectation {

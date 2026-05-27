@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../../src/server/buildServer.js';
-import { writeSampleIteration } from '../fixtures/sampleIteration.js';
+import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
 
 describe('viewer server routes', () => {
   let root: string;
@@ -78,16 +78,15 @@ describe('viewer server routes', () => {
       payload: {
         comments: '',
         overall: [],
-        turns: [{ expectations: [{ comment: 'Turn feedback.' }], turn: 1 }],
-        reviewState: 'reviewed_without_comments'
+        turns: [{ expectations: [{ comment: 'Turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
       }
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      review_state: 'reviewed_without_comments',
-      turns: [{ expectations: [{ comment: 'Turn feedback.' }], turn: 1 }]
+      turns: [{ expectations: [{ comment: 'Turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
     });
+    expect(response.json()).not.toHaveProperty('review_state');
     await server.close();
   });
 
@@ -101,9 +100,13 @@ describe('viewer server routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      comments: '',
-      review_state: 'not_reviewed'
+      eval_id: 1,
+      updated_at: expect.any(String)
     });
+    expect(response.json()).not.toHaveProperty('comments');
+    expect(response.json()).not.toHaveProperty('overall');
+    expect(response.json()).not.toHaveProperty('turns');
+    expect(response.json()).not.toHaveProperty('review_state');
     await server.close();
   });
 

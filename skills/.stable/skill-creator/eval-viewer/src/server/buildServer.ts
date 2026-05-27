@@ -2,7 +2,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
-import type { FeedbackInput, ReviewState } from '../shared/viewModel.js';
+import type { FeedbackInput } from '../shared/viewModel.js';
 import { assertResultRoot, loadIteration, readArtifactText, saveFeedback } from './iterationRepository.js';
 
 export interface ServerOptions {
@@ -39,14 +39,13 @@ export async function buildServer(options: ServerOptions) {
     }
   });
   server.put<{
-    Body: Pick<Partial<FeedbackInput>, 'comments' | 'overall' | 'reviewState' | 'turns'>;
+    Body: Pick<Partial<FeedbackInput>, 'comments' | 'overall' | 'turns'>;
     Params: { evalId: string };
   }>('/api/feedback/:evalId', async (request, reply) => {
     const feedback: FeedbackInput = {
       comments: request.body.comments ?? '',
       evalId: Number(request.params.evalId),
       overall: request.body.overall ?? [],
-      reviewState: request.body.reviewState ?? 'not_reviewed',
       turns: request.body.turns ?? []
     };
     const saved = await saveFeedback(options.resultRoot, feedback);

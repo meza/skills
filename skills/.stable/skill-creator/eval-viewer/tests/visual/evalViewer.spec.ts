@@ -1,6 +1,6 @@
 import { readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const feedbackPath = resolve('.tmp', 'visual-fixture', 'results', 'iteration-3', 'viewer_feedback.json');
 
@@ -8,9 +8,237 @@ test.beforeEach(async () => {
   await rm(feedbackPath, { force: true });
 });
 
-test('eval viewer visual target', async ({ page }) => {
+test('success run state matches the prototype shell', async ({ page }) => {
   await page.goto('/');
 
+  await expectPrototypeShell(page);
+  await expect(page.getByRole('heading', { name: 'Executive Summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Expectations Breakdown' })).toBeVisible();
+  await expect(page.getByText('6/6 requirements passed')).toBeVisible();
+  await expect(page.locator('.run-pager > span')).toHaveText('1 / 4');
+  await expectNoHorizontalOverflow(page);
+  await expectDesktopLayout(page);
+  await expectInteractiveHoverStates(page);
+  await scrollContentToTop(page);
+
+  await expect(page).toHaveScreenshot('viewer-success-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('failed expectation state shows evidence comparison', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  await expect(page.locator('.run-pager > span')).toHaveText('2 / 4');
+  await expect(page.getByText('3/4 requirements passed')).toBeVisible();
+  await expect(page.locator('.expectation.fail')).toHaveCount(1);
+  await expect(page.getByText('Run Evidence')).toBeVisible();
+  await expect(page.getByText('Baseline Evidence')).toBeVisible();
+  await expect(page.getByText(/Failure evidence for:/)).toHaveCount(2);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-failure-evidence-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('long run title keeps pager readable', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
+
+  await expect(page.locator('.run-pager > span')).toHaveText('3 / 4');
+  await expectRunHeaderLayout(page);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-long-title-pager-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('missing artifact state stays reviewable without invented panels', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /missing-artifact-smoke/i }).click();
+
+  await expect(page.locator('.run-pager > span')).toHaveText('4 / 4');
+  await expect(page.getByRole('heading', { name: /missing-artifact-smoke/i })).toBeVisible();
+  await expect(page.getByText('No executive summary was provided.')).toBeVisible();
+  await expect(page.getByText('No evidence was recorded for this expectation.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Artifact Issues' })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-missing-artifact-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('pass filter state shows only successful runs', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'pass' }).click();
+
+  await expect(page.getByRole('button', { name: 'pass' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await scrollContentToTop(page);
+
+  await expect(page).toHaveScreenshot('viewer-pass-filter-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('fail filter state shows only artifact error runs', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'fail' }).click();
+
+  await expect(page.getByRole('button', { name: 'fail' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toHaveCount(0);
+  await expect(page.getByText('artifact_error')).toBeVisible();
+  await page.getByRole('button', { name: /missing-artifact-smoke/i }).click();
+  await expect(page.getByRole('heading', { name: /missing-artifact-smoke/i })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await scrollContentToTop(page);
+
+  await expect(page).toHaveScreenshot('viewer-fail-filter-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByLabel('Feedback for turn 1 expectation 1').fill('Expectation order needs a quick reviewer check.');
+  await page.getByLabel('Review comments').fill('Draft review notes before finalizing this run.');
+
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(
+    'Expectation order needs a quick reviewer check.'
+  );
+  await expect(page.getByLabel('Review comments')).toHaveValue('Draft review notes before finalizing this run.');
+  await expect(page.getByText('Saved')).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+  await page.locator('.feedback').scrollIntoViewIfNeeded();
+
+  await expect(page).toHaveScreenshot('viewer-feedback-draft-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('feedback workflow has visual coverage and persists only filled values', async ({ page }) => {
+  await page.goto('/');
+
+  const comments = 'Reviewer confirmed this run is ready for the next iteration.';
+  const expectationComment = 'Expectation order matches the first graded turn result.';
+  await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
+  await page.getByLabel('Review comments').fill(comments);
+  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
+
+  await expect(page.getByText('Saved')).toBeVisible();
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
+  await expect(page.getByLabel('Review comments')).toHaveValue(comments);
+  await expectNoHorizontalOverflow(page);
+  await page.locator('.feedback').scrollIntoViewIfNeeded();
+
+  await expect(page).toHaveScreenshot('viewer-feedback-saved-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+
+  const artifact = JSON.parse(await readFile(feedbackPath, 'utf-8')) as {
+    reviews: Array<{
+      comments: string;
+      eval_id: number;
+      turns: Array<{ expectations: Array<{ comment: string; expectation_id: string }>; turn: number }>;
+      updated_at: string;
+    }>;
+  };
+  const savedExpectation = artifact.reviews.flatMap((review) => review.turns.flatMap((turn) => turn.expectations))[0];
+  expect(artifact.reviews).toContainEqual(
+    expect.objectContaining({
+      comments,
+      eval_id: 1,
+      updated_at: expect.any(String)
+    })
+  );
+  expect(savedExpectation).toMatchObject({
+    comment: expectationComment,
+    expectation_id: expect.stringMatching(/^[0-9a-f-]{36}$/)
+  });
+  expect(JSON.stringify(artifact)).not.toContain('review_state');
+  expect(JSON.stringify(artifact)).not.toContain('""');
+
+  await page.reload();
+
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
+  await expect(page.getByLabel('Review comments')).toHaveValue(comments);
+});
+
+test('past feedback state loads saved review content', async ({ page }) => {
+  await page.goto('/');
+
+  const comments = 'Past review loaded from the feedback artifact.';
+  const expectationComment = 'Previously saved expectation note.';
+  await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
+  await page.getByLabel('Review comments').fill(comments);
+  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
+  await expect(page.getByText('Saved')).toBeVisible();
+
+  await page.reload();
+
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
+  await expect(page.getByLabel('Review comments')).toHaveValue(comments);
+  await expectNoHorizontalOverflow(page);
+  await page.locator('.feedback').scrollIntoViewIfNeeded();
+
+  await expect(page).toHaveScreenshot('viewer-past-feedback-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('execution history and metadata state stays aligned', async ({ page }) => {
+  await page.goto('/');
+
+  await page.locator('.history').scrollIntoViewIfNeeded();
+  await expect(page.getByRole('heading', { name: 'Execution History' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Metadata' })).toBeVisible();
+  await expect(page.locator('.metadata').getByRole('link', { name: /raw json output/i })).toBeVisible();
+  await expect(page.locator('.metadata').getByRole('link', { name: /view all artifacts/i })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-history-metadata-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+test('mobile success state keeps controls visible and contained', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: /skill evaluation/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'all' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Executive Summary' })).toBeVisible();
+  await expect(page.locator('.run-pager > span')).toHaveText('1 / 4');
+  await expectNoHorizontalOverflow(page);
+
+  await expect(page).toHaveScreenshot('viewer-mobile-success-state.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02
+  });
+});
+
+async function expectPrototypeShell(page: Page) {
   await expect(page.getByRole('heading', { name: /skill evaluation/i })).toBeVisible();
   await expect(page.locator('.metadata').getByText('Working Directory')).toBeVisible();
   await expect(page.locator('.metadata').getByText('Provider UUID')).toBeVisible();
@@ -26,14 +254,14 @@ test('eval viewer visual target', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'fail' })).toBeVisible();
   await expect(page.locator('.filters .material-symbols-outlined')).toHaveText(['list', 'check_circle', 'error']);
   await expect(page.getByRole('radio')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Executive Summary' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Expectations Breakdown' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Feedback' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Submit Review & Finalize' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Execution History' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Metadata' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Artifact Issues' })).toHaveCount(0);
+}
 
+async function expectDesktopLayout(page: Page) {
   const layout = await page.evaluate(() => {
     const box = (selector: string) => {
       const element = document.querySelector(selector);
@@ -52,33 +280,31 @@ test('eval viewer visual target', async ({ page }) => {
     };
     return {
       content: box('.content'),
+      contentOverflowY: getComputedStyle(document.querySelector('.content') as Element).overflowY,
       expectations: box('.expectations'),
       feedback: box('.feedback'),
       header: box('.top-bar'),
       history: box('.history'),
       sidebar: box('.side-nav'),
+      sidebarOverflowY: getComputedStyle(document.querySelector('.side-nav') as Element).overflowY,
       summary: box('.summary-card')
     };
   });
 
   expect(layout.header.height).toBe(64);
   expect(layout.sidebar.left).toBe(0);
-  expect(layout.sidebar.top).toBe(64);
+  expect(layout.sidebar.top).toBeGreaterThanOrEqual(64);
   expect(layout.sidebar.width).toBe(288);
   expect(layout.content.left).toBeGreaterThanOrEqual(288);
+  expect(layout.contentOverflowY).not.toMatch(/auto|scroll/u);
+  expect(layout.sidebarOverflowY).not.toMatch(/auto|scroll/u);
   expect(layout.summary.top).toBeLessThan(layout.expectations.top);
   expect(layout.expectations.bottom).toBeLessThan(layout.feedback.top);
   expect(layout.feedback.bottom).toBeLessThan(layout.history.top);
+}
 
-  await expectHoverChange(page, '.filters .filter-pass', 'background-color');
-  await expectHoverChange(page, '.run-list .run-link:nth-child(2)', 'background-color');
-  await expectHoverChange(page, '.run-pager button:not(:disabled)', 'background-color');
-  await expectHoverChange(page, '.finalize-button', 'filter');
-  await page.mouse.move(0, 0);
-
-  await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
-  await expect(page.locator('.run-pager > span')).toHaveText('3 / 4');
-  const lastRunHeader = await page.evaluate(() => {
+async function expectRunHeaderLayout(page: Page) {
+  const header = await page.evaluate(() => {
     const box = (selector: string) => {
       const element = document.querySelector(selector);
       if (!element) {
@@ -95,6 +321,7 @@ test('eval viewer visual target', async ({ page }) => {
       };
     };
     return {
+      content: box('.content'),
       heading: box('.run-header h2'),
       pager: box('.run-pager'),
       pagerCount: box('.run-pager > span'),
@@ -102,60 +329,36 @@ test('eval viewer visual target', async ({ page }) => {
     };
   });
 
-  expect(lastRunHeader.heading.height).toBeLessThanOrEqual(40);
-  expect(lastRunHeader.heading.right).toBeLessThan(lastRunHeader.pager.left);
-  expect(lastRunHeader.pagerCount.width).toBeGreaterThanOrEqual(72);
-  expect(lastRunHeader.pagerCountWhiteSpace).toBe('nowrap');
-  expect(lastRunHeader.pager.right).toBeLessThanOrEqual(layout.content.right);
+  expect(header.heading.height).toBeLessThanOrEqual(40);
+  expect(header.heading.right).toBeLessThan(header.pager.left);
+  expect(header.pagerCount.width).toBeGreaterThanOrEqual(72);
+  expect(header.pagerCountWhiteSpace).toBe('nowrap');
+  expect(header.pager.right).toBeLessThanOrEqual(header.content.right);
+}
 
-  await expect(page).toHaveScreenshot('eval-viewer.png', {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02
-  });
-});
+async function expectInteractiveHoverStates(page: Page) {
+  await expectHoverChange(page, '.filters .filter-pass', 'background-color');
+  await expectHoverChange(page, '.run-list .run-link:nth-child(2)', 'background-color');
+  await expectHoverChange(page, '.run-pager button:not(:disabled)', 'background-color');
+  await expectHoverChange(page, '.finalize-button', 'filter');
+  await page.mouse.move(0, 0);
+}
 
-test('feedback workflow writes and reloads reviewer feedback', async ({ page }) => {
-  await page.goto('/');
-
-  const comments = 'Reviewer confirmed this run is ready for the next iteration.';
-  const expectationComment = 'Expectation order matches the first graded turn result.';
-  await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
-  await page.getByLabel('Review comments').fill(comments);
-  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
-
-  await expect(page.getByText('Saved')).toBeVisible();
-  await expect(page.getByText('Reviewed With Comments')).toBeVisible();
-
-  const artifact = JSON.parse(await readFile(feedbackPath, 'utf-8')) as {
-    reviews: Array<{
-      comments: string;
-      eval_id: number;
-      review_state: string;
-      turns: Array<{ expectations: Array<{ comment: string }>; turn: number }>;
-      updated_at: string;
-    }>;
-  };
-  expect(artifact.reviews).toContainEqual(
-    expect.objectContaining({
-      comments,
-      eval_id: 1,
-      review_state: 'reviewed_with_comments',
-      turns: [
-        { expectations: [{ comment: expectationComment }, { comment: '' }, { comment: '' }], turn: 1 },
-        { expectations: [{ comment: '' }, { comment: '' }, { comment: '' }], turn: 2 }
-      ],
-      updated_at: expect.any(String)
-    })
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(
+    () =>
+      Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) - document.documentElement.clientWidth
   );
+  expect(overflow).toBeLessThanOrEqual(1);
+}
 
-  await page.reload();
+async function scrollContentToTop(page: Page) {
+  await page.locator('.content').evaluate((element) => {
+    element.scrollTop = 0;
+  });
+}
 
-  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
-  await expect(page.getByLabel('Review comments')).toHaveValue(comments);
-  await expect(page.getByText('Reviewed With Comments')).toBeVisible();
-});
-
-async function expectHoverChange(page: import('@playwright/test').Page, selector: string, property: string) {
+async function expectHoverChange(page: Page, selector: string, property: string) {
   const element = page.locator(selector).first();
   await page.mouse.move(0, 0);
   await page.waitForTimeout(200);

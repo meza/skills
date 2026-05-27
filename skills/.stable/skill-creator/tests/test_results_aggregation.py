@@ -51,6 +51,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                         "results": {
                             "overall_expectations": [
                                 {
+                                    "id": "d2eceb7e-7768-5d46-ac68-c4dc3f0e8e31",
                                     "text": "Whole run expectation",
                                     "passed": True,
                                     "evidence": "Full transcript evidence.",
@@ -61,6 +62,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                                     "turn": 1,
                                     "expectations": [
                                         {
+                                            "id": "9fb0a83a-8301-50ae-8502-133bc77fc19f",
                                             "text": "Turn expectation",
                                             "passed": False,
                                             "evidence": "Turn evidence.",
@@ -122,6 +124,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                     "results": {
                         "overall_expectations": [
                             {
+                                "id": "d2eceb7e-7768-5d46-ac68-c4dc3f0e8e31",
                                 "text": "Whole run expectation",
                                 "passed": True,
                                 "evidence": "Full transcript evidence.",
@@ -132,6 +135,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
                                 "turn": 1,
                                 "expectations": [
                                     {
+                                        "id": "9fb0a83a-8301-50ae-8502-133bc77fc19f",
                                         "text": "Turn expectation",
                                         "passed": False,
                                         "evidence": "Turn evidence.",

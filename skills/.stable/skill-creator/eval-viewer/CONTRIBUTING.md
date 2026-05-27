@@ -38,6 +38,8 @@ Any formatting change, lint violation, test failure, visual regression, or
 coverage failure is part of the current work and must be handled on the spot,
 even when it appears tangential to the change that exposed it.
 
+When a new visual screenshot is generated, it must be carefully reviewed and inspected for correctness, consistency with the rest of the application, and visual appeal and common css failure modes.
+
 Biome must use the `@meza/biome` rule package. Suppressions for Biome are
 reserved for the absolute last resort and must be approved before they are
 applied.
@@ -55,6 +57,10 @@ coverage for individual files, components, modules, or packages.
 
 Unit and component behaviour should be covered with Vitest. Browser-level
 interaction and visual correctness should be covered with Playwright.
+
+### Visual coverage
+
+Playwright visual tests must cover all states of the application.
 
 ## Change Workflow
 

@@ -47,7 +47,15 @@ button:disabled {
 }
 
 .app-shell {
+  align-items: start;
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr);
+  grid-template-rows: 64px auto;
   min-height: 100vh;
+}
+
+.main-layout {
+  display: contents;
 }
 
 .top-bar {
@@ -56,14 +64,11 @@ button:disabled {
   background: rgba(17, 19, 28, 0.88);
   border-bottom: 1px solid rgba(58, 73, 75, 0.35);
   display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
   height: 64px;
   justify-content: space-between;
-  left: 0;
   padding: 0 24px;
-  position: fixed;
-  right: 0;
-  top: 0;
-  z-index: 10;
 }
 
 .top-bar h1 {
@@ -86,7 +91,6 @@ button:disabled {
 .expectation-group h4,
 .status-badge,
 .inline-feedback span,
-.review-badge,
 .metadata dt,
 .metadata dd,
 .artifact-links span,
@@ -103,14 +107,12 @@ button:disabled {
 }
 
 .side-nav {
+  align-self: start;
   background: rgba(25, 27, 36, 0.94);
   border-right: 1px solid rgba(58, 73, 75, 0.35);
-  bottom: 0;
-  left: 0;
-  overflow-y: auto;
+  grid-column: 1;
+  grid-row: 2;
   padding: 0 16px 16px;
-  position: fixed;
-  top: 64px;
   width: 288px;
 }
 
@@ -274,9 +276,10 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  margin-left: 288px;
+  grid-column: 2;
+  grid-row: 2;
   min-width: 0;
-  padding: 96px 24px 96px;
+  padding: 40px 24px 96px;
 }
 
 .empty-state {
@@ -303,11 +306,17 @@ button:disabled {
   padding-bottom: 24px;
 }
 
+.run-header > div:first-child {
+  min-width: 0;
+}
+
 .run-header h2 {
   font-size: 28px;
   line-height: 36px;
   margin: 12px 0 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .run-pager {
@@ -527,8 +536,7 @@ button:disabled {
   line-height: 24px;
 }
 
-.status-badge,
-.review-badge {
+.status-badge {
   border: 1px solid rgba(132, 148, 149, 0.4);
   border-radius: 2px;
   color: #00dbe7;
@@ -640,10 +648,6 @@ button:disabled {
 .feedback textarea {
   margin-top: 24px;
   min-height: 128px;
-}
-
-.review-badge {
-  color: #b9cacb;
 }
 
 .finalize-button {
@@ -848,17 +852,21 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-  .top-bar,
-  .side-nav {
-    position: static;
+  .main-layout {
+    display: contents;
   }
 
   .side-nav {
+    grid-column: 1;
+    grid-row: 2;
     width: auto;
   }
 
   .content {
+    grid-column: 1;
+    grid-row: 3;
     margin-left: 0;
+    overflow: visible;
     padding-top: 24px;
   }
 
@@ -867,6 +875,13 @@ button:disabled {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .run-header h2 {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .metric-grid,

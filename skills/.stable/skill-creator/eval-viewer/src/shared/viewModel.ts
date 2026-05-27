@@ -1,5 +1,3 @@
-export type ReviewState = 'not_reviewed' | 'reviewed_without_comments' | 'reviewed_with_comments';
-
 export type RunStatus = 'success' | 'failed' | 'exception' | 'artifact_error';
 
 export interface ArtifactIssue {
@@ -19,6 +17,7 @@ export interface ArtifactIssue {
 
 export interface ExpectationView {
   evidence: string;
+  id?: string;
   passed: boolean;
   scope: 'overall' | 'turn';
   text: string;
@@ -64,7 +63,6 @@ export interface RunView {
   passRate: number;
   providerSessionId?: string;
   feedback: RunFeedbackView;
-  reviewState: ReviewState;
   runType: string;
   status: RunStatus;
   tokenCount: number;
@@ -75,6 +73,7 @@ export interface RunView {
 
 export interface FeedbackExpectationView {
   comment: string;
+  expectation_id?: string;
 }
 
 export interface FeedbackTurnView {
@@ -105,6 +104,5 @@ export interface FeedbackInput {
   comments: string;
   evalId: number;
   overall: FeedbackExpectationView[];
-  reviewState: ReviewState;
   turns: FeedbackTurnView[];
 }

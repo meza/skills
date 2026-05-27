@@ -2,6 +2,7 @@
 
 import json
 import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +16,33 @@ DEFAULT_GRADER_INSTRUCTIONS_PATH = (
     PROJECT_ROOT / "scripts" / "evaluate" / "instructions" / "grading.md"
 )
 DEFAULT_GRADING_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "grading.schema.json"
+
+
+def add_grading_expectation_ids(grading_data: dict, *, eval_id: int, run_type: str) -> None:
+    """Assign orchestrator-owned IDs to each grading expectation result."""
+    results = grading_data["results"]
+    for index, expectation in enumerate(results["overall_expectations"], start=1):
+        expectation["id"] = grading_expectation_id(
+            eval_id=eval_id,
+            run_type=run_type,
+            expectation_path=f"overall/{index}",
+        )
+
+    for turn_result in results["turns"]:
+        turn = turn_result["turn"]
+        for index, expectation in enumerate(turn_result["expectations"], start=1):
+            expectation["id"] = grading_expectation_id(
+                eval_id=eval_id,
+                run_type=run_type,
+                expectation_path=f"turn-{turn}/expectation/{index}",
+            )
+
+
+def grading_expectation_id(
+    *, eval_id: int, run_type: str, expectation_path: str
+) -> str:
+    name = f"skill-creator/grading/eval-{eval_id}/{run_type}/{expectation_path}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 def create_grading_job_factory(
@@ -63,11 +91,12 @@ class GradingJob:
     def run(self) -> None:
         self.write_run_artifacts_manifest()
         prompt = self.build_prompt()
+        grader_output_schema_path = self.write_grader_output_schema()
         command = self.provider.build_grading_command(
             model=self.model,
             effort=self.effort,
             working_dir=str(self.run_type_dir),
-            output_schema=str(self.schema_path),
+            output_schema=str(grader_output_schema_path),
         )
         with self.provider.process_environment(
             os.environ,
@@ -90,6 +119,11 @@ class GradingJob:
         result = self.provider.parse_output(stdout, prompt)
         grading_data = json.loads(result.response)
         self.validate_grading_data(grading_data)
+        add_grading_expectation_ids(
+            grading_data,
+            eval_id=self.eval_id,
+            run_type=self.run_type,
+        )
         (self.run_type_dir / "grading.json").write_text(
             json.dumps(grading_data, indent=2),
             encoding="utf-8",
@@ -107,6 +141,13 @@ class GradingJob:
             jsonschema.validate(grading_data, schema)
         except jsonschema.ValidationError as error:
             raise RuntimeError(f"Invalid grading output: {error.message}") from error
+
+    def write_grader_output_schema(self) -> Path:
+        schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
+        schema["$defs"]["expectation_result"]["properties"].pop("id", None)
+        path = self.run_type_dir / "grader_output_schema.json"
+        path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
+        return path
 
     @property
     def eval_id(self) -> int:

@@ -50,7 +50,6 @@ export const demoIteration: IterationView = {
       },
       issues: [],
       passRate: 1,
-      reviewState: 'not_reviewed',
       status: 'success',
       tokenCount: 1200,
       turns: [
@@ -100,7 +99,6 @@ export const demoIteration: IterationView = {
       },
       issues: [],
       passRate: 0,
-      reviewState: 'not_reviewed',
       status: 'success',
       tokenCount: 900,
       turns: [

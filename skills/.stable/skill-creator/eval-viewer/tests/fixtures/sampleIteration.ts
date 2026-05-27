@@ -1,6 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+export const SAMPLE_SKILL_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
+export const SAMPLE_BASELINE_EXPECTATION_ID = '5e5bdcd1-eae8-5eed-aff2-2a3f3c262ebc';
+
 export async function writeSampleIteration(root: string, options: { iteration?: number } = {}): Promise<void> {
   await mkdir(join(root, 'eval-1', 'skill', 'turn-1', 'outputs'), {
     recursive: true
@@ -63,6 +66,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
     ]
   });
   await writeRun(root, 'eval-1', 'skill', {
+    expectationId: SAMPLE_SKILL_EXPECTATION_ID,
     passed: true,
     evidence: 'The answer starts with feat!: and explains the migration.',
     response: 'feat!: support signing key rotation',
@@ -70,6 +74,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
     duration: 24
   });
   await writeRun(root, 'eval-1', 'baseline', {
+    expectationId: SAMPLE_BASELINE_EXPECTATION_ID,
     passed: false,
     evidence: 'The answer uses fix: and omits the breaking-change impact.',
     response: 'fix: update auth signing',
@@ -77,6 +82,7 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
     duration: 18
   });
   await writeRun(join(root, 'iteration-0'), 'eval-1', 'skill', {
+    expectationId: SAMPLE_SKILL_EXPECTATION_ID,
     passed: false,
     evidence: 'Previous iteration used chore: and missed the breaking change.',
     response: 'chore: update auth config',
@@ -92,6 +98,7 @@ async function writeRun(
   run: {
     duration: number;
     evidence: string;
+    expectationId: string;
     passed: boolean;
     response: string;
     totalTokens: number;
@@ -117,13 +124,22 @@ async function writeRun(
     }
   });
   await writeJson(join(runTypeRoot, 'grading.json'), {
-    expectations: [
-      {
-        text: 'The response uses a breaking-change marker.',
-        passed: run.passed,
-        evidence: run.evidence
-      }
-    ],
+    results: {
+      overall_expectations: [],
+      turns: [
+        {
+          turn: 1,
+          expectations: [
+            {
+              id: run.expectationId,
+              text: 'The response uses a breaking-change marker.',
+              passed: run.passed,
+              evidence: run.evidence
+            }
+          ]
+        }
+      ]
+    },
     summary: {
       passed: run.passed ? 1 : 0,
       failed: run.passed ? 0 : 1,

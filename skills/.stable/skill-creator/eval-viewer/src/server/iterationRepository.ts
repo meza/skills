@@ -8,7 +8,6 @@ import type {
   FeedbackInput,
   FeedbackTurnView,
   IterationView,
-  ReviewState,
   RunComparisonView,
   RunFeedbackView,
   RunStatus,
@@ -33,11 +32,10 @@ interface FeedbackArtifact {
 }
 
 interface FeedbackReview {
-  comments: string;
+  comments?: string;
   eval_id: number;
-  overall: FeedbackExpectationView[];
-  review_state: ReviewState;
-  turns: FeedbackTurnView[];
+  overall?: FeedbackExpectationView[];
+  turns?: FeedbackTurnView[];
   updated_at: string;
 }
 
@@ -84,18 +82,30 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
 export async function saveFeedback(resultRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
   const artifact = await readFeedback(resolvedRoot);
-  const saved = {
-    comments: feedback.comments,
+  const comments = feedback.comments.trim();
+  const overall = filledFeedbackExpectations(feedback.overall);
+  const turns = filledFeedbackTurns(feedback.turns);
+  const saved: FeedbackReview = {
     eval_id: feedback.evalId,
-    overall: feedback.overall.map(feedbackExpectationFrom),
-    review_state: feedback.reviewState,
-    turns: feedback.turns.map((turn) => ({
-      expectations: turn.expectations.map(feedbackExpectationFrom),
-      turn: turn.turn
-    })),
     updated_at: new Date().toISOString()
   };
+  if (comments) {
+    saved.comments = comments;
+  }
+  if (overall.length > 0) {
+    saved.overall = overall;
+  }
+  if (turns.length > 0) {
+    saved.turns = turns;
+  }
   const existingIndex = artifact.reviews.findIndex((review) => review.eval_id === feedback.evalId);
+  if (!saved.comments && !saved.overall && !saved.turns) {
+    if (existingIndex >= 0) {
+      artifact.reviews.splice(existingIndex, 1);
+    }
+    await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
+    return saved;
+  }
   if (existingIndex >= 0) {
     artifact.reviews[existingIndex] = saved;
   } else {
@@ -175,7 +185,6 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     passRate: numberValue(objectValue(gradingResult.value?.summary).pass_rate, 0),
     providerSessionId: textValue(manifestRun.session_id, ''),
     feedback: runFeedback,
-    reviewState: review?.review_state ?? 'not_reviewed',
     runType,
     status: statusFor(manifestRun, issues),
     tokenCount: numberValue(timing?.total_tokens ?? manifestRun.total_tokens, 0),
@@ -282,7 +291,6 @@ function previousRunCache(previousRoot: string, evalId: number, runType: string)
       feedback: emptyRunFeedback(),
       issues: [],
       passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
-      reviewState: 'not_reviewed',
       runType,
       status: 'success',
       tokenCount: numberValue(timing.total_tokens, 0),
@@ -349,6 +357,7 @@ function expectationFrom(item: unknown, scope: 'overall' | 'turn'): ExpectationV
   const record = item as Record<string, unknown>;
   return {
     evidence: textValue(record.evidence, ''),
+    id: textValue(record.id, '') || undefined,
     passed: Boolean(record.passed),
     scope,
     text: textValue(record.text, '')
@@ -410,11 +419,7 @@ function readTextSync(path: string): string {
 
 async function readFeedback(resultRoot: string): Promise<FeedbackArtifact> {
   const existing = await readOptionalJson(feedbackPath(resultRoot));
-  const reviews = Array.isArray(existing?.reviews)
-    ? existing.reviews.map((review) => feedbackReviewFrom(review))
-    : Object.entries(objectValue(existing?.reviews)).map(([evalId, value]) =>
-        feedbackReviewFrom(value, Number(evalId))
-      );
+  const reviews = Array.isArray(existing?.reviews) ? existing.reviews.map((review) => feedbackReviewFrom(review)) : [];
   return {
     reviews
   };
@@ -438,15 +443,14 @@ function firstTurnPath(
   );
 }
 
-function feedbackReviewFrom(value: unknown, fallbackEvalId = 0): FeedbackReview {
+function feedbackReviewFrom(value: unknown): FeedbackReview {
   const record = objectValue(value);
   return {
-    comments: textValue(record.comments, ''),
-    eval_id: numberValue(record.eval_id, fallbackEvalId),
+    comments: textValue(record.comments, '') || undefined,
+    eval_id: numberValue(record.eval_id, 0),
     overall: feedbackExpectationsFrom(record.overall),
-    review_state: reviewStateValue(record.review_state ?? record.reviewState),
     turns: feedbackTurnsFrom(record.turns),
-    updated_at: textValue(record.updated_at ?? record.updatedAt, '')
+    updated_at: textValue(record.updated_at, '')
   };
 }
 
@@ -455,13 +459,17 @@ function feedbackForExpectations(expectations: ExpectationView[], review: Feedba
   const turns = turnFeedbackShape(expectations);
   return {
     comments: review?.comments ?? '',
-    overall: overallExpectations.map((_, index) => ({
-      comment: review?.overall[index]?.comment ?? ''
-    })),
+    overall: overallExpectations.map((expectation, index) =>
+      feedbackForExpectation(expectation, review?.overall ?? [], index)
+    ),
     turns: turns.map((turn) => ({
-      expectations: turn.expectations.map((_, index) => ({
-        comment: review?.turns.find((candidate) => candidate.turn === turn.turn)?.expectations[index]?.comment ?? ''
-      })),
+      expectations: turn.expectations.map((expectation, index) =>
+        feedbackForExpectation(
+          expectation,
+          review?.turns?.find((candidate) => candidate.turn === turn.turn)?.expectations ?? [],
+          index
+        )
+      ),
       turn: turn.turn
     }))
   };
@@ -474,7 +482,7 @@ function turnFeedbackShape(expectations: ExpectationView[]): FeedbackTurnView[] 
       continue;
     }
     const turn = expectation.turn as number;
-    turnMap.set(turn, [...(turnMap.get(turn) ?? []), { comment: '' }]);
+    turnMap.set(turn, [...(turnMap.get(turn) ?? []), { comment: '', expectation_id: expectation.id }]);
   }
   return [...turnMap.entries()].map(([turn, expectationFeedback]) => ({
     expectations: expectationFeedback,
@@ -493,7 +501,8 @@ function emptyRunFeedback(): RunFeedbackView {
 function feedbackExpectationFrom(value: unknown): FeedbackExpectationView {
   const record = objectValue(value);
   return {
-    comment: textValue(record.comment, '')
+    comment: textValue(record.comment, ''),
+    expectation_id: textValue(record.expectation_id, '') || undefined
   };
 }
 
@@ -514,11 +523,42 @@ function feedbackTurnsFrom(value: unknown): FeedbackTurnView[] {
   });
 }
 
-function reviewStateValue(value: unknown): ReviewState {
-  if (value === 'reviewed_with_comments' || value === 'reviewed_without_comments') {
-    return value;
-  }
-  return 'not_reviewed';
+function feedbackForExpectation(
+  expectation: ExpectationView | FeedbackExpectationView,
+  feedback: FeedbackExpectationView[] | undefined,
+  _expectationIndex: number
+): FeedbackExpectationView {
+  const expectationId = feedbackExpectationId(expectation);
+  const matched = expectationId ? feedback?.find((candidate) => candidate.expectation_id === expectationId) : undefined;
+  return {
+    comment: matched?.comment ?? '',
+    expectation_id: expectationId
+  };
+}
+
+function feedbackExpectationId(expectation: ExpectationView | FeedbackExpectationView): string | undefined {
+  return 'comment' in expectation ? expectation.expectation_id : expectation.id;
+}
+
+function filledFeedbackExpectations(expectations: FeedbackExpectationView[]): FeedbackExpectationView[] {
+  return expectations.flatMap((expectation) => {
+    const comment = expectation.comment.trim();
+    return comment && expectation.expectation_id
+      ? [
+          {
+            comment,
+            expectation_id: expectation.expectation_id
+          }
+        ]
+      : [];
+  });
+}
+
+function filledFeedbackTurns(turns: FeedbackTurnView[]): FeedbackTurnView[] {
+  return turns.flatMap((turn) => {
+    const expectations = filledFeedbackExpectations(turn.expectations);
+    return expectations.length > 0 ? [{ expectations, turn: turn.turn }] : [];
+  });
 }
 
 function artifactPathWithFallback(recordedPath: string, fallbackPath: string): string {

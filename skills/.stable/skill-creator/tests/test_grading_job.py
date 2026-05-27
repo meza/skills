@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 from unittest import mock
 
@@ -8,6 +9,7 @@ from scripts.evaluate.grading import (
     DEFAULT_GRADER_INSTRUCTIONS_PATH,
     DEFAULT_GRADING_SCHEMA_PATH,
     GradingJob,
+    add_grading_expectation_ids,
     create_grading_job_factory,
 )
 from scripts.evaluate.providers import TurnResult
@@ -45,6 +47,112 @@ class _FakeEnvironment:
 
 
 class GradingJobTests(unittest.TestCase):
+    def test_add_grading_expectation_ids_assigns_stable_ids(self):
+        grading_payload = {
+            "executive_summary": "The run satisfied the expectations.",
+            "results": {
+                "overall_expectations": [
+                    {
+                        "text": "It does the thing across the full run",
+                        "passed": True,
+                        "evidence": "The full transcript includes it.",
+                    },
+                    {
+                        "text": "It avoids extra output",
+                        "passed": True,
+                        "evidence": "The response contains only the requested output.",
+                    },
+                ],
+                "turns": [
+                    {
+                        "turn": 1,
+                        "expectations": [
+                            {
+                                "text": "It does the first thing",
+                                "passed": True,
+                                "evidence": "The first response includes it.",
+                            },
+                            {
+                                "text": "It avoids the first bad thing",
+                                "passed": True,
+                                "evidence": "The first response omits it.",
+                            },
+                        ],
+                    },
+                    {
+                        "turn": 2,
+                        "expectations": [
+                            {
+                                "text": "It does the second thing",
+                                "passed": True,
+                                "evidence": "The second response includes it.",
+                            }
+                        ],
+                    },
+                ],
+            },
+            "summary": {
+                "passed": 5,
+                "failed": 0,
+                "total": 5,
+                "pass_rate": 1.0,
+            },
+        }
+
+        add_grading_expectation_ids(grading_payload, eval_id=7, run_type="skill")
+
+        self.assertEqual(
+            [
+                expectation["id"]
+                for expectation in grading_payload["results"]["overall_expectations"]
+            ],
+            [
+                str(
+                    uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        "skill-creator/grading/eval-7/skill/overall/1",
+                    )
+                ),
+                str(
+                    uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        "skill-creator/grading/eval-7/skill/overall/2",
+                    )
+                ),
+            ],
+        )
+        self.assertEqual(
+            [
+                expectation["id"]
+                for expectation in grading_payload["results"]["turns"][0][
+                    "expectations"
+                ]
+            ],
+            [
+                str(
+                    uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        "skill-creator/grading/eval-7/skill/turn-1/expectation/1",
+                    )
+                ),
+                str(
+                    uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        "skill-creator/grading/eval-7/skill/turn-1/expectation/2",
+                    )
+                ),
+            ],
+        )
+        self.assertEqual(
+            grading_payload["results"]["turns"][1]["expectations"][0]["id"],
+            str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    "skill-creator/grading/eval-7/skill/turn-2/expectation/1",
+                )
+            ),
+        )
+
     def test_create_grading_job_factory_uses_default_schema_and_instructions(self):
         eval_job = mock.Mock()
         eval_job.eval_def = {"id": 1}
@@ -89,7 +197,13 @@ class GradingJobTests(unittest.TestCase):
         grading_payload = {
             "executive_summary": "The run satisfied the expectation.",
             "results": {
-                "overall_expectations": [],
+                "overall_expectations": [
+                    {
+                        "text": "It does the thing across the full run",
+                        "passed": True,
+                        "evidence": "The full transcript includes the output.",
+                    }
+                ],
                 "turns": [
                     {
                         "turn": 1,
@@ -104,10 +218,44 @@ class GradingJobTests(unittest.TestCase):
                 ],
             },
             "summary": {
-                "passed": 1,
+                "passed": 2,
                 "failed": 0,
-                "total": 1,
+                "total": 2,
                 "pass_rate": 1.0,
+            },
+        }
+        expected_grading_payload = {
+            **grading_payload,
+            "results": {
+                "overall_expectations": [
+                    {
+                        **grading_payload["results"]["overall_expectations"][0],
+                        "id": str(
+                            uuid.uuid5(
+                                uuid.NAMESPACE_URL,
+                                "skill-creator/grading/eval-1/skill/overall/1",
+                            )
+                        ),
+                    }
+                ],
+                "turns": [
+                    {
+                        **grading_payload["results"]["turns"][0],
+                        "expectations": [
+                            {
+                                **grading_payload["results"]["turns"][0][
+                                    "expectations"
+                                ][0],
+                                "id": str(
+                                    uuid.uuid5(
+                                        uuid.NAMESPACE_URL,
+                                        "skill-creator/grading/eval-1/skill/turn-1/expectation/1",
+                                    )
+                                ),
+                            }
+                        ],
+                    }
+                ],
             },
         }
 
@@ -154,7 +302,7 @@ class GradingJobTests(unittest.TestCase):
 
             self.assertEqual(
                 json.loads((run_type_dir / "grading.json").read_text(encoding="utf-8")),
-                grading_payload,
+                expected_grading_payload,
             )
             run_artifacts = json.loads(
                 (run_type_dir / "run_artifacts.json").read_text(encoding="utf-8")
@@ -171,8 +319,17 @@ class GradingJobTests(unittest.TestCase):
                     "--cwd",
                     str(run_type_dir),
                     "--schema",
-                    str(DEFAULT_GRADING_SCHEMA_PATH),
+                    str(run_type_dir / "grader_output_schema.json"),
                 ],
+            )
+            grader_output_schema = json.loads(
+                (run_type_dir / "grader_output_schema.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertNotIn(
+                "id",
+                grader_output_schema["$defs"]["expectation_result"]["properties"],
             )
 
     def test_run_rejects_provider_json_that_fails_grading_validation(self):
@@ -248,7 +405,7 @@ class GradingJobTests(unittest.TestCase):
                     model=None,
                     effort=None,
                     timeout=600,
-                    schema_path=temp_path / "grading.schema.json",
+                    schema_path=DEFAULT_GRADING_SCHEMA_PATH,
                     grader_instructions_path=instructions_path,
                 ).run()
 
@@ -279,7 +436,7 @@ class GradingJobTests(unittest.TestCase):
                     model=None,
                     effort=None,
                     timeout=600,
-                    schema_path=temp_path / "grading.schema.json",
+                    schema_path=DEFAULT_GRADING_SCHEMA_PATH,
                     grader_instructions_path=instructions_path,
                 ).run()
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadIteration, saveFeedback } from '../../src/server/iterationRepository.js';
 import { writeRichEvaluationWorkspace } from '../fixtures/richEvaluation.js';
-import { writeSampleIteration } from '../fixtures/sampleIteration.js';
+import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
 
 describe('iteration repository', () => {
   let root: string;
@@ -38,7 +38,6 @@ describe('iteration repository', () => {
       providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
       tokenCount: 1200,
       durationSeconds: 24,
-      reviewState: 'not_reviewed',
       workingDirectory: join(root, 'eval-1', 'skill', 'work')
     });
     expect(iteration.runs[0]?.artifactPaths.runArtifacts).toBe(join(root, 'eval-1', 'skill', 'run_artifacts.json'));
@@ -119,6 +118,7 @@ describe('iteration repository', () => {
               turn: 1,
               expectations: [
                 {
+                  id: SAMPLE_SKILL_EXPECTATION_ID,
                   text: 'The transcript shows the agent inspected the staged git change set before composing the message.',
                   passed: true,
                   evidence: 'The transcript shows git status and git diff before the final response.'
@@ -157,11 +157,19 @@ describe('iteration repository', () => {
         {
           reviews: [
             {
-              comments: '',
               eval_id: 1,
               overall: [],
-              review_state: 'reviewed_with_comments',
-              turns: [{ expectations: [{ comment: 'Nested turn feedback.' }], turn: 1 }],
+              turns: [
+                {
+                  expectations: [
+                    {
+                      comment: 'Nested turn feedback.',
+                      expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+                    }
+                  ],
+                  turn: 1
+                }
+              ],
               updated_at: '2026-05-26T12:00:00.000Z'
             }
           ]
@@ -177,6 +185,7 @@ describe('iteration repository', () => {
     expect(iteration.runs[0]?.expectations).toEqual([
       {
         evidence: 'The transcript shows git status and git diff before the final response.',
+        id: SAMPLE_SKILL_EXPECTATION_ID,
         passed: true,
         scope: 'turn',
         text: 'The transcript shows the agent inspected the staged git change set before composing the message.',
@@ -188,7 +197,7 @@ describe('iteration repository', () => {
       transcript: expect.stringContaining('ASSISTANT: feat!: support signing key rotation')
     });
     expect(iteration.runs[0]?.feedback.turns).toEqual([
-      { expectations: [{ comment: 'Nested turn feedback.' }], turn: 1 }
+      { expectations: [{ comment: 'Nested turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }
     ]);
     expect(iteration.runs[0]?.issues.map((issue) => issue.state)).not.toContain('missing_response');
     expect(iteration.runs[0]?.issues.map((issue) => issue.state)).not.toContain('missing_transcript');
@@ -248,9 +257,18 @@ describe('iteration repository', () => {
     await saveFeedback(root, {
       evalId: 1,
       overall: [],
-      reviewState: 'reviewed_with_comments',
       comments: 'Looks correct, but add a stricter markdown assertion.',
-      turns: [{ expectations: [{ comment: 'The first turn expectation is correctly supported.' }], turn: 1 }]
+      turns: [
+        {
+          expectations: [
+            {
+              comment: 'The first turn expectation is correctly supported.',
+              expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+            }
+          ],
+          turn: 1
+        }
+      ]
     });
 
     expect(await readFile(gradingPath, 'utf-8')).toBe(before);
@@ -259,11 +277,105 @@ describe('iteration repository', () => {
       expect.objectContaining({
         comments: 'Looks correct, but add a stricter markdown assertion.',
         eval_id: 1,
-        review_state: 'reviewed_with_comments',
-        turns: [{ expectations: [{ comment: 'The first turn expectation is correctly supported.' }], turn: 1 }]
+        turns: [
+          {
+            expectations: [
+              {
+                comment: 'The first turn expectation is correctly supported.',
+                expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+              }
+            ],
+            turn: 1
+          }
+        ]
       })
     );
+    expect(JSON.stringify(feedback)).not.toContain('review_state');
+    expect(JSON.stringify(feedback)).not.toContain('""');
     await expect(stat(join(root, 'viewer_feedback.json'))).resolves.toBeTruthy();
+  });
+
+  it('writes only non-empty viewer feedback content', async () => {
+    await saveFeedback(root, {
+      comments: '  ',
+      evalId: 1,
+      overall: [
+        { comment: '', expectation_id: '10a375c5-12f4-5a15-b5bd-951f7d6204f1' },
+        { comment: '  Overall note.  ', expectation_id: '6fcfb2db-03d1-5bd4-971e-8a10929a7de3' }
+      ],
+      turns: [
+        {
+          expectations: [
+            { comment: '', expectation_id: 'b708da13-cb1a-5d05-a046-6fc4de91ce56' },
+            { comment: ' Turn note. ', expectation_id: SAMPLE_SKILL_EXPECTATION_ID },
+            { comment: '', expectation_id: 'dc47174d-62a8-5820-bcb8-3a5cae2a10cb' }
+          ],
+          turn: 1
+        },
+        { expectations: [{ comment: '', expectation_id: '4c352857-a8b6-57da-acac-6c4d9ee91eee' }], turn: 2 }
+      ]
+    });
+
+    const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+
+    expect(feedback).toEqual({
+      reviews: [
+        {
+          eval_id: 1,
+          overall: [{ comment: 'Overall note.', expectation_id: '6fcfb2db-03d1-5bd4-971e-8a10929a7de3' }],
+          turns: [{ expectations: [{ comment: 'Turn note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }],
+          updated_at: expect.any(String)
+        }
+      ]
+    });
+    expect(JSON.stringify(feedback)).not.toContain('review_state');
+    expect(JSON.stringify(feedback)).not.toContain('""');
+  });
+
+  it('does not write a review entry when all feedback fields are blank', async () => {
+    await saveFeedback(root, {
+      comments: '',
+      evalId: 1,
+      overall: [{ comment: '' }],
+      turns: [{ expectations: [{ comment: '' }], turn: 1 }]
+    });
+
+    const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+
+    expect(feedback).toEqual({ reviews: [] });
+    expect(JSON.stringify(feedback)).not.toContain('""');
+    expect(JSON.stringify(feedback)).not.toContain('review_state');
+  });
+
+  it('removes an existing review entry when saved feedback is cleared', async () => {
+    await writeFile(
+      join(root, 'viewer_feedback.json'),
+      `${JSON.stringify(
+        {
+          reviews: [
+            {
+              comments: 'Old note.',
+              eval_id: 1,
+              updated_at: '2026-05-26T12:00:00.000Z'
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    await saveFeedback(root, {
+      comments: '',
+      evalId: 1,
+      overall: [],
+      turns: []
+    });
+
+    const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+
+    expect(feedback).toEqual({ reviews: [] });
   });
 
   it('loads viewer feedback keyed by eval_id', async () => {
@@ -276,7 +388,6 @@ describe('iteration repository', () => {
               comments: 'Already reviewed.',
               eval_id: 1,
               overall: [{ comment: 'Existing first expectation note.' }],
-              review_state: 'reviewed_with_comments',
               turns: [],
               updated_at: '2026-05-26T12:00:00.000Z'
             }
@@ -293,12 +404,191 @@ describe('iteration repository', () => {
     expect(iteration.runs[0]).toMatchObject({
       feedback: {
         comments: 'Already reviewed.',
-        overall: [{ comment: 'Existing first expectation note.' }],
-        turns: []
+        overall: [],
+        turns: [{ expectations: [{ comment: '', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
       },
-      reviewState: 'reviewed_with_comments',
       userComments: 'Already reviewed.'
     });
+  });
+
+  it('loads expectation feedback by expectation id instead of array position', async () => {
+    await writeFile(
+      join(root, 'viewer_feedback.json'),
+      `${JSON.stringify(
+        {
+          reviews: [
+            {
+              eval_id: 1,
+              turns: [
+                {
+                  expectations: [
+                    {
+                      comment: 'ID-matched note.',
+                      expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+                    }
+                  ],
+                  turn: 1
+                }
+              ],
+              updated_at: '2026-05-26T12:00:00.000Z'
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.feedback.turns).toEqual([
+      {
+        expectations: [
+          {
+            comment: 'ID-matched note.',
+            expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+          }
+        ],
+        turn: 1
+      }
+    ]);
+  });
+
+  it('loads overall expectation feedback by expectation id', async () => {
+    const overallExpectationId = '10a375c5-12f4-5a15-b5bd-951f7d6204f1';
+    await writeFile(
+      join(root, 'eval-1', 'skill', 'grading.json'),
+      JSON.stringify({
+        executive_summary: 'Overall grading summary.',
+        results: {
+          overall_expectations: [
+            {
+              evidence: 'Overall evidence.',
+              id: overallExpectationId,
+              passed: true,
+              text: 'Overall expectation.'
+            }
+          ],
+          turns: []
+        },
+        summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
+      }),
+      'utf-8'
+    );
+    await writeFile(
+      join(root, 'viewer_feedback.json'),
+      `${JSON.stringify(
+        {
+          reviews: [
+            {
+              eval_id: 1,
+              overall: [{ comment: 'Overall ID note.', expectation_id: overallExpectationId }],
+              updated_at: '2026-05-26T12:00:00.000Z'
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.feedback.overall).toEqual([
+      { comment: 'Overall ID note.', expectation_id: overallExpectationId }
+    ]);
+  });
+
+  it('keeps overall expectation feedback empty when no review exists', async () => {
+    const overallExpectationId = '12c08335-3aa6-57ef-9b2f-78f8164497cd';
+    await writeFile(
+      join(root, 'eval-1', 'skill', 'grading.json'),
+      JSON.stringify({
+        executive_summary: 'Overall grading summary.',
+        results: {
+          overall_expectations: [
+            {
+              evidence: 'Overall evidence.',
+              id: overallExpectationId,
+              passed: true,
+              text: 'Overall expectation.'
+            }
+          ],
+          turns: []
+        },
+        summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
+      }),
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.feedback.overall).toEqual([{ comment: '', expectation_id: overallExpectationId }]);
+  });
+
+  it('normalizes string eval ids from current feedback artifacts', async () => {
+    await writeFile(
+      join(root, 'viewer_feedback.json'),
+      `${JSON.stringify(
+        {
+          reviews: [
+            {
+              comments: 'String id note.',
+              eval_id: '1',
+              turns: [
+                {
+                  expectations: [
+                    {
+                      comment: 'String id expectation note.',
+                      expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+                    }
+                  ],
+                  turn: 1
+                }
+              ],
+              updated_at: '2026-05-26T12:00:00.000Z'
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.feedback.comments).toBe('String id note.');
+    expect(iteration.runs[0]?.feedback.turns[0]?.expectations[0]).toEqual({
+      comment: 'String id expectation note.',
+      expectation_id: SAMPLE_SKILL_EXPECTATION_ID
+    });
+  });
+
+  it('ignores malformed string eval ids in current feedback artifacts', async () => {
+    await writeFile(
+      join(root, 'viewer_feedback.json'),
+      `${JSON.stringify(
+        {
+          reviews: [
+            {
+              comments: 'Malformed id note.',
+              eval_id: 'not-a-number',
+              updated_at: '2026-05-26T12:00:00.000Z'
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.feedback.comments).toBe('');
   });
 
   it('updates existing viewer feedback entries by eval_id', async () => {
@@ -311,7 +601,6 @@ describe('iteration repository', () => {
               comments: 'Old note.',
               eval_id: 1,
               overall: [],
-              review_state: 'not_reviewed',
               turns: [{ expectations: [{ comment: 'Old expectation note.' }], turn: 1 }],
               updated_at: '2026-05-26T12:00:00.000Z'
             }
@@ -327,8 +616,12 @@ describe('iteration repository', () => {
       comments: 'Updated note.',
       evalId: 1,
       overall: [],
-      reviewState: 'reviewed_without_comments',
-      turns: [{ expectations: [{ comment: 'Updated expectation note.' }], turn: 1 }]
+      turns: [
+        {
+          expectations: [{ comment: 'Updated expectation note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }],
+          turn: 1
+        }
+      ]
     });
 
     const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
@@ -336,100 +629,15 @@ describe('iteration repository', () => {
     expect(feedback.reviews[0]).toMatchObject({
       comments: 'Updated note.',
       eval_id: 1,
-      review_state: 'reviewed_without_comments',
-      turns: [{ expectations: [{ comment: 'Updated expectation note.' }], turn: 1 }]
-    });
-  });
-
-  it('loads legacy feedback maps without leaking config-qualified keys', async () => {
-    await writeFile(
-      join(root, 'viewer_feedback.json'),
-      `${JSON.stringify(
+      turns: [
         {
-          reviews: {
-            '1': {
-              comments: 'Legacy note.',
-              reviewState: 'unknown'
-            }
-          }
-        },
-        null,
-        2
-      )}\n`,
-      'utf-8'
-    );
-
-    const iteration = await loadIteration(root);
-
-    expect(iteration.runs[0]).toMatchObject({
-      reviewState: 'not_reviewed',
-      feedback: {
-        comments: 'Legacy note.'
-      },
-      userComments: 'Legacy note.'
+          expectations: [{ comment: 'Updated expectation note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }],
+          turn: 1
+        }
+      ]
     });
-  });
-
-  it('normalizes string eval ids from legacy artifacts without writing strings back out', async () => {
-    const manifestPath = join(root, 'run_manifest.json');
-    const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
-    manifest.runs[0].eval_id = '1';
-    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
-    await writeFile(
-      join(root, 'viewer_feedback.json'),
-      `${JSON.stringify(
-        {
-          reviews: [
-            {
-              comments: 'String id legacy note.',
-              eval_id: '1',
-              overall: [{ comment: 'Legacy overall note.' }],
-              review_state: 'reviewed_with_comments',
-              turns: [],
-              updated_at: '2026-05-26T12:00:00.000Z'
-            },
-            {
-              comments: 'Malformed legacy id note.',
-              eval_id: 'not-a-number',
-              overall: [],
-              review_state: 'reviewed_with_comments',
-              turns: [],
-              updated_at: '2026-05-26T12:00:00.000Z'
-            }
-          ]
-        },
-        null,
-        2
-      )}\n`,
-      'utf-8'
-    );
-
-    const iteration = await loadIteration(root);
-    await saveFeedback(root, {
-      comments: 'Numeric id update.',
-      evalId: 1,
-      overall: [{ comment: 'Updated note.' }],
-      reviewState: 'reviewed_with_comments',
-      turns: []
-    });
-
-    const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
-    expect(iteration.runs[0]).toMatchObject({
-      evalId: 1,
-      feedback: {
-        comments: 'String id legacy note.',
-        overall: [{ comment: 'Legacy overall note.' }]
-      }
-    });
-    expect(feedback.reviews).toHaveLength(2);
-    expect(feedback.reviews[0]).toMatchObject({
-      comments: 'Numeric id update.',
-      eval_id: 1
-    });
-    expect(feedback.reviews[1]).toMatchObject({
-      comments: 'Malformed legacy id note.',
-      eval_id: 0
-    });
+    expect(feedback.reviews[0]).not.toHaveProperty('overall');
+    expect(feedback.reviews[0]).not.toHaveProperty('review_state');
   });
 
   it('handles fallback metadata, missing comparisons, malformed turn artifacts, and unknown statuses', async () => {
@@ -489,6 +697,69 @@ describe('iteration repository', () => {
 
     expect(iteration.runs[0]?.expectations).toEqual([]);
     expect(iteration.runs[0]?.artifactPaths.response).toBe('');
+  });
+
+  it('falls back to metadata turn expectations when grading has no expectation results', async () => {
+    await writeFile(
+      join(root, 'eval-1', 'skill', 'grading.json'),
+      JSON.stringify({ summary: { pass_rate: 0 } }),
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.expectations).toEqual([
+      {
+        evidence: '',
+        passed: false,
+        scope: 'turn',
+        text: 'The response uses a breaking-change marker.',
+        turn: 1
+      }
+    ]);
+    expect(iteration.runs[0]?.feedback.turns).toEqual([{ expectations: [{ comment: '' }], turn: 1 }]);
+  });
+
+  it('handles missing metadata turn entries when falling back for expectations', async () => {
+    await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
+    await writeFile(
+      join(root, 'eval-1', 'skill', 'grading.json'),
+      JSON.stringify({ summary: { pass_rate: 0 } }),
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
+  });
+
+  it('loads flat grader expectations without expectation ids as unreviewable expectation feedback', async () => {
+    await writeFile(
+      join(root, 'eval-1', 'skill', 'grading.json'),
+      JSON.stringify({
+        expectations: [
+          {
+            evidence: 'Flat evidence.',
+            passed: true,
+            text: 'Flat expectation.'
+          }
+        ],
+        summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
+      }),
+      'utf-8'
+    );
+
+    const iteration = await loadIteration(root);
+
+    expect(iteration.runs[0]?.expectations).toEqual([
+      {
+        evidence: 'Flat evidence.',
+        passed: true,
+        scope: 'overall',
+        text: 'Flat expectation.'
+      }
+    ]);
+    expect(iteration.runs[0]?.feedback.overall).toEqual([{ comment: '' }]);
   });
 
   it('handles grader turn entries without expectation arrays', async () => {

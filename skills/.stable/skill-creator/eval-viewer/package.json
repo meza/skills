@@ -13,7 +13,11 @@
     "serve": "tsx src/server/main.ts",
     "serve:visual": "npm run build && npm run fixture:visual && npm run serve -- .tmp/visual-fixture",
     "test": "vitest run",
-    "test:visual": "playwright test"
+    "test:visual": "playwright test",
+    "test:visual:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual\"; npm i",
+    "test:visual:update": "run-s test:visual:update:local test:visual:update:docker",
+    "test:visual:update:local": "playwright test --update-snapshots all",
+    "test:visual:update:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual:update:local\"; npm i"
   },
   "dependencies": {
     "@fastify/static": "^8.3.0",
@@ -35,6 +39,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.14",
     "jsdom": "^27.2.0",
+    "npm-run-all2": "^8.0.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"

@@ -16,6 +16,7 @@ class GradingSchemaTests(unittest.TestCase):
             "results": {
                 "overall_expectations": [
                     {
+                        "id": "d2eceb7e-7768-5d46-ac68-c4dc3f0e8e31",
                         "text": "It does the thing across the full run",
                         "passed": True,
                         "evidence": "The full transcript includes the required output.",
@@ -26,6 +27,7 @@ class GradingSchemaTests(unittest.TestCase):
                         "turn": 1,
                         "expectations": [
                             {
+                                "id": "9fb0a83a-8301-50ae-8502-133bc77fc19f",
                                 "text": "It does the thing",
                                 "passed": True,
                                 "evidence": (

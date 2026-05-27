@@ -11,6 +11,13 @@
       "additionalProperties": false,
       "required": ["text", "passed", "evidence"],
       "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "minLength": 1,
+          "description": "Orchestrator-owned UUID expectation identifier. Grading agents must ignore this field and must not populate or depend on it; the orchestrator adds it before writing grading.json."
+        },
         "text": {
           "type": "string",
           "minLength": 1,

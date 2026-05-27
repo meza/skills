@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/client/App.js';
 import type { IterationView } from '../../src/shared/viewModel.js';
 
+const TURN_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
+const OVERALL_EXPECTATION_ONE_ID = '10a375c5-12f4-5a15-b5bd-951f7d6204f1';
+const OVERALL_EXPECTATION_TWO_ID = '6fcfb2db-03d1-5bd4-971e-8a10929a7de3';
+const TURN_ONE_SECOND_EXPECTATION_ID = 'dc47174d-62a8-5820-bcb8-3a5cae2a10cb';
+const TURN_TWO_EXPECTATION_ID = '38a7ce2c-0814-5e8b-8890-bc073e225d75';
+
 describe('App', () => {
   it('renders run details, comparisons, artifacts, and feedback state', () => {
     render(<App initialIteration={iterationView()} />);
@@ -27,7 +33,6 @@ describe('App', () => {
     expect(screen.getByText('feat!: support signing key rotation')).toBeInTheDocument();
     expect(screen.getByText('Raw JSON Output')).toBeInTheDocument();
     expect(screen.getByText('View All Artifacts')).toBeInTheDocument();
-    expect(screen.getByText('Awaiting Review')).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('with_skill');
     expect(document.body).not.toHaveTextContent('without_skill');
   });
@@ -81,7 +86,7 @@ describe('App', () => {
     expect(screen.queryByText('Missing grading.json')).not.toBeInTheDocument();
   });
 
-  it('filters passing runs and renders completed review states', async () => {
+  it('filters passing runs', async () => {
     const user = userEvent.setup();
     const view = iterationView();
     const run = view.runs[0];
@@ -96,8 +101,6 @@ describe('App', () => {
         state: 'missing_timing'
       }
     ];
-    run.reviewState = 'reviewed_with_comments';
-
     render(<App initialIteration={view} />);
 
     await user.click(screen.getByRole('button', { name: /^pass$/i }));
@@ -106,7 +109,6 @@ describe('App', () => {
     expect(within(navigation).getByText('breaking-change-returns-full-message-when-needed')).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('with_skill');
     expect(document.body).not.toHaveTextContent('without_skill');
-    expect(screen.getByText('Reviewed With Comments')).toBeInTheDocument();
   });
 
   it('moves through runs with the prototype pager controls', async () => {
@@ -271,11 +273,10 @@ describe('App', () => {
     expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
   });
 
-  it('records reviewer feedback with an explicit review state', async () => {
+  it('records reviewer feedback with expectation ids', async () => {
     const user = userEvent.setup();
     const saveFeedback = vi.fn(async () => ({
-      comments: 'Ready for the next iteration.',
-      reviewState: 'reviewed_with_comments'
+      comments: 'Ready for the next iteration.'
     }));
     render(<App initialIteration={iterationView()} saveFeedback={saveFeedback} />);
 
@@ -287,8 +288,12 @@ describe('App', () => {
       comments: 'Ready for the next iteration.',
       evalId: 1,
       overall: [],
-      reviewState: 'reviewed_with_comments',
-      turns: [{ expectations: [{ comment: 'Expectation-level note.' }], turn: 1 }]
+      turns: [
+        {
+          expectations: [{ comment: 'Expectation-level note.', expectation_id: TURN_EXPECTATION_ID }],
+          turn: 1
+        }
+      ]
     });
     expect(await screen.findByText('Saved')).toBeInTheDocument();
   });
@@ -304,12 +309,14 @@ describe('App', () => {
     run.expectations = [
       {
         evidence: 'The answer starts with feat!:',
+        id: OVERALL_EXPECTATION_ONE_ID,
         passed: true,
         scope: 'overall',
         text: 'The response uses a breaking-change marker.'
       },
       {
         evidence: 'The answer explains the migration.',
+        id: OVERALL_EXPECTATION_TWO_ID,
         passed: true,
         scope: 'overall',
         text: 'The response explains the breaking-change impact.'
@@ -317,7 +324,10 @@ describe('App', () => {
     ];
     run.feedback = {
       comments: '',
-      overall: [{ comment: '' }, { comment: '' }],
+      overall: [
+        { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
+        { comment: '', expectation_id: OVERALL_EXPECTATION_TWO_ID }
+      ],
       turns: []
     };
     render(<App initialIteration={view} saveFeedback={saveFeedback} />);
@@ -328,8 +338,10 @@ describe('App', () => {
     expect(saveFeedback).toHaveBeenCalledWith({
       comments: '',
       evalId: 1,
-      overall: [{ comment: '' }, { comment: 'Overall expectation note.' }],
-      reviewState: 'reviewed_with_comments',
+      overall: [
+        { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
+        { comment: 'Overall expectation note.', expectation_id: OVERALL_EXPECTATION_TWO_ID }
+      ],
       turns: []
     });
     expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -346,6 +358,7 @@ describe('App', () => {
     run.expectations = [
       {
         evidence: '',
+        id: TURN_EXPECTATION_ID,
         passed: true,
         scope: 'turn',
         text: 'First turn expectation.',
@@ -353,6 +366,7 @@ describe('App', () => {
       },
       {
         evidence: '',
+        id: TURN_ONE_SECOND_EXPECTATION_ID,
         passed: true,
         scope: 'turn',
         text: 'Second turn expectation.',
@@ -360,6 +374,7 @@ describe('App', () => {
       },
       {
         evidence: '',
+        id: TURN_TWO_EXPECTATION_ID,
         passed: true,
         scope: 'turn',
         text: 'Third turn expectation.',
@@ -381,10 +396,15 @@ describe('App', () => {
       comments: '',
       evalId: 1,
       overall: [],
-      reviewState: 'reviewed_with_comments',
       turns: [
-        { expectations: [{ comment: '' }, { comment: 'Second expectation note.' }], turn: 1 },
-        { expectations: [{ comment: 'Later turn note.' }], turn: 2 }
+        {
+          expectations: [
+            { comment: '', expectation_id: TURN_EXPECTATION_ID },
+            { comment: 'Second expectation note.', expectation_id: TURN_ONE_SECOND_EXPECTATION_ID }
+          ],
+          turn: 1
+        },
+        { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
       ]
     });
     expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -406,8 +426,7 @@ describe('App', () => {
       body: JSON.stringify({
         comments: '',
         overall: [],
-        reviewState: 'reviewed_without_comments',
-        turns: [{ expectations: [{ comment: '' }], turn: 1 }]
+        turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
       }),
       headers: {
         'Content-Type': 'application/json'
@@ -448,7 +467,6 @@ describe('App', () => {
     if (!run) {
       throw new Error('Expected a first run in the test fixture.');
     }
-    run.reviewState = 'reviewed_without_comments';
     run.executiveSummary = '';
     const firstExpectation = run.expectations[0];
     if (!firstExpectation) {
@@ -459,8 +477,6 @@ describe('App', () => {
       evidence: ''
     };
     render(<App initialIteration={view} />);
-
-    expect(screen.getByText('Reviewed')).toBeInTheDocument();
     expect(screen.getByText('No executive summary was provided.')).toBeInTheDocument();
     expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
   });
@@ -494,6 +510,7 @@ function iterationView(): IterationView {
             expectations: [
               {
                 evidence: 'The answer uses fix: and omits the breaking-change impact.',
+                id: '5e5bdcd1-eae8-5eed-aff2-2a3f3c262ebc',
                 passed: false,
                 scope: 'turn',
                 text: 'The response uses a breaking-change marker.',
@@ -513,6 +530,7 @@ function iterationView(): IterationView {
         expectations: [
           {
             evidence: 'The answer starts with feat!:',
+            id: TURN_EXPECTATION_ID,
             passed: true,
             scope: 'turn',
             text: 'The response uses a breaking-change marker.',
@@ -523,12 +541,11 @@ function iterationView(): IterationView {
         feedback: {
           comments: '',
           overall: [],
-          turns: [{ expectations: [{ comment: '' }], turn: 1 }]
+          turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
         },
         issues: [],
         passRate: 1,
         providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
-        reviewState: 'not_reviewed',
         status: 'success',
         tokenCount: 1200,
         turns: [
@@ -536,6 +553,7 @@ function iterationView(): IterationView {
             expectations: [
               {
                 evidence: 'The answer starts with feat!:',
+                id: TURN_EXPECTATION_ID,
                 passed: true,
                 scope: 'turn',
                 text: 'The response uses a breaking-change marker.',
@@ -574,7 +592,6 @@ function iterationView(): IterationView {
         issues: [],
         passRate: 0,
         providerSessionId: '019e64c2-2d2f-7ff2-a16c-9359a2b2304c',
-        reviewState: 'not_reviewed',
         status: 'success',
         tokenCount: 900,
         turns: [],
