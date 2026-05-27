@@ -80,6 +80,88 @@ it('keeps expectation status out of the inline feedback area', () => {
   expect(within(feedbackArea).queryByText(/PASS \| Baseline: FAIL/i)).not.toBeInTheDocument();
 });
 
+it('keeps passing expectation feedback collapsed until the card is toggled', async () => {
+  const user = userEvent.setup();
+  const run = iterationView().runs[0];
+  if (!run) {
+    throw new Error('Expected a run for the expectations fixture.');
+  }
+  render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
+
+  const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+  const feedbackArea = feedback.closest('.inline-feedback');
+  if (!feedbackArea) {
+    throw new Error('Expected the expectation feedback textarea to render inside a feedback area.');
+  }
+
+  expect(feedbackArea).toHaveAttribute('aria-hidden', 'true');
+  expect(feedback).toHaveAttribute('tabIndex', '-1');
+
+  await user.click(
+    screen.getByRole('button', { name: /Toggle feedback for The response uses a breaking-change marker/i })
+  );
+
+  expect(feedbackArea).toHaveAttribute('aria-hidden', 'false');
+  expect(feedback).not.toHaveAttribute('tabIndex');
+
+  await user.click(
+    screen.getByRole('button', { name: /Toggle feedback for The response uses a breaking-change marker/i })
+  );
+
+  expect(feedbackArea).toHaveAttribute('aria-hidden', 'true');
+  expect(feedback).toHaveAttribute('tabIndex', '-1');
+});
+
+it('opens expectation feedback by default when feedback already exists', () => {
+  const run = iterationView().runs[0];
+  if (!run) {
+    throw new Error('Expected a run for the expectations fixture.');
+  }
+  render(
+    <ExpectationsPanel
+      draft={{
+        ...run.feedback,
+        turns: [{ expectations: [{ comment: 'Already reviewed.', expectation_id: run.expectations[0]?.id }], turn: 1 }]
+      }}
+      run={run}
+      updateDraft={() => undefined}
+    />
+  );
+
+  const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(feedback).toHaveValue('Already reviewed.');
+});
+
+it('opens failed expectation feedback by default', () => {
+  const run = iterationView().runs[0];
+  if (!run) {
+    throw new Error('Expected a run for the expectations fixture.');
+  }
+  render(
+    <ExpectationsPanel
+      draft={{ ...run.feedback, overall: [{ comment: '' }] }}
+      run={{
+        ...run,
+        expectations: [
+          {
+            evidence: 'The response missed the required footer.',
+            passed: false,
+            scope: 'overall',
+            text: 'Requires a footer.'
+          }
+        ]
+      }}
+      updateDraft={() => undefined}
+    />
+  );
+
+  expect(screen.getByLabelText('Feedback for overall expectation 1').closest('.inline-feedback')).toHaveAttribute(
+    'aria-hidden',
+    'false'
+  );
+});
+
 it('disables baseline viewing when comparison expectations are unavailable', () => {
   const run = iterationView().runs[0];
   if (!run) {

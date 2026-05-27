@@ -621,9 +621,20 @@ button:disabled {
 
 .expectation-main {
   align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: grid;
   gap: 14px;
   grid-template-columns: 32px minmax(0, 1fr) auto;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+div.expectation-main {
+  cursor: default;
 }
 
 .status-icon {
@@ -730,13 +741,27 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--compact-gap);
+  max-height: 132px;
+  opacity: 1;
+  overflow: hidden;
   padding-top: var(--inline-gap);
+  transition:
+    border-color var(--transition-glow),
+    max-height var(--transition-glow),
+    opacity var(--transition-default),
+    padding-top var(--transition-glow);
 }
 
-.inline-feedback span {
-  color: var(--color-text-subtle);
-  font-size: var(--text-label-size);
-  text-transform: uppercase;
+.inline-feedback[aria-hidden='true'] {
+  border-top-color: transparent;
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  pointer-events: none;
+}
+
+.inline-feedback[aria-hidden='true'] textarea {
+  visibility: hidden;
 }
 
 .inline-feedback textarea,

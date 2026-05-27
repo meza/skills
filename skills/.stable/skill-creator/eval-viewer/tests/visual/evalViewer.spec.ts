@@ -73,6 +73,42 @@ test('failed expectation hover state gives the status bar a neon glow', async ({
   });
 });
 
+test('passing expectation card starts with feedback collapsed', async ({ page }) => {
+  await page.goto('/');
+
+  const expectation = page.locator('.expectation.pass').first();
+  await expect(expectation).toBeVisible();
+  await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'true');
+  await expect(expectation.getByLabel('Feedback for turn 1 expectation 1')).toHaveAttribute('tabindex', '-1');
+
+  await expect(expectation).toHaveScreenshot('viewer-passing-expectation-collapsed-state.png');
+});
+
+test('passing expectation card shows feedback after toggling open', async ({ page }) => {
+  await page.goto('/');
+
+  const expectation = page.locator('.expectation.pass').first();
+  await expect(expectation).toBeVisible();
+  await expectation.getByRole('button', { name: /toggle feedback/i }).click();
+  await page.waitForTimeout(300);
+
+  await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  await expect(expectation.getByLabel('Feedback for turn 1 expectation 1')).not.toHaveAttribute('tabindex', '-1');
+
+  await expect(expectation).toHaveScreenshot('viewer-passing-expectation-open-state.png');
+});
+
+test('failed expectation card starts with feedback open', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  const expectation = page.locator('.expectation.fail').first();
+  await expect(expectation).toBeVisible();
+  await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+
+  await expect(expectation).toHaveScreenshot('viewer-failed-expectation-open-state.png');
+});
+
 test('feedback hover state gives the review rail a neon glow', async ({ page }) => {
   await page.goto('/');
 
@@ -199,6 +235,7 @@ test('fail filter state shows only artifact error runs', async ({ page }) => {
 test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
   await page.goto('/');
 
+  await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill('Expectation order needs a quick reviewer check.');
   await page.getByLabel('Review comments').fill('Draft review notes before finalizing this run.');
 
@@ -220,6 +257,7 @@ test('feedback workflow has visual coverage and persists only filled values', as
 
   const comments = 'Reviewer confirmed this run is ready for the next iteration.';
   const expectationComment = 'Expectation order matches the first graded turn result.';
+  await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
   await page.getByLabel('Review comments').fill(comments);
   await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
@@ -268,6 +306,7 @@ test('past feedback state loads saved review content', async ({ page }) => {
 
   const comments = 'Past review loaded from the feedback artifact.';
   const expectationComment = 'Previously saved expectation note.';
+  await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
   await page.getByLabel('Review comments').fill(comments);
   await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
@@ -483,6 +522,20 @@ async function scrollContentToTop(page: Page) {
   await page.locator('.content').evaluate((element) => {
     element.scrollTop = 0;
   });
+}
+
+async function openExpectationFeedback(feedback: ReturnType<Page['getByLabel']>) {
+  const isOpen = await feedback.evaluate((element) => element.closest('.inline-feedback')?.getAttribute('aria-hidden'));
+  if (isOpen !== 'false') {
+    await feedback
+      .locator('xpath=ancestor::article[contains(concat(" ", normalize-space(@class), " "), " expectation ")]')
+      .getByRole('button', { name: /toggle feedback/i })
+      .click();
+    await expect(feedback.locator('xpath=ancestor::div[contains(@class, "inline-feedback")]')).toHaveAttribute(
+      'aria-hidden',
+      'false'
+    );
+  }
 }
 
 async function expectHoverChange(page: Page, selector: string, property: string) {

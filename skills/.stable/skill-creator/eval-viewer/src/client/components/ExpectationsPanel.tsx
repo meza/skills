@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
 import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
 
@@ -142,12 +142,16 @@ function ExpectationCard({
 }) {
   const showEvidence = !expectation.passed;
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackId = useId();
+  const feedbackStartsOpen = !expectation.passed || comment.trim().length > 0;
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(feedbackStartsOpen);
   const label =
     expectation.scope === 'overall'
       ? `Feedback for overall expectation ${index + 1}`
       : `Feedback for turn ${expectation.turn as number} expectation ${
           turnExpectationIndex(expectations, expectation, index) + 1
         }`;
+
   useEffect(() => {
     const feedback = feedbackRef.current;
     if (feedback) {
@@ -157,15 +161,29 @@ function ExpectationCard({
 
   return (
     <article className={expectation.passed ? 'expectation pass' : 'expectation fail'}>
-      <div className="expectation-main">
-        <div className="status-icon">
-          <span className="material-symbols-outlined">{expectation.passed ? 'check' : 'close'}</span>
+      {allowFeedback ? (
+        <button
+          aria-controls={feedbackId}
+          aria-expanded={isFeedbackOpen}
+          aria-label={`Toggle feedback for ${expectation.text}`}
+          className="expectation-main"
+          onClick={() => setIsFeedbackOpen((current) => !current)}
+          type="button">
+          <ExpectationCardHeader
+            comparisonExpectation={comparisonExpectation}
+            comparisonLabel={comparisonLabel}
+            expectation={expectation}
+          />
+        </button>
+      ) : (
+        <div className="expectation-main">
+          <ExpectationCardHeader
+            comparisonExpectation={comparisonExpectation}
+            comparisonLabel={comparisonLabel}
+            expectation={expectation}
+          />
         </div>
-        <div>
-          <p className="expectation-text">{expectation.text}</p>
-        </div>
-        <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
-      </div>
+      )}
       {showEvidence && (expectation.evidence || comparisonExpectation?.evidence) && (
         <div className="evidence-grid">
           <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
@@ -175,8 +193,8 @@ function ExpectationCard({
       {showEvidence && !expectation.evidence && !comparisonExpectation?.evidence ? (
         <p className="empty-copy">No evidence was recorded for this expectation.</p>
       ) : null}
-      <div className="inline-feedback">
-        {allowFeedback ? (
+      {allowFeedback ? (
+        <div aria-hidden={!isFeedbackOpen} className="inline-feedback" id={feedbackId}>
           <textarea
             aria-label={label}
             onChange={(event) => {
@@ -185,11 +203,34 @@ function ExpectationCard({
             }}
             placeholder="Add feedback for this expectation..."
             ref={feedbackRef}
+            tabIndex={isFeedbackOpen ? undefined : -1}
             value={comment}
           />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </article>
+  );
+}
+
+function ExpectationCardHeader({
+  comparisonExpectation,
+  comparisonLabel,
+  expectation
+}: {
+  comparisonExpectation: ExpectationView | undefined;
+  comparisonLabel: string;
+  expectation: ExpectationView;
+}) {
+  return (
+    <>
+      <div className="status-icon">
+        <span className="material-symbols-outlined">{expectation.passed ? 'check' : 'close'}</span>
+      </div>
+      <div>
+        <p className="expectation-text">{expectation.text}</p>
+      </div>
+      <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
+    </>
   );
 }
 
