@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .eval_definitions import write_eval_metadata
-from .eval_job import run_single_job
+from .eval_job import kill_active_processes, run_single_job
 
 if TYPE_CHECKING:
     from .prepare_fixture import PreparedEval
@@ -154,7 +154,8 @@ class EvalRun:
         run_dir = self.run_dir_for_run_type(prepared_eval, run_type)
         if not run_dir:
             print(
-                f"Warning: no run directory for eval {eval_def['id']} run type {run_type}",
+                "Warning: no run directory for "
+                f"eval {eval_def['id']} run type {run_type}",
                 file=sys.stderr,
             )
             return None
@@ -214,11 +215,18 @@ class EvalRun:
         )
         progress.write()
 
-        with ThreadPoolExecutor(max_workers=self.options.max_parallel) as executor:
+        executor = ThreadPoolExecutor(max_workers=self.options.max_parallel)
+        try:
             futures = self.submit_jobs(executor, jobs, iteration_dir, deadline)
             for future in as_completed(futures):
                 job = futures[future]
                 progress.record(self.future_summary(future, job))
+        except BaseException:
+            kill_active_processes()
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
+        else:
+            executor.shutdown(wait=True)
 
         return progress.summaries
 

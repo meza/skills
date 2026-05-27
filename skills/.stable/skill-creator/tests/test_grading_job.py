@@ -249,7 +249,10 @@ class GradingJobTests(unittest.TestCase):
                                 "id": str(
                                     uuid.uuid5(
                                         uuid.NAMESPACE_URL,
-                                        "skill-creator/grading/eval-1/skill/turn-1/expectation/1",
+                                        (
+                                            "skill-creator/grading/eval-1/skill/"
+                                            "turn-1/expectation/1"
+                                        ),
                                     )
                                 ),
                             }
@@ -323,9 +326,7 @@ class GradingJobTests(unittest.TestCase):
                 ],
             )
             grader_output_schema = json.loads(
-                (run_type_dir / "grader_output_schema.json").read_text(
-                    encoding="utf-8"
-                )
+                (run_type_dir / "grader_output_schema.json").read_text(encoding="utf-8")
             )
             self.assertNotIn(
                 "id",

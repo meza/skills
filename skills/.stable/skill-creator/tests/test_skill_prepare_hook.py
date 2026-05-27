@@ -27,10 +27,7 @@ class SkillPrepareHookTests(unittest.TestCase):
             eval_id=eval_id,
             eval_name=f"eval-{eval_id}",
             skill_run_path=run_root / "workdirs" / f"eval-{eval_id}" / "skill",
-            baseline_run_path=run_root
-            / "workdirs"
-            / f"eval-{eval_id}"
-            / "baseline",
+            baseline_run_path=run_root / "workdirs" / f"eval-{eval_id}" / "baseline",
             skill_file=run_root
             / "workdirs"
             / f"eval-{eval_id}"

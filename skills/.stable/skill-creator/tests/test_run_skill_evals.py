@@ -999,8 +999,12 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("skill file not found", stderr.getvalue())
 
-    def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(self):
-        self.assertEqual(eval_definitions.selected_run_types(False), ["skill", "baseline"])
+    def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(
+        self,
+    ):
+        self.assertEqual(
+            eval_definitions.selected_run_types(False), ["skill", "baseline"]
+        )
         self.assertEqual(eval_definitions.selected_run_types(True), ["skill"])
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1321,6 +1325,64 @@ class RunSkillEvalsPromptTests(unittest.TestCase):
         self.assertEqual(prompt, "Please update the fixture.")
 
 
+class EvalRunInterruptTests(unittest.TestCase):
+    def test_run_jobs_shuts_down_executor_without_waiting_when_interrupted(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            iteration_dir = Path(temp_dir)
+            job = EvalJobSpec(
+                {"id": 1, "eval_name": "interrupt"},
+                "skill",
+                "F:/runs/eval-1/skill",
+                None,
+            )
+            executor = mock.Mock()
+            executor.submit.return_value = "future"
+            run = EvalRun(
+                EvalRunOptions(
+                    eval_definitions_path=Path("F:/skills/evals/evals.json"),
+                    workspace=iteration_dir,
+                    iteration=1,
+                    provider_name="fake",
+                    model=None,
+                    effort=None,
+                    max_parallel=1,
+                    timeout=600,
+                    total_timeout=None,
+                    run_types=["skill"],
+                    run_root=Path("F:/runs"),
+                ),
+                FakeProvider(),
+                {"skill_name": "fake-skill"},
+                [{"id": 1, "eval_name": "interrupt"}],
+                [],
+            )
+
+            with (
+                mock.patch.object(
+                    eval_runner,
+                    "ThreadPoolExecutor",
+                    return_value=executor,
+                ),
+                mock.patch.object(
+                    eval_runner,
+                    "kill_active_processes",
+                ) as kill_active,
+                mock.patch.object(
+                    eval_runner,
+                    "as_completed",
+                    side_effect=KeyboardInterrupt,
+                ),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                run.run_jobs([job], iteration_dir, time.time())
+
+        kill_active.assert_called_once_with()
+        executor.shutdown.assert_called_once_with(
+            wait=False,
+            cancel_futures=True,
+        )
+
+
 class CodexProviderTests(unittest.TestCase):
     def test_build_command_sets_cwd_for_turn_zero_only(self):
         provider = CodexProvider()
@@ -1343,20 +1405,34 @@ class CodexProviderTests(unittest.TestCase):
                 "exec",
                 "--json",
                 "--skip-git-repo-check",
-                "--ephemeral",
+                "--sandbox",
+                "workspace-write",
+                "--enable",
+                "experimental_windows_sandbox",
                 "--ignore-user-config",
+                "--ignore-rules",
                 "-c",
                 "shell_environment_policy.ignore_default_excludes=false",
+                "-c",
+                'approval_policy="never"',
                 "-c",
                 "skills.bundled.enabled=false",
                 "-c",
                 "features.plugins=false",
-                "-",
                 "--cd",
                 "F:/tmp/eval-1/skill",
+                "--add-dir",
+                "F:/tmp/eval-1/skill",
+                "-",
                 "--model",
                 "gpt-5.4",
             ],
+        )
+        self.assertNotIn("--ephemeral", start_command)
+        self.assertIn("--sandbox", start_command)
+        self.assertEqual(
+            start_command[start_command.index("--sandbox") + 1],
+            "workspace-write",
         )
 
         resume_command = provider.build_command(
@@ -1374,10 +1450,16 @@ class CodexProviderTests(unittest.TestCase):
                 "resume",
                 "--json",
                 "--skip-git-repo-check",
-                "--ephemeral",
+                "--enable",
+                "experimental_windows_sandbox",
                 "--ignore-user-config",
+                "--ignore-rules",
                 "-c",
                 "shell_environment_policy.ignore_default_excludes=false",
+                "-c",
+                'approval_policy="never"',
+                "-c",
+                'sandbox_mode="workspace-write"',
                 "-c",
                 "skills.bundled.enabled=false",
                 "-c",
@@ -1388,6 +1470,8 @@ class CodexProviderTests(unittest.TestCase):
                 "gpt-5.4",
             ],
         )
+        self.assertNotIn("--ephemeral", resume_command)
+        self.assertNotIn("--sandbox", resume_command)
 
     def test_extract_response_returns_last_agent_message_only(self):
         response = extract_codex_response(

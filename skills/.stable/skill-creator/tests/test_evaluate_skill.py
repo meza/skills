@@ -247,6 +247,10 @@ class EvaluateSkillTests(unittest.TestCase):
 
             evaluate_skill.validate_run_root_is_not_in_git_workspace(run_root)
 
+    def test_interrupt_signal_handler_raises_keyboard_interrupt(self):
+        with self.assertRaises(KeyboardInterrupt):
+            evaluate_skill.raise_keyboard_interrupt_for_signal(None, None)
+
     def test_main_parses_cli_options_and_prints_execution_summary(self):
         expected_result = {
             "prepare": {
@@ -353,6 +357,46 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 1)
         self.assertIn(
             "Error: --run-root must not be inside a Git workspace",
+            stderr.getvalue(),
+        )
+
+    def test_main_reports_interrupt_as_clean_exit(self):
+        class InterruptForTest(BaseException):
+            pass
+
+        argv = [
+            "evaluate_skill.py",
+            "--skill-path",
+            "F:/skills/sample-skill",
+            "--run-root",
+            "F:/runs",
+            "--provider",
+            "codex",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(
+                evaluate_skill,
+                "execute",
+                side_effect=InterruptForTest,
+            ),
+            mock.patch.object(
+                evaluate_skill,
+                "INTERRUPT_EXCEPTIONS",
+                (InterruptForTest,),
+                create=True,
+            ),
+            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            evaluate_skill.main()
+
+        self.assertEqual(raised.exception.code, 130)
+        kill_active.assert_called_once_with()
+        self.assertIn(
+            "Interrupted; terminating active eval subprocesses.",
             stderr.getvalue(),
         )
 

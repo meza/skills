@@ -191,9 +191,9 @@ class PrepareFixtureContractTests(unittest.TestCase):
             eval_entry = self._prepared_eval(prepared_run)
 
             self.assertEqual(
-                (
-                    eval_entry.skill_run_path / "evals" / "files" / "input.txt"
-                ).read_text(encoding="utf-8"),
+                (eval_entry.skill_run_path / "evals" / "files" / "input.txt").read_text(
+                    encoding="utf-8"
+                ),
                 "sample",
             )
             self.assertEqual(
@@ -319,9 +319,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
             run_root = temp_path / "runs" / "demo-skill"
 
             first = self._run_prepare(skill_path, run_root)
-            stale_file = (
-                first.run_root / "workdirs" / "eval-1" / "skill" / "stale.txt"
-            )
+            stale_file = first.run_root / "workdirs" / "eval-1" / "skill" / "stale.txt"
             stale_file.write_text("stale", encoding="utf-8")
             preserved_result = first.run_root / "results" / "iteration-1" / "marker.txt"
             preserved_result.parent.mkdir(parents=True)

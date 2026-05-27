@@ -62,7 +62,10 @@ class GradingResultAggregatorTests(unittest.TestCase):
                                     "turn": 1,
                                     "expectations": [
                                         {
-                                            "id": "9fb0a83a-8301-50ae-8502-133bc77fc19f",
+                                            "id": (
+                                                "9fb0a83a-8301-50ae-8502-"
+                                                "133bc77fc19f"
+                                            ),
                                             "text": "Turn expectation",
                                             "passed": False,
                                             "evidence": "Turn evidence.",

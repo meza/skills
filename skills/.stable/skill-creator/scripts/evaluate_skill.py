@@ -2,8 +2,11 @@
 """Prepare and run skill evals from one explicit command."""
 
 import argparse
+import signal
 import json
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 if __package__:
@@ -28,6 +31,38 @@ else:
 
 class RunRootInsideGitWorkspaceError(ValueError):
     """Raised when eval isolation would be contaminated by an enclosing Git repo."""
+
+
+INTERRUPT_EXCEPTIONS = (KeyboardInterrupt,)
+
+
+def raise_keyboard_interrupt_for_signal(_signum, _frame) -> None:
+    """Convert process interrupt signals into normal interrupt exceptions."""
+    raise KeyboardInterrupt
+
+
+def interrupt_signal_numbers() -> list[int]:
+    """Return interrupt signals the orchestrator should handle gracefully."""
+    signals = [signal.SIGINT]
+    sigterm = getattr(signal, "SIGTERM", None)
+    if sigterm is not None:
+        signals.append(sigterm)
+    return signals
+
+
+@contextmanager
+def interrupt_signals_raise_keyboard_interrupt() -> Iterator[None]:
+    """Temporarily route interrupt signals through Python cleanup paths."""
+    previous_handlers = {}
+    for signal_number in interrupt_signal_numbers():
+        previous_handlers[signal_number] = signal.getsignal(signal_number)
+        signal.signal(signal_number, raise_keyboard_interrupt_for_signal)
+
+    try:
+        yield
+    finally:
+        for signal_number, handler in previous_handlers.items():
+            signal.signal(signal_number, handler)
 
 
 def find_containing_git_workspace_marker(path: Path) -> Path | None:
@@ -164,10 +199,18 @@ def main() -> None:
     )
 
     try:
-        result = execute(parser.parse_args())
+        with interrupt_signals_raise_keyboard_interrupt():
+            result = execute(parser.parse_args())
     except RunRootInsideGitWorkspaceError as error:
         print(f"Error: {error}", file=sys.stderr)
         raise SystemExit(1) from error
+    except INTERRUPT_EXCEPTIONS as error:
+        print(
+            "Interrupted; terminating active eval subprocesses.",
+            file=sys.stderr,
+        )
+        kill_active_processes()
+        raise SystemExit(130) from error
 
     print(json.dumps(result, indent=2))
 

@@ -201,6 +201,88 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIn("skills.bundled.enabled=false", command)
         self.assertIn("features.plugins=false", command)
 
+    def test_build_command_sets_execution_policy_before_prompt(self):
+        command = CodexProvider().build_command(
+            session_id=None,
+            session_name="session",
+            turn_index=0,
+            model=None,
+            working_dir="F:/runs/eval-1/skill",
+        )
+
+        prompt_index = command.index("-")
+        self.assertLess(command.index("--cd"), prompt_index)
+        self.assertLess(command.index("--add-dir"), prompt_index)
+        self.assertEqual(
+            command[command.index("--add-dir") + 1],
+            "F:/runs/eval-1/skill",
+        )
+        self.assertLess(command.index("--ignore-rules"), prompt_index)
+
+    def test_build_command_enables_windows_workspace_write_sandbox(self):
+        start_command = CodexProvider().build_command(
+            session_id=None,
+            session_name="session",
+            turn_index=0,
+            model=None,
+            working_dir="F:/runs/eval-1/skill",
+        )
+        resume_command = CodexProvider().build_command(
+            session_id="thread-123",
+            session_name="session",
+            turn_index=1,
+            model=None,
+        )
+        grading_command = CodexProvider().build_grading_command(
+            model=None,
+            effort=None,
+            working_dir="F:/runs/eval-1/skill",
+            output_schema="F:/schemas/grading.schema.json",
+        )
+
+        for command in (start_command, resume_command, grading_command):
+            self.assertIn("--enable", command)
+            self.assertEqual(
+                command[command.index("--enable") + 1],
+                "experimental_windows_sandbox",
+            )
+
+    def test_resume_command_carries_writable_sandbox_config(self):
+        command = CodexProvider().build_command(
+            session_id="thread-123",
+            session_name="session",
+            turn_index=1,
+            model=None,
+        )
+
+        self.assertIn("-c", command)
+        self.assertIn('sandbox_mode="workspace-write"', command)
+
+    def test_commands_disable_approval_requests(self):
+        start_command = CodexProvider().build_command(
+            session_id=None,
+            session_name="session",
+            turn_index=0,
+            model=None,
+            working_dir="F:/runs/eval-1/skill",
+        )
+        resume_command = CodexProvider().build_command(
+            session_id="thread-123",
+            session_name="session",
+            turn_index=1,
+            model=None,
+        )
+        grading_command = CodexProvider().build_grading_command(
+            model=None,
+            effort=None,
+            working_dir="F:/runs/eval-1/skill",
+            output_schema="F:/schemas/grading.schema.json",
+        )
+
+        self.assertIn('approval_policy="never"', start_command)
+        self.assertIn('approval_policy="never"', resume_command)
+        self.assertIn('approval_policy="never"', grading_command)
+
     def test_build_grading_command_applies_output_schema(self):
         command = CodexProvider().build_grading_command(
             model="gpt-5.5",
@@ -219,6 +301,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             command[command.index("--cd") + 1],
             "F:/runs/eval-1/skill",
         )
+        self.assertIn("--sandbox", command)
+        self.assertEqual(command[command.index("--sandbox") + 1], "workspace-write")
         self.assertIn("--model", command)
         self.assertEqual(command[command.index("--model") + 1], "gpt-5.5")
 
@@ -237,10 +321,16 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "resume",
                 "--json",
                 "--skip-git-repo-check",
-                "--ephemeral",
+                "--enable",
+                "experimental_windows_sandbox",
                 "--ignore-user-config",
+                "--ignore-rules",
                 "-c",
                 "shell_environment_policy.ignore_default_excludes=false",
+                "-c",
+                'approval_policy="never"',
+                "-c",
+                'sandbox_mode="workspace-write"',
                 "-c",
                 "skills.bundled.enabled=false",
                 "-c",
@@ -251,6 +341,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "gpt-5.5",
             ],
         )
+        self.assertNotIn("--ephemeral", command)
+        self.assertNotIn("--sandbox", command)
 
     def test_build_command_rejects_resume_without_session_id(self):
         with self.assertRaisesRegex(

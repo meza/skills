@@ -18,7 +18,9 @@ DEFAULT_GRADER_INSTRUCTIONS_PATH = (
 DEFAULT_GRADING_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "grading.schema.json"
 
 
-def add_grading_expectation_ids(grading_data: dict, *, eval_id: int, run_type: str) -> None:
+def add_grading_expectation_ids(
+    grading_data: dict, *, eval_id: int, run_type: str
+) -> None:
     """Assign orchestrator-owned IDs to each grading expectation result."""
     results = grading_data["results"]
     for index, expectation in enumerate(results["overall_expectations"], start=1):

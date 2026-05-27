@@ -29,6 +29,22 @@ SHELL_ENV_SECRET_FILTER_ARGS = [
     "-c",
     "shell_environment_policy.ignore_default_excludes=false",
 ]
+CODEX_SANDBOX_ARGS = [
+    "--sandbox",
+    "workspace-write",
+]
+CODEX_SANDBOX_CONFIG_ARGS = [
+    "-c",
+    'sandbox_mode="workspace-write"',
+]
+CODEX_APPROVAL_CONFIG_ARGS = [
+    "-c",
+    'approval_policy="never"',
+]
+WINDOWS_SANDBOX_FEATURE_ARGS = [
+    "--enable",
+    "experimental_windows_sandbox",
+]
 EVAL_ISOLATION_CONFIG_ARGS = [
     "-c",
     "skills.bundled.enabled=false",
@@ -59,14 +75,18 @@ class CodexProvider(Provider):
                 "exec",
                 "--json",
                 "--skip-git-repo-check",
-                "--ephemeral",
+                *CODEX_SANDBOX_ARGS,
+                *WINDOWS_SANDBOX_FEATURE_ARGS,
                 "--ignore-user-config",
+                "--ignore-rules",
                 *SHELL_ENV_SECRET_FILTER_ARGS,
+                *CODEX_APPROVAL_CONFIG_ARGS,
                 *EVAL_ISOLATION_CONFIG_ARGS,
-                "-",
             ]
             if working_dir:
                 cmd.extend(["--cd", working_dir])
+                cmd.extend(["--add-dir", working_dir])
+            cmd.append("-")
         else:
             if not session_id:
                 raise ValueError("Codex resume requires a session_id after turn 0")
@@ -76,9 +96,12 @@ class CodexProvider(Provider):
                 "resume",
                 "--json",
                 "--skip-git-repo-check",
-                "--ephemeral",
+                *WINDOWS_SANDBOX_FEATURE_ARGS,
                 "--ignore-user-config",
+                "--ignore-rules",
                 *SHELL_ENV_SECRET_FILTER_ARGS,
+                *CODEX_APPROVAL_CONFIG_ARGS,
+                *CODEX_SANDBOX_CONFIG_ARGS,
                 *EVAL_ISOLATION_CONFIG_ARGS,
                 session_id,
                 "-",
@@ -102,13 +125,16 @@ class CodexProvider(Provider):
             "exec",
             "--json",
             "--skip-git-repo-check",
-            "--ephemeral",
+            *CODEX_SANDBOX_ARGS,
+            *WINDOWS_SANDBOX_FEATURE_ARGS,
             "--ignore-user-config",
+            "--ignore-rules",
             *SHELL_ENV_SECRET_FILTER_ARGS,
+            *CODEX_APPROVAL_CONFIG_ARGS,
             *EVAL_ISOLATION_CONFIG_ARGS,
-            "-",
             "--cd",
             working_dir,
+            "-",
             "--output-schema",
             output_schema,
         ]
