@@ -12,8 +12,8 @@
 
 body {
   background:
-    linear-gradient(to right, rgba(0, 219, 231, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 219, 231, 0.05) 1px, transparent 1px), #11131c;
+    linear-gradient(to right, rgb(0 219 231 / 5%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(0 219 231 / 5%) 1px, transparent 1px), #11131c;
   background-size: 40px 40px;
   margin: 0;
   min-height: 100vh;
@@ -61,8 +61,8 @@ button:disabled {
 .top-bar {
   align-items: center;
   backdrop-filter: blur(20px);
-  background: rgba(17, 19, 28, 0.88);
-  border-bottom: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(17 19 28 / 88%);
+  border-bottom: 1px solid rgb(58 73 75 / 35%);
   display: flex;
   grid-column: 1 / -1;
   grid-row: 1;
@@ -77,7 +77,7 @@ button:disabled {
   font-weight: 700;
   letter-spacing: 0;
   margin: 0;
-  text-shadow: 0 0 8px rgba(0, 219, 231, 0.5);
+  text-shadow: 0 0 8px rgb(0 219 231 / 50%);
 }
 
 .top-bar p,
@@ -109,8 +109,8 @@ button:disabled {
 
 .side-nav {
   align-self: start;
-  background: rgba(25, 27, 36, 0.94);
-  border-right: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(25 27 36 / 94%);
+  border-right: 1px solid rgb(58 73 75 / 35%);
   grid-column: 1;
   grid-row: 2;
   padding: 0 16px 16px;
@@ -119,7 +119,7 @@ button:disabled {
 
 .brand-block {
   align-items: center;
-  border-bottom: 1px solid rgba(58, 73, 75, 0.2);
+  border-bottom: 1px solid rgb(58 73 75 / 20%);
   display: flex;
   gap: 12px;
   margin: 0 -16px 18px;
@@ -128,8 +128,8 @@ button:disabled {
 
 .brand-icon {
   align-items: center;
-  background: rgba(0, 219, 231, 0.1);
-  border: 1px solid rgba(0, 219, 231, 0.35);
+  background: rgb(0 219 231 / 10%);
+  border: 1px solid rgb(0 219 231 / 35%);
   color: #00dbe7;
   display: flex;
   height: 40px;
@@ -163,8 +163,8 @@ button:disabled {
 
 .filters button {
   align-items: center;
-  background: rgba(55, 57, 67, 0.3);
-  border: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(55 57 67 / 30%);
+  border: 1px solid rgb(58 73 75 / 35%);
   border-radius: 2px;
   color: #e1e1ef;
   display: flex;
@@ -189,8 +189,8 @@ button:disabled {
 }
 
 .filters button[aria-pressed='true'] {
-  background: rgba(0, 219, 231, 0.1);
-  border-color: rgba(0, 219, 231, 0.75);
+  background: rgb(0 219 231 / 10%);
+  border-color: rgb(0 219 231 / 75%);
   color: #00dbe7;
 }
 
@@ -199,8 +199,8 @@ button:disabled {
 }
 
 .filters button:hover:not(:disabled) {
-  background: rgba(55, 57, 67, 0.5);
-  border-color: rgba(0, 219, 231, 0.45);
+  background: rgb(55 57 67 / 50%);
+  border-color: rgb(0 219 231 / 45%);
   color: #00dbe7;
 }
 
@@ -209,9 +209,9 @@ button:disabled {
 }
 
 .filters button[aria-pressed='true']:hover:not(:disabled) {
-  background: rgba(0, 219, 231, 0.16);
-  border-color: rgba(0, 219, 231, 0.9);
-  box-shadow: 0 0 14px rgba(0, 219, 231, 0.12);
+  background: rgb(0 219 231 / 16%);
+  border-color: rgb(0 219 231 / 90%);
+  box-shadow: 0 0 14px rgb(0 219 231 / 12%);
 }
 
 .run-list {
@@ -232,17 +232,17 @@ button:disabled {
 }
 
 .run-link[aria-pressed='true'] {
-  background: rgba(0, 219, 231, 0.12);
+  background: rgb(0 219 231 / 12%);
   border-left-color: #00dbe7;
   color: #00dbe7;
 }
 
 .run-link:hover:not(:disabled) {
-  background: rgba(55, 57, 67, 0.3);
+  background: rgb(55 57 67 / 30%);
 }
 
 .run-link[aria-pressed='true']:hover:not(:disabled) {
-  background: rgba(0, 219, 231, 0.18);
+  background: rgb(0 219 231 / 18%);
 }
 
 .run-link span {
@@ -300,7 +300,7 @@ button:disabled {
 
 .run-header {
   align-items: flex-start;
-  border-bottom: 1px solid rgba(58, 73, 75, 0.45);
+  border-bottom: 1px solid rgb(58 73 75 / 45%);
   display: flex;
   gap: 24px;
   justify-content: space-between;
@@ -329,8 +329,8 @@ button:disabled {
 .run-pager button,
 .run-pager > span {
   align-items: center;
-  background: rgba(25, 27, 36, 0.8);
-  border: 1px solid rgba(58, 73, 75, 0.5);
+  background: rgb(25 27 36 / 80%);
+  border: 1px solid rgb(58 73 75 / 50%);
   border-radius: 2px;
   color: #b9cacb;
   display: flex;
@@ -352,8 +352,8 @@ button:disabled {
 }
 
 .run-pager button:hover:not(:disabled) {
-  background: rgba(55, 57, 67, 0.5);
-  border-color: rgba(0, 219, 231, 0.45);
+  background: rgb(55 57 67 / 50%);
+  border-color: rgb(0 219 231 / 45%);
   color: #00dbe7;
 }
 
@@ -364,8 +364,8 @@ button:disabled {
 .summary-card,
 .feedback {
   backdrop-filter: blur(20px);
-  background: rgba(18, 20, 29, 0.82);
-  border: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(18 20 29 / 82%);
+  border: 1px solid rgb(58 73 75 / 35%);
   border-left: 2px solid #00dbe7;
   border-radius: 4px;
   padding: 32px;
@@ -409,8 +409,8 @@ button:disabled {
 }
 
 .metric {
-  background: rgba(40, 41, 51, 0.6);
-  border: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(40 41 51 / 60%);
+  border: 1px solid rgb(58 73 75 / 35%);
   border-radius: 2px;
   padding: 16px;
 }
@@ -432,12 +432,12 @@ button:disabled {
 
 .metric strong.pass {
   color: #a8f928;
-  text-shadow: 0 0 8px rgba(143, 219, 0, 0.4);
+  text-shadow: 0 0 8px rgb(143 219 0 / 40%);
 }
 
 .metric strong.primary {
   color: #00dbe7;
-  text-shadow: 0 0 8px rgba(0, 219, 231, 0.4);
+  text-shadow: 0 0 8px rgb(0 219 231 / 40%);
 }
 
 .expectations {
@@ -448,7 +448,7 @@ button:disabled {
 
 .section-heading {
   align-items: center;
-  border-bottom: 1px solid rgba(58, 73, 75, 0.45);
+  border-bottom: 1px solid rgb(58 73 75 / 45%);
   display: flex;
   gap: 18px;
   justify-content: space-between;
@@ -460,8 +460,8 @@ button:disabled {
 }
 
 .result-toggle {
-  background: rgba(25, 27, 36, 0.86);
-  border: 1px solid rgba(58, 73, 75, 0.35);
+  background: rgb(25 27 36 / 86%);
+  border: 1px solid rgb(58 73 75 / 35%);
   border-radius: 999px;
   display: flex;
   gap: 4px;
@@ -482,7 +482,7 @@ button:disabled {
 
 .result-toggle button[aria-pressed='true'] {
   background: #00dbe7;
-  box-shadow: 0 0 14px rgba(0, 219, 231, 0.28);
+  box-shadow: 0 0 14px rgb(0 219 231 / 28%);
   color: #00363a;
 }
 
@@ -516,8 +516,8 @@ button:disabled {
 
 .expectation {
   backdrop-filter: blur(20px);
-  background: rgba(18, 20, 29, 0.78);
-  border: 1px solid rgba(58, 73, 75, 0.2);
+  background: rgb(18 20 29 / 78%);
+  border: 1px solid rgb(58 73 75 / 20%);
   border-left: 4px solid #849495;
   border-radius: 4px;
   display: flex;
@@ -527,15 +527,15 @@ button:disabled {
 }
 
 .expectation.pass {
-  background: linear-gradient(90deg, rgba(143, 219, 0, 0.05), rgba(18, 20, 29, 0.78));
+  background: linear-gradient(90deg, rgb(143 219 0 / 5%), rgb(18 20 29 / 78%));
   border-left-color: #8fdb00;
-  box-shadow: -10px 0 20px -10px rgba(143, 219, 0, 0.2);
+  box-shadow: -10px 0 20px -10px rgb(143 219 0 / 20%);
 }
 
 .expectation.fail {
-  background: linear-gradient(90deg, rgba(255, 180, 171, 0.05), rgba(18, 20, 29, 0.78));
+  background: linear-gradient(90deg, rgb(255 180 171 / 5%), rgb(18 20 29 / 78%));
   border-left-color: #ffb4ab;
-  box-shadow: -10px 0 20px -10px rgba(255, 180, 171, 0.2);
+  box-shadow: -10px 0 20px -10px rgb(255 180 171 / 20%);
 }
 
 .expectation-main {
@@ -547,8 +547,8 @@ button:disabled {
 
 .status-icon {
   align-items: center;
-  background: rgba(143, 219, 0, 0.1);
-  border: 1px solid rgba(143, 219, 0, 0.3);
+  background: rgb(143 219 0 / 10%);
+  border: 1px solid rgb(143 219 0 / 30%);
   border-radius: 50%;
   color: #8fdb00;
   display: flex;
@@ -558,8 +558,8 @@ button:disabled {
 }
 
 .fail .status-icon {
-  background: rgba(255, 180, 171, 0.1);
-  border-color: rgba(255, 180, 171, 0.3);
+  background: rgb(255 180 171 / 10%);
+  border-color: rgb(255 180 171 / 30%);
   color: #ffb4ab;
 }
 
@@ -580,7 +580,7 @@ button:disabled {
 }
 
 .status-badge {
-  border: 1px solid rgba(132, 148, 149, 0.4);
+  border: 1px solid rgb(132 148 149 / 40%);
   border-radius: 2px;
   color: #00dbe7;
   font-size: 12px;
@@ -590,14 +590,14 @@ button:disabled {
 }
 
 .status-badge.pass {
-  background: rgba(143, 219, 0, 0.18);
-  border-color: rgba(143, 219, 0, 0.35);
+  background: rgb(143 219 0 / 18%);
+  border-color: rgb(143 219 0 / 35%);
   color: #a8f928;
 }
 
 .status-badge.fail {
-  background: rgba(255, 180, 171, 0.16);
-  border-color: rgba(255, 180, 171, 0.35);
+  background: rgb(255 180 171 / 16%);
+  border-color: rgb(255 180 171 / 35%);
   color: #ffb4ab;
 }
 
@@ -615,14 +615,14 @@ button:disabled {
 }
 
 .evidence {
-  background: rgba(12, 14, 23, 0.62);
-  border: 1px solid rgba(0, 219, 231, 0.25);
+  background: rgb(12 14 23 / 62%);
+  border: 1px solid rgb(0 219 231 / 25%);
   border-radius: 2px;
   padding: 14px;
 }
 
 .evidence.muted {
-  border-color: rgba(58, 73, 75, 0.35);
+  border-color: rgb(58 73 75 / 35%);
   opacity: 0.8;
 }
 
@@ -644,7 +644,7 @@ button:disabled {
 }
 
 .inline-feedback {
-  border-top: 1px solid rgba(58, 73, 75, 0.35);
+  border-top: 1px solid rgb(58 73 75 / 35%);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -659,8 +659,8 @@ button:disabled {
 
 .inline-feedback textarea,
 .feedback textarea {
-  background: rgba(12, 14, 23, 0.78);
-  border: 1px solid rgba(58, 73, 75, 0.55);
+  background: rgb(12 14 23 / 78%);
+  border: 1px solid rgb(58 73 75 / 55%);
   border-radius: 2px;
   color: #e1e1ef;
   font-family: 'JetBrains Mono', monospace;
@@ -697,7 +697,7 @@ button:disabled {
   background: #00dbe7;
   border: 0;
   border-radius: 2px;
-  box-shadow: 0 0 20px rgba(0, 219, 231, 0.3);
+  box-shadow: 0 0 20px rgb(0 219 231 / 30%);
   color: #002022;
   display: block;
   font-family: 'JetBrains Mono', monospace;
@@ -709,7 +709,7 @@ button:disabled {
 
 .finalize-button:hover:not(:disabled) {
   filter: brightness(1.1);
-  box-shadow: 0 0 26px rgba(0, 219, 231, 0.42);
+  box-shadow: 0 0 26px rgb(0 219 231 / 42%);
 }
 
 .finalize-button:active:not(:disabled) {
@@ -718,9 +718,6 @@ button:disabled {
 
 .save-message {
   color: #ffb4ab;
-}
-
-.save-message {
   font-size: 12px;
   margin: 12px 0 0;
   text-transform: uppercase;
@@ -731,7 +728,7 @@ button:disabled {
 }
 
 .history {
-  border-top: 1px solid rgba(58, 73, 75, 0.3);
+  border-top: 1px solid rgb(58 73 75 / 30%);
   display: grid;
   gap: 32px;
   grid-template-columns: minmax(0, 8fr) minmax(260px, 4fr);
@@ -760,7 +757,7 @@ button:disabled {
 }
 
 .turn-divider span {
-  background: rgba(58, 73, 75, 0.35);
+  background: rgb(58 73 75 / 35%);
   height: 1px;
 }
 
@@ -778,7 +775,7 @@ button:disabled {
 
 .message > span {
   align-items: center;
-  background: rgba(55, 57, 67, 0.8);
+  background: rgb(55 57 67 / 80%);
   color: #b9cacb;
   display: flex;
   height: 32px;
@@ -787,8 +784,8 @@ button:disabled {
 }
 
 .message p {
-  background: rgba(25, 27, 36, 0.85);
-  border: 1px solid rgba(58, 73, 75, 0.2);
+  background: rgb(25 27 36 / 85%);
+  border: 1px solid rgb(58 73 75 / 20%);
   border-radius: 2px;
   font-family: 'JetBrains Mono', monospace;
   line-height: 20px;
@@ -799,8 +796,8 @@ button:disabled {
 }
 
 .message.response > span {
-  background: rgba(0, 219, 231, 0.14);
-  border: 1px solid rgba(0, 219, 231, 0.35);
+  background: rgb(0 219 231 / 14%);
+  border: 1px solid rgb(0 219 231 / 35%);
   color: #00dbe7;
 }
 
@@ -809,8 +806,8 @@ button:disabled {
 }
 
 .raw-context {
-  background: rgba(12, 14, 23, 0.35);
-  border: 1px solid rgba(58, 73, 75, 0.25);
+  background: rgb(12 14 23 / 35%);
+  border: 1px solid rgb(58 73 75 / 25%);
   border-radius: 2px;
   margin-left: 44px;
 }
@@ -824,7 +821,7 @@ button:disabled {
 }
 
 .raw-context pre {
-  background: rgba(0, 0, 0, 0.32);
+  background: rgb(0 0 0 / 32%);
   color: #b9cacb;
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
@@ -838,8 +835,8 @@ button:disabled {
 
 .metadata {
   align-self: start;
-  background: rgba(40, 41, 51, 0.24);
-  border: 1px solid rgba(58, 73, 75, 0.3);
+  background: rgb(40 41 51 / 24%);
+  border: 1px solid rgb(58 73 75 / 30%);
   border-radius: 2px;
   padding: 24px;
 }
@@ -865,7 +862,7 @@ button:disabled {
 }
 
 .artifact-links {
-  border-top: 1px solid rgba(58, 73, 75, 0.3);
+  border-top: 1px solid rgb(58 73 75 / 30%);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -894,7 +891,7 @@ button:disabled {
   text-decoration: underline;
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .app-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 64px auto auto;

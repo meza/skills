@@ -12,6 +12,7 @@
     "fixture:visual": "tsx tests/fixtures/writeVisualFixture.ts",
     "serve": "tsx src/server/main.ts",
     "serve:visual": "npm run build && npm run fixture:visual && npm run serve -- .tmp/visual-fixture",
+    "style:check": "stylelint \"src/client/**/*.css\"",
     "test": "vitest run",
     "test:visual": "playwright test",
     "test:visual:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual\"; npm i",
@@ -19,6 +20,12 @@
     "test:visual:update:local": "playwright test --update-snapshots all",
     "test:visual:update:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual:update:local\"; npm i"
   },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Edge versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions"
+  ],
   "dependencies": {
     "@fastify/static": "^8.3.0",
     "@vitejs/plugin-react": "^6.0.2",
@@ -40,6 +47,9 @@
     "@vitest/coverage-v8": "^4.0.14",
     "jsdom": "^27.2.0",
     "npm-run-all2": "^8.0.4",
+    "postcss-preset-env": "^11.3.0",
+    "stylelint": "^17.12.0",
+    "stylelint-config-standard": "^40.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"

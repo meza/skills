@@ -19,24 +19,26 @@ tooling in the parent `skill-creator` directory does not replace these checks.
 
 ## Mandatory Local Verification
 
-Before handing off viewer changes, run Biome in automatic fix mode, run the full
-test suite, run full coverage, and run the Playwright visual test suite:
+Before handing off viewer changes, run Biome in automatic fix mode, run
+Stylelint across the client styles, run the full test suite, run full coverage,
+and run the Playwright visual test suite:
 
 ```bash
 npm run biome:fix
+npm run style:check
 npm run test
 npm run coverage
 npm run test:visual
 ```
 
 Always run these commands against the whole viewer project. Do not narrow Biome,
-Vitest, coverage, or Playwright verification to individual files, components, or
-subpackages when doing local verification.
+Stylelint, Vitest, coverage, or Playwright verification to individual files,
+components, or subpackages when doing local verification.
 
-Biome, Vitest, coverage, and Playwright must report no violations or failures.
-Any formatting change, lint violation, test failure, visual regression, or
-coverage failure is part of the current work and must be handled on the spot,
-even when it appears tangential to the change that exposed it.
+Biome, Stylelint, Vitest, coverage, and Playwright must report no violations or
+failures. Any formatting change, lint violation, test failure, visual
+regression, or coverage failure is part of the current work and must be handled
+on the spot, even when it appears tangential to the change that exposed it.
 
 When a new visual screenshot is generated, it must be carefully reviewed and inspected for correctness, consistency with the rest of the application, and visual appeal and common css failure modes.
 
@@ -61,6 +63,51 @@ interaction and visual correctness should be covered with Playwright.
 ### Visual coverage
 
 Playwright visual tests must cover all states of the application.
+
+## CSS Authoring
+
+The viewer uses CSS Modules for component styles. A component that needs
+component-specific styling must own that styling in a colocated
+`*.module.css` file. Do not add component selectors to a shared global
+stylesheet.
+
+CSS Module class names must use BEM. The block name should match the component
+or a stable domain concept owned by that component. Elements and modifiers
+should describe structure and state without depending on generated CSS Module
+hashes:
+
+```css
+.run-summary {
+  /* Block styles */
+
+  &__metric {
+    /* Element styles */
+  }
+
+  &--compact {
+    /* Modifier styles */
+  }
+}
+```
+
+Use native CSS nesting where it improves readability. Keep nesting shallow and
+local to the block being styled. Do not use nesting to recreate broad descendant
+selector chains across component boundaries.
+
+Shared design decisions belong in native CSS custom properties. Colors,
+typography, spacing, radii, borders, shadows, transition timings, and similar
+cross-cutting values must be defined as tokens and consumed through `var(...)`.
+Component modules may introduce local custom properties only when the value is
+private to that component and does not represent a reusable design decision.
+
+Stylelint enforces CSS validity across client styles and BEM class names in
+`*.module.css` files. Browserslist defines the supported browser target for CSS
+compatibility tooling, and PostCSS runs through Vite with `postcss-preset-env`.
+
+Global styles are reserved for application-wide concerns: font loading, design
+tokens, base element defaults, resets, and layout rules that genuinely cross
+component ownership boundaries. A global selector must not reach into a
+component's private structure.
 
 ## Change Workflow
 
