@@ -1,0 +1,127 @@
+import { screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { expect, it } from 'vitest';
+import { iterationView } from './appFixture.js';
+import { renderApp } from './renderApp.js';
+
+it('switches the expectations breakdown between skill and baseline results', async () => {
+  const user = userEvent.setup();
+  renderApp();
+
+  expect(screen.getByRole('button', { name: 'skill' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText('1/1 requirements passed')).toBeInTheDocument();
+  expect(screen.getAllByText(/PASS/)[0]).toHaveTextContent('Baseline: FAIL');
+  expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'baseline' }));
+
+  expect(screen.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText('0/1 requirements passed')).toBeInTheDocument();
+  expect(screen.getAllByText(/FAIL/)[0]).toHaveTextContent('Skill: PASS');
+  expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+  expect(screen.getByText('The answer uses fix: and omits the breaking-change impact.')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
+});
+
+it('disables baseline expectation viewing when no baseline grading exists', () => {
+  const view = iterationView();
+  const run = view.runs[0];
+  if (!run) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  run.comparisons = {};
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByRole('button', { name: 'skill' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: 'baseline' })).toBeDisabled();
+});
+
+it('renders failed expectations and missing final responses', () => {
+  const view = iterationView();
+  const failedRun = view.runs[0];
+  if (!failedRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  failedRun.expectations = [
+    {
+      evidence: 'The answer uses fix: and omits the breaking-change impact.',
+      passed: false,
+      scope: 'overall',
+      text: 'Uses a breaking-change commit message when required'
+    }
+  ];
+  failedRun.comparisons.baseline = {
+    runType: 'baseline',
+    durationDelta: 0,
+    expectations: [
+      {
+        evidence: 'Baseline also missed the breaking-change impact.',
+        passed: false,
+        scope: 'overall',
+        text: 'Uses a breaking-change commit message when required'
+      }
+    ],
+    finalResponse: '',
+    passRateDelta: 0,
+    tokenDelta: 0
+  };
+  failedRun.finalResponse = '';
+  failedRun.turns = [];
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getAllByText(/FAIL/).length).toBeGreaterThan(0);
+  expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+  expect(screen.getByText('No response artifact was available.')).toBeInTheDocument();
+});
+
+it('shows explicit missing evidence copy for failed expectations', () => {
+  const view = iterationView();
+  const run = view.runs[0];
+  if (!run) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  run.expectations = [
+    {
+      evidence: '',
+      passed: false,
+      scope: 'overall',
+      text: 'Requires evidence to explain failure.'
+    }
+  ];
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByText('No evidence was recorded for this expectation.')).toBeInTheDocument();
+});
+
+it('omits empty baseline evidence while keeping skill evidence', () => {
+  const view = iterationView();
+  const run = view.runs[0];
+  if (!run) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  run.expectations = [
+    {
+      evidence: 'The response missed the required breaking-change footer.',
+      passed: false,
+      scope: 'overall',
+      text: 'Requires the breaking-change footer.'
+    }
+  ];
+  run.comparisons.baseline = {
+    runType: 'baseline',
+    durationDelta: 0,
+    expectations: [],
+    finalResponse: '',
+    passRateDelta: 0,
+    tokenDelta: 0
+  };
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByText('Run Evidence')).toBeInTheDocument();
+  expect(screen.getByText('The response missed the required breaking-change footer.')).toBeInTheDocument();
+  expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
+});
