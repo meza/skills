@@ -174,8 +174,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--model",
-        default=None,
-        help="Model to use. If omitted, the provider default is used.",
+        required=True,
+        help="Model to use for deterministic eval runs.",
     )
     parser.add_argument(
         "--effort",

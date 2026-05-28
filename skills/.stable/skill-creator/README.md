@@ -46,6 +46,7 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
+  --model <model-id> \
   --eval-ids 1,3 \
   --skip-baseline
 ```
@@ -128,7 +129,7 @@ Define fixture sources at the top level of `evals/evals.json`:
 }
 ```
 
-`fixture_repo` points to a git repository containing fixture directories. `fixture_ref` pins that repository to a branch, tag, or commit. When `fixture_ref` is omitted, fixture setup uses the remote default branch head.
+`fixture_repo` points to a git repository containing fixture directories. `fixture_ref` pins that repository to a branch, tag, or commit. Fixture repositories must set `fixture_ref` so repeated eval runs use the same fixture state.
 
 Use `fixture_base_path` instead when fixtures are already staged locally:
 

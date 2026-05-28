@@ -158,17 +158,14 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         self.assertIn("failed", stderr.getvalue())
         self.assertIn("timed out", stderr.getvalue())
 
-    def test_resolve_ref_uses_origin_head_when_ref_is_missing(self):
-        with mock.patch.object(
-            prepare_fixture, "run_git_or_exit", return_value="origin-head"
-        ) as run_git_or_exit:
-            resolved = prepare_fixture.resolve_ref_or_exit(Path("repo"), None)
+    def test_resolve_ref_exits_when_ref_is_missing(self):
+        with (
+            self.assertRaises(SystemExit),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            prepare_fixture.resolve_ref_or_exit(Path("repo"), None)
 
-        self.assertEqual(resolved, "origin-head")
-        run_git_or_exit.assert_called_once_with(
-            ["git", "-C", "repo", "rev-parse", "origin/HEAD"],
-            "Error: could not resolve origin/HEAD for fixture repo",
-        )
+        self.assertIn("fixture_ref is required", stderr.getvalue())
 
     def test_resolve_ref_returns_first_candidate_that_verifies(self):
         results = [
@@ -472,6 +469,26 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 temp_path / "runs" / "fixtures",
                 "abc123",
             )
+
+    def test_resolve_fixture_staging_requires_ref_for_fixture_repo(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            evals_data = self._minimal_evals(
+                {"fixture": "sample-project"},
+                fixture_repo="https://example.invalid/fixtures.git",
+            )
+
+            with (
+                mock.patch.object(prepare_fixture, "git_clone_or_pull") as clone,
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.resolve_fixture_staging_or_exit(
+                    evals_data, temp_path / "runs"
+                )
+
+            clone.assert_not_called()
+            self.assertIn("fixture_ref is required", stderr.getvalue())
 
     def test_copy_fixture_places_fixture_in_workdir(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -228,13 +228,14 @@ def resolve_ref_or_exit(dest: Path, ref: str | None) -> str:
     """Resolve a fixture ref to a concrete commit.
 
     Supports branch names, tags, commit SHAs, and any rev parse expression
-    reachable after fetch. When no ref is provided, use origin/HEAD.
+    reachable after fetch. A ref is required so fixture-backed evals do not
+    depend on mutable remote defaults.
     """
     if not ref:
-        return run_git_or_exit(
-            ["git", "-C", str(dest), "rev-parse", "origin/HEAD"],
-            "Error: could not resolve origin/HEAD for fixture repo",
+        print(
+            "Error: fixture_ref is required when fixture_repo is set", file=sys.stderr
         )
+        sys.exit(1)
 
     candidates = ref_candidates(ref)
     resolved = first_resolved_ref(dest, candidates)
@@ -457,6 +458,7 @@ def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None
         fixture_staging = base / "fixtures"
 
     if fixture_repo:
+        require_fixture_ref_or_exit(fixture_ref)
         git_clone_or_pull(fixture_repo, fixture_staging, fixture_ref)
     elif not fixture_staging.exists():
         print(
@@ -467,6 +469,13 @@ def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None
         sys.exit(1)
 
     return fixture_staging
+
+
+def require_fixture_ref_or_exit(fixture_ref: str | None) -> None:
+    if fixture_ref:
+        return
+    print("Error: fixture_ref is required when fixture_repo is set", file=sys.stderr)
+    sys.exit(1)
 
 
 def fixture_relative_path_or_exit(fixture_name: str, eval_id: str) -> Path:

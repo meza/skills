@@ -335,6 +335,8 @@ class EvaluateSkillTests(unittest.TestCase):
             "F:/runs",
             "--provider",
             "codex",
+            "--model",
+            "gpt-5.5",
         ]
 
         with (
@@ -345,7 +347,7 @@ class EvaluateSkillTests(unittest.TestCase):
             evaluate_skill.main()
 
         args = execute.call_args.args[0]
-        self.assertIsNone(args.model)
+        self.assertEqual(args.model, "gpt-5.5")
         self.assertIsNone(args.effort)
         self.assertIsNone(args.eval_ids)
         self.assertFalse(args.skip_baseline)
@@ -361,6 +363,8 @@ class EvaluateSkillTests(unittest.TestCase):
             "F:/runs",
             "--provider",
             "codex",
+            "--model",
+            "gpt-5.5",
         ]
 
         with (
@@ -395,6 +399,8 @@ class EvaluateSkillTests(unittest.TestCase):
             "F:/runs",
             "--provider",
             "codex",
+            "--model",
+            "gpt-5.5",
         ]
 
         with (
@@ -435,6 +441,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertIn("--skill-path", stderr.getvalue())
         self.assertIn("--run-root", stderr.getvalue())
         self.assertIn("--provider", stderr.getvalue())
+        self.assertIn("--model", stderr.getvalue())
 
     def test_direct_script_entrypoint_requires_cli_boundaries(self):
         script_path = (
@@ -452,6 +459,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertIn("--skill-path", stderr.getvalue())
         self.assertIn("--run-root", stderr.getvalue())
         self.assertIn("--provider", stderr.getvalue())
+        self.assertIn("--model", stderr.getvalue())
 
 
 if __name__ == "__main__":
