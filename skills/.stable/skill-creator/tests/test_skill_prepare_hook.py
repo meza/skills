@@ -83,6 +83,7 @@ class SkillPrepareHookTests(unittest.TestCase):
                 encoding="utf-8",
             )
             prepared_run = self._prepared_run(temp_path / "runs")
+            process_registry = mock.Mock()
 
             with mock.patch.object(
                 skill_prepare_hook,
@@ -93,6 +94,7 @@ class SkillPrepareHookTests(unittest.TestCase):
                     skill_path=skill_path,
                     prepared_run=prepared_run,
                     eval_ids="2",
+                    process_registry=process_registry,
                 )
 
         run.assert_called_once_with(
@@ -107,6 +109,7 @@ class SkillPrepareHookTests(unittest.TestCase):
             "",
             str(skill_path),
             600,
+            process_registry=process_registry,
         )
 
     def test_runs_skill_prepare_script_for_every_eval_when_no_filter_is_set(self):

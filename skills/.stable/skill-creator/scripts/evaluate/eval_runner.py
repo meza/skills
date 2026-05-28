@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .eval_definitions import write_eval_metadata
-from .eval_job import kill_active_processes, run_single_job
+from .eval_job import ActiveProcessRegistry, run_single_job
 
 if TYPE_CHECKING:
     from .prepare_fixture import PreparedEval
@@ -34,6 +34,9 @@ class EvalRunOptions:
     run_types: list[str]
     run_root: Path
     grading_job_factory: Callable | None = None
+    process_registry: ActiveProcessRegistry = field(
+        default_factory=ActiveProcessRegistry
+    )
 
 
 @dataclass(frozen=True)
@@ -222,7 +225,7 @@ class EvalRun:
                 job = futures[future]
                 progress.record(self.future_summary(future, job))
         except BaseException:
-            kill_active_processes()
+            self.options.process_registry.kill_all()
             executor.shutdown(wait=False, cancel_futures=True)
             raise
         else:
@@ -252,6 +255,7 @@ class EvalRun:
                 self.options.timeout,
                 deadline,
                 self.options.grading_job_factory,
+                self.options.process_registry,
             )
             futures[future] = job
         return futures

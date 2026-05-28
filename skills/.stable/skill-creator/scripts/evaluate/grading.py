@@ -3,12 +3,12 @@
 import json
 import os
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import jsonschema
 
-from .eval_job import run_with_timeout
+from .eval_job import ActiveProcessRegistry, run_with_timeout
 from .providers import Provider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -69,6 +69,7 @@ def create_grading_job_factory(
             schema_path=DEFAULT_GRADING_SCHEMA_PATH,
             grader_instructions_path=DEFAULT_GRADER_INSTRUCTIONS_PATH,
             run_dir=eval_job.run_dir,
+            process_registry=eval_job.process_registry,
         )
 
     return factory
@@ -89,6 +90,9 @@ class GradingJob:
     schema_path: Path
     grader_instructions_path: Path
     run_dir: str | None = None
+    process_registry: ActiveProcessRegistry = field(
+        default_factory=ActiveProcessRegistry
+    )
 
     def run(self) -> None:
         self.write_run_artifacts_manifest()
@@ -111,6 +115,7 @@ class GradingJob:
                 str(self.run_type_dir),
                 self.timeout,
                 env=process_env,
+                process_registry=self.process_registry,
             )
 
         if process_result.timed_out:

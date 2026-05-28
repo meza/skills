@@ -36,8 +36,14 @@ class EvaluateSkillTests(unittest.TestCase):
                 "F:/runs/sample-skill/results/iteration-3/aggregated_results.json"
             ),
         }
+        process_registry = mock.Mock()
 
         with (
+            mock.patch.object(
+                evaluate_skill,
+                "ActiveProcessRegistry",
+                return_value=process_registry,
+            ),
             mock.patch.object(
                 evaluate_skill,
                 "FixturePreparer",
@@ -55,7 +61,6 @@ class EvaluateSkillTests(unittest.TestCase):
                 evaluate_skill,
                 "GradingResultAggregator",
             ) as grading_result_aggregator,
-            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
             mock.patch.object(
                 evaluate_skill,
                 "stop_git_fsmonitor_daemons",
@@ -96,6 +101,7 @@ class EvaluateSkillTests(unittest.TestCase):
             prepared_run=prepared_run,
             eval_ids="1,2",
             timeout=900,
+            process_registry=process_registry,
         )
         prepare_options = fixture_preparer.call_args.args[0]
         self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
@@ -113,7 +119,9 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(run_options.effort, "high")
         self.assertEqual(run_options.max_parallel, 12)
         self.assertEqual(run_options.timeout, 900)
+        self.assertIs(run_options.process_registry, process_registry)
         skill_eval_runner.return_value.run.assert_called_once_with()
+        process_registry.kill_all.assert_called_once_with()
         aggregator_args = grading_result_aggregator.call_args.kwargs
         self.assertEqual(
             aggregator_args["iteration_dir"],
@@ -125,7 +133,6 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(aggregator_args["model"], "gpt-5.4")
         self.assertEqual(aggregator_args["effort"], "high")
         grading_result_aggregator.return_value.aggregate.assert_called_once_with()
-        kill_active.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
     def test_execute_kills_active_processes_when_eval_runner_fails(self):
@@ -136,12 +143,17 @@ class EvaluateSkillTests(unittest.TestCase):
             skill_name="sample-skill",
             evals=[],
         )
+        process_registry = mock.Mock()
 
         with (
+            mock.patch.object(
+                evaluate_skill,
+                "ActiveProcessRegistry",
+                return_value=process_registry,
+            ),
             mock.patch.object(evaluate_skill, "FixturePreparer") as fixture_preparer,
             mock.patch.object(evaluate_skill, "run_skill_prepare_hook"),
             mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
-            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
             mock.patch.object(
                 evaluate_skill,
                 "stop_git_fsmonitor_daemons",
@@ -165,7 +177,7 @@ class EvaluateSkillTests(unittest.TestCase):
                 )
             )
 
-        kill_active.assert_called_once_with()
+        process_registry.kill_all.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
     def test_execute_kills_active_processes_when_skill_prepare_hook_fails(self):
@@ -176,8 +188,14 @@ class EvaluateSkillTests(unittest.TestCase):
             skill_name="sample-skill",
             evals=[],
         )
+        process_registry = mock.Mock()
 
         with (
+            mock.patch.object(
+                evaluate_skill,
+                "ActiveProcessRegistry",
+                return_value=process_registry,
+            ),
             mock.patch.object(evaluate_skill, "FixturePreparer") as fixture_preparer,
             mock.patch.object(
                 evaluate_skill,
@@ -185,7 +203,6 @@ class EvaluateSkillTests(unittest.TestCase):
                 side_effect=RuntimeError("hook failed"),
             ),
             mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
-            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
             mock.patch.object(
                 evaluate_skill,
                 "stop_git_fsmonitor_daemons",
@@ -209,7 +226,7 @@ class EvaluateSkillTests(unittest.TestCase):
             )
 
         skill_eval_runner.assert_not_called()
-        kill_active.assert_called_once_with()
+        process_registry.kill_all.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
 
     def test_validate_run_root_rejects_path_inside_git_directory_workspace(self):
@@ -387,14 +404,12 @@ class EvaluateSkillTests(unittest.TestCase):
                 (InterruptForTest,),
                 create=True,
             ),
-            mock.patch.object(evaluate_skill, "kill_active_processes") as kill_active,
             contextlib.redirect_stderr(io.StringIO()) as stderr,
             self.assertRaises(SystemExit) as raised,
         ):
             evaluate_skill.main()
 
         self.assertEqual(raised.exception.code, 130)
-        kill_active.assert_called_once_with()
         self.assertIn(
             "Interrupted; terminating active eval subprocesses.",
             stderr.getvalue(),

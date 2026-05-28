@@ -17,8 +17,6 @@ from pathlib import Path
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
-_ACTIVE_PROCESS_IDS: set[int] = set()
-_ACTIVE_PROCESS_IDS_LOCK = threading.Lock()
 
 
 def build_prompt(
@@ -204,23 +202,26 @@ def _force_kill_process_tree(pid):
         pass
 
 
-def register_process(pid: int) -> None:
-    with _ACTIVE_PROCESS_IDS_LOCK:
-        _ACTIVE_PROCESS_IDS.add(pid)
+@dataclass
+class ActiveProcessRegistry:
+    process_ids: set[int] = field(default_factory=set)
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
+    def register(self, pid: int) -> None:
+        with self.lock:
+            self.process_ids.add(pid)
 
-def unregister_process(pid: int) -> None:
-    with _ACTIVE_PROCESS_IDS_LOCK:
-        _ACTIVE_PROCESS_IDS.discard(pid)
+    def unregister(self, pid: int) -> None:
+        with self.lock:
+            self.process_ids.discard(pid)
 
+    def kill_all(self) -> None:
+        with self.lock:
+            process_ids = sorted(self.process_ids)
+            self.process_ids.clear()
 
-def kill_active_processes() -> None:
-    with _ACTIVE_PROCESS_IDS_LOCK:
-        process_ids = sorted(_ACTIVE_PROCESS_IDS)
-        _ACTIVE_PROCESS_IDS.clear()
-
-    for pid in process_ids:
-        _kill_process_tree(pid)
+        for pid in process_ids:
+            _kill_process_tree(pid)
 
 
 @dataclass(frozen=True)
@@ -232,8 +233,16 @@ class TimedProcessResult:
     duration_ms: int
 
 
-def run_with_timeout(cmd, prompt, cwd, timeout, env=None) -> TimedProcessResult:
+def run_with_timeout(
+    cmd,
+    prompt,
+    cwd,
+    timeout,
+    env=None,
+    process_registry: ActiveProcessRegistry | None = None,
+) -> TimedProcessResult:
     """Run a CLI command with timeout and full process tree cleanup."""
+    registry = process_registry or ActiveProcessRegistry()
     popen_kwargs = dict(
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -249,7 +258,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None) -> TimedProcessResult:
         popen_kwargs["start_new_session"] = True
 
     process = subprocess.Popen(cmd, **popen_kwargs)
-    register_process(process.pid)
+    registry.register(process.pid)
 
     timed_out = False
 
@@ -277,7 +286,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None) -> TimedProcessResult:
         process.wait()
     finally:
         timer.cancel()
-        unregister_process(process.pid)
+        registry.unregister(process.pid)
 
     duration_ms = int((time.monotonic() - start) * 1000)
     return TimedProcessResult(
@@ -360,6 +369,9 @@ class EvalJob:
     timeout: int
     deadline: float | None = None
     grading_job_factory: Callable[["EvalJob"], object] | None = None
+    process_registry: ActiveProcessRegistry = field(
+        default_factory=ActiveProcessRegistry
+    )
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     all_events: list[dict] = field(default_factory=list)
     input_tokens: int = 0
@@ -491,6 +503,7 @@ class EvalJob:
             self.run_dir,
             effective_timeout,
             env=process_env,
+            process_registry=self.process_registry,
         )
 
     def record_timeout(self, turn_idx: int, effective_timeout: float, turn_result):
@@ -614,6 +627,7 @@ def run_single_job(
     timeout: int,
     deadline: float | None = None,
     grading_job_factory: Callable[["EvalJob"], object] | None = None,
+    process_registry: ActiveProcessRegistry | None = None,
 ) -> dict:
     """Run all turns of one eval and run-type combination."""
     return EvalJob(
@@ -628,6 +642,7 @@ def run_single_job(
         timeout=timeout,
         deadline=deadline,
         grading_job_factory=grading_job_factory,
+        process_registry=process_registry or ActiveProcessRegistry(),
     ).run()
 
 

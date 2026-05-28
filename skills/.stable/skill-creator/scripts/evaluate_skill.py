@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 if __package__:
-    from .evaluate.eval_job import kill_active_processes, stop_git_fsmonitor_daemons
+    from .evaluate.eval_job import ActiveProcessRegistry, stop_git_fsmonitor_daemons
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from .evaluate.providers.registry import PROVIDERS
     from .evaluate.results_aggregation import GradingResultAggregator
@@ -19,7 +19,7 @@ if __package__:
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from scripts.evaluate.eval_job import (
-        kill_active_processes,
+        ActiveProcessRegistry,
         stop_git_fsmonitor_daemons,
     )
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
@@ -90,6 +90,7 @@ def validate_run_root_is_not_in_git_workspace(run_root: Path) -> None:
 def execute(args: argparse.Namespace) -> dict:
     """Prepare isolated run directories, then execute the eval run."""
     validate_run_root_is_not_in_git_workspace(args.run_root)
+    process_registry = ActiveProcessRegistry()
     skill_workspace = args.run_root / args.skill_path.name
 
     prepared_run = FixturePreparer(
@@ -108,6 +109,7 @@ def execute(args: argparse.Namespace) -> dict:
             prepared_run=prepared_run,
             eval_ids=args.eval_ids,
             timeout=args.timeout,
+            process_registry=process_registry,
         )
 
         run_manifest = SkillEvalRunner(
@@ -119,11 +121,12 @@ def execute(args: argparse.Namespace) -> dict:
                 effort=args.effort,
                 max_parallel=args.max_parallel,
                 timeout=args.timeout,
+                process_registry=process_registry,
             ),
         ).run()
     finally:
         stop_git_fsmonitor_daemons(prepared_run.run_root)
-        kill_active_processes()
+        process_registry.kill_all()
 
     aggregation = GradingResultAggregator(
         iteration_dir=prepared_run.run_root
@@ -209,7 +212,6 @@ def main() -> None:
             "Interrupted; terminating active eval subprocesses.",
             file=sys.stderr,
         )
-        kill_active_processes()
         raise SystemExit(130) from error
 
     print(json.dumps(result, indent=2))

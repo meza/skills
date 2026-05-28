@@ -1,6 +1,6 @@
 """Run prepared skill evals using a pluggable LLM provider."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .eval_definitions import (
@@ -8,6 +8,7 @@ from .eval_definitions import (
     select_evals_or_exit,
     selected_run_types,
 )
+from .eval_job import ActiveProcessRegistry
 from .eval_runner import EvalRun, EvalRunOptions
 from .grading import create_grading_job_factory
 from .prepare_fixture import PreparedRun
@@ -25,6 +26,9 @@ class SkillEvalRunOptions:
     effort: str | None = None
     max_parallel: int = DEFAULT_MAX_PARALLEL
     timeout: int = DEFAULT_TIMEOUT_SECONDS
+    process_registry: ActiveProcessRegistry = field(
+        default_factory=ActiveProcessRegistry
+    )
 
 
 class SkillEvalRunner:
@@ -58,6 +62,7 @@ class SkillEvalRunner:
             total_timeout=None,
             run_root=self.prepared_run.run_root,
             run_types=selected_run_types(self.options.skip_baseline),
+            process_registry=self.options.process_registry,
             grading_job_factory=create_grading_job_factory(
                 provider=provider,
                 skill_name=evals_data.get("skill_name", self.prepared_run.skill_name),

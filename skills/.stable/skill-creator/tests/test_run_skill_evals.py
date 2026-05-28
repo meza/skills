@@ -1520,6 +1520,7 @@ class EvalRunInterruptTests(unittest.TestCase):
             )
             executor = mock.Mock()
             executor.submit.return_value = "future"
+            process_registry = mock.Mock()
             run = EvalRun(
                 EvalRunOptions(
                     eval_definitions_path=Path("F:/skills/evals/evals.json"),
@@ -1533,6 +1534,7 @@ class EvalRunInterruptTests(unittest.TestCase):
                     total_timeout=None,
                     run_types=["skill"],
                     run_root=Path("F:/runs"),
+                    process_registry=process_registry,
                 ),
                 FakeProvider(),
                 {"skill_name": "fake-skill"},
@@ -1548,10 +1550,6 @@ class EvalRunInterruptTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     eval_runner,
-                    "kill_active_processes",
-                ) as kill_active,
-                mock.patch.object(
-                    eval_runner,
                     "as_completed",
                     side_effect=KeyboardInterrupt,
                 ),
@@ -1559,7 +1557,7 @@ class EvalRunInterruptTests(unittest.TestCase):
             ):
                 run.run_jobs([job], iteration_dir, time.time())
 
-        kill_active.assert_called_once_with()
+        process_registry.kill_all.assert_called_once_with()
         executor.shutdown.assert_called_once_with(
             wait=False,
             cancel_futures=True,
@@ -1832,28 +1830,34 @@ class GitEnvironmentTests(unittest.TestCase):
         process.returncode = 0
         process.pid = 456
 
-        with (
-            mock.patch.object(eval_job.subprocess, "Popen", return_value=process),
-            mock.patch.object(eval_job, "register_process") as register_process,
-            mock.patch.object(eval_job, "unregister_process") as unregister_process,
-        ):
-            run_with_timeout(["provider"], "prompt", str(PROJECT_ROOT), 5)
+        process_registry = mock.Mock()
 
-        register_process.assert_called_once_with(456)
-        unregister_process.assert_called_once_with(456)
+        with mock.patch.object(eval_job.subprocess, "Popen", return_value=process):
+            run_with_timeout(
+                ["provider"],
+                "prompt",
+                str(PROJECT_ROOT),
+                5,
+                process_registry=process_registry,
+            )
 
-    def test_kill_active_processes_kills_and_clears_registered_processes(self):
-        with (
-            mock.patch.object(eval_job, "_ACTIVE_PROCESS_IDS", {111, 222}),
-            mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree,
-        ):
-            eval_job.kill_active_processes()
+        process_registry.register.assert_called_once_with(456)
+        process_registry.unregister.assert_called_once_with(456)
+
+    def test_active_process_registry_kills_only_owned_processes(self):
+        first_registry = eval_job.ActiveProcessRegistry()
+        second_registry = eval_job.ActiveProcessRegistry()
+        first_registry.register(111)
+        second_registry.register(222)
+
+        with mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree:
+            first_registry.kill_all()
+            second_registry.kill_all()
 
         self.assertEqual(
             kill_process_tree.call_args_list,
             [mock.call(111), mock.call(222)],
         )
-        self.assertEqual(eval_job._ACTIVE_PROCESS_IDS, set())
 
 
 if __name__ == "__main__":

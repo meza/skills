@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from .eval_job import run_with_timeout
+from .eval_job import ActiveProcessRegistry, run_with_timeout
 from .prepare_fixture import PreparedEval, PreparedRun
 
 
@@ -16,14 +16,16 @@ def run_skill_prepare_hook(
     prepared_run: PreparedRun,
     eval_ids: str | None,
     timeout: int = 600,
+    process_registry: ActiveProcessRegistry | None = None,
 ) -> None:
     """Run optional skill-local preparation for selected prepared evals."""
     hook_path = skill_path / "scripts" / "prepare.py"
     if not hook_path.exists():
         return
 
+    registry = process_registry or ActiveProcessRegistry()
     for eval_entry in _selected_prepared_evals(prepared_run.evals, eval_ids):
-        _run_prepare_hook_for_eval(skill_path, hook_path, eval_entry, timeout)
+        _run_prepare_hook_for_eval(skill_path, hook_path, eval_entry, timeout, registry)
 
 
 def _selected_prepared_evals(
@@ -46,6 +48,7 @@ def _run_prepare_hook_for_eval(
     hook_path: Path,
     eval_entry: PreparedEval,
     timeout: int,
+    process_registry: ActiveProcessRegistry,
 ) -> None:
     eval_run_dir = eval_entry.skill_run_path.parent
 
@@ -61,6 +64,7 @@ def _run_prepare_hook_for_eval(
         "",
         str(skill_path),
         timeout,
+        process_registry=process_registry,
     )
 
     if process_result.returncode == 0 and not process_result.timed_out:
