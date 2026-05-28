@@ -274,6 +274,64 @@ class EvaluateSkillTests(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             evaluate_skill.raise_keyboard_interrupt_for_signal(None, None)
 
+    def test_interrupt_signal_context_installs_and_restores_handlers(self):
+        with (
+            mock.patch.object(
+                evaluate_skill, "interrupt_signal_numbers", return_value=[2, 15]
+            ),
+            mock.patch.object(
+                evaluate_skill.signal,
+                "getsignal",
+                side_effect=["previous-int", "previous-term"],
+            ) as getsignal,
+            mock.patch.object(evaluate_skill.signal, "signal") as signal,
+        ):
+            with evaluate_skill.interrupt_signals_raise_keyboard_interrupt():
+                self.assertEqual(
+                    signal.call_args_list,
+                    [
+                        mock.call(
+                            2, evaluate_skill.raise_keyboard_interrupt_for_signal
+                        ),
+                        mock.call(
+                            15, evaluate_skill.raise_keyboard_interrupt_for_signal
+                        ),
+                    ],
+                )
+
+            self.assertEqual(getsignal.call_args_list, [mock.call(2), mock.call(15)])
+            self.assertEqual(
+                signal.call_args_list,
+                [
+                    mock.call(2, evaluate_skill.raise_keyboard_interrupt_for_signal),
+                    mock.call(15, evaluate_skill.raise_keyboard_interrupt_for_signal),
+                    mock.call(2, "previous-int"),
+                    mock.call(15, "previous-term"),
+                ],
+            )
+
+    def test_interrupt_signal_context_restores_handlers_after_error(self):
+        class ContextError(Exception):
+            pass
+
+        with (
+            mock.patch.object(
+                evaluate_skill, "interrupt_signal_numbers", return_value=[2]
+            ),
+            mock.patch.object(
+                evaluate_skill.signal, "getsignal", return_value="previous-int"
+            ),
+            mock.patch.object(evaluate_skill.signal, "signal") as signal,
+            self.assertRaises(ContextError),
+        ):
+            with evaluate_skill.interrupt_signals_raise_keyboard_interrupt():
+                raise ContextError
+
+        self.assertEqual(
+            signal.call_args_list[-1],
+            mock.call(2, "previous-int"),
+        )
+
     def test_main_parses_cli_options_and_prints_execution_summary(self):
         expected_result = {
             "prepare": {
