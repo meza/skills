@@ -461,7 +461,9 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             second_turn = run_type_dir / "turn-2" / "outputs"
             first_turn.mkdir(parents=True)
             second_turn.mkdir(parents=True)
-            (first_turn / "transcript.md").write_text("first", encoding="utf-8")
+            (first_turn / "transcript.md").write_text(
+                "first TOKEN=secret-value", encoding="utf-8"
+            )
             (second_turn / "transcript.md").write_text("second", encoding="utf-8")
 
             eval_job.RunArtifactWriter(
@@ -474,12 +476,12 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                     "total_duration_seconds": 0.4,
                     "cost_usd": 0.01,
                 },
-                events=[{"event": "one"}, {"event": "two"}],
+                events=[{"event": "TOKEN=secret-value"}, {"event": "two"}],
             ).write()
 
             self.assertEqual(
                 (run_type_dir / "transcript.md").read_text(encoding="utf-8"),
-                "first\n\nsecond",
+                "first TOKEN=[REDACTED]\n\nsecond",
             )
             self.assertEqual(
                 json.loads((run_type_dir / "timing.json").read_text(encoding="utf-8")),
@@ -494,7 +496,42 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             )
             self.assertEqual(
                 (run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8"),
-                '{"event": "one"}\n{"event": "two"}',
+                '{"event": "TOKEN=[REDACTED]"}\n{"event": "two"}',
+            )
+
+    def test_eval_job_redacts_successful_turn_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            iteration_dir = Path(temp_dir)
+            job = eval_job.EvalJob(
+                eval_def={
+                    "id": 1,
+                    "eval_name": "unit",
+                    "turns": [{"prompt": "Do it", "expectations": []}],
+                },
+                run_type="skill",
+                run_dir=str(iteration_dir / "run"),
+                fixture_path=None,
+                iteration_dir=iteration_dir,
+                provider=FakeProvider(),
+                model="fake-model",
+                effort="high",
+                timeout=30,
+            )
+            turn_result = TurnResult(
+                response="answer TOKEN=secret-value",
+                transcript="transcript Authorization: Bearer secret-value",
+            )
+
+            job.write_turn_outputs(0, turn_result)
+
+            outputs_dir = job.run_type_dir / "turn-1" / "outputs"
+            self.assertEqual(
+                (outputs_dir / "response.md").read_text(encoding="utf-8"),
+                "answer TOKEN=[REDACTED]",
+            )
+            self.assertEqual(
+                (outputs_dir / "transcript.md").read_text(encoding="utf-8"),
+                "transcript Authorization: Bearer [REDACTED]",
             )
 
     def test_eval_job_run_summary_owns_manifest_shape(self):

@@ -383,6 +383,16 @@ def _read_text_file(file_obj) -> str:
     return file_obj.read().decode("utf-8", errors="replace")
 
 
+def _redact_artifact_value(value):
+    if isinstance(value, str):
+        return redact_sensitive_telemetry(value)
+    if isinstance(value, list):
+        return [_redact_artifact_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_artifact_value(item) for key, item in value.items()}
+    return value
+
+
 @dataclass(frozen=True)
 class RunArtifactWriter:
     run_type_dir: Path
@@ -408,14 +418,18 @@ class RunArtifactWriter:
             for index, event in enumerate(self.events):
                 if index:
                     output_file.write("\n")
-                output_file.write(json.dumps(event))
+                output_file.write(json.dumps(_redact_artifact_value(event)))
 
     def run_transcript(self) -> str:
         transcript_parts = []
         for turn_dir in sorted(self.run_type_dir.glob("turn-*/outputs")):
             transcript_path = turn_dir / "transcript.md"
             if transcript_path.exists():
-                transcript_parts.append(transcript_path.read_text(encoding="utf-8"))
+                transcript_parts.append(
+                    redact_sensitive_telemetry(
+                        transcript_path.read_text(encoding="utf-8")
+                    )
+                )
         return "\n\n".join(transcript_parts)
 
 
@@ -737,11 +751,11 @@ class EvalJob:
         turn_dir = self.run_type_dir / f"turn-{turn_idx + 1}" / "outputs"
         turn_dir.mkdir(parents=True, exist_ok=True)
         (turn_dir / "response.md").write_text(
-            turn_result.response,
+            redact_sensitive_telemetry(turn_result.response),
             encoding="utf-8",
         )
         (turn_dir / "transcript.md").write_text(
-            turn_result.transcript,
+            redact_sensitive_telemetry(turn_result.transcript),
             encoding="utf-8",
         )
 
