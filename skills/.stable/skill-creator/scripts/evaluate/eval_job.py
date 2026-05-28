@@ -274,6 +274,64 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
     return stdout, stderr, process.returncode, timed_out, duration_ms
 
 
+@dataclass(frozen=True)
+class RunArtifactWriter:
+    run_type_dir: Path
+    timing: dict
+    events: list[dict]
+
+    def write(self) -> None:
+        (self.run_type_dir / "transcript.md").write_text(
+            self.run_transcript(),
+            encoding="utf-8",
+        )
+        (self.run_type_dir / "timing.json").write_text(
+            json.dumps(self.timing, indent=2),
+            encoding="utf-8",
+        )
+        raw_lines = [json.dumps(event) for event in self.events]
+        (self.run_type_dir / "raw_output.jsonl").write_text(
+            "\n".join(raw_lines),
+            encoding="utf-8",
+        )
+
+    def run_transcript(self) -> str:
+        transcript_parts = []
+        for turn_dir in sorted(self.run_type_dir.glob("turn-*/outputs")):
+            transcript_path = turn_dir / "transcript.md"
+            if transcript_path.exists():
+                transcript_parts.append(transcript_path.read_text(encoding="utf-8"))
+        return "\n\n".join(transcript_parts)
+
+
+@dataclass(frozen=True)
+class RunSummary:
+    eval_id: int
+    eval_name: str
+    run_type: str
+    session_id: str
+    status: str
+    duration_ms: int
+    total_tokens: int
+    cost_usd: float
+    error: str | None = None
+
+    def to_dict(self) -> dict:
+        summary = {
+            "eval_id": self.eval_id,
+            "eval_name": self.eval_name,
+            "run_type": self.run_type,
+            "session_id": self.session_id,
+            "status": self.status,
+            "duration_ms": self.duration_ms,
+            "total_tokens": self.total_tokens,
+            "cost_usd": round(self.cost_usd, 6),
+        }
+        if self.error:
+            summary["error"] = self.error
+        return summary
+
+
 @dataclass
 class EvalJob:
     eval_def: dict
@@ -470,27 +528,11 @@ class EvalJob:
         )
 
     def write_run_artifacts(self) -> None:
-        (self.run_type_dir / "transcript.md").write_text(
-            self.run_transcript(),
-            encoding="utf-8",
-        )
-        (self.run_type_dir / "timing.json").write_text(
-            json.dumps(self.timing(), indent=2),
-            encoding="utf-8",
-        )
-        raw_lines = [json.dumps(event) for event in self.all_events]
-        (self.run_type_dir / "raw_output.jsonl").write_text(
-            "\n".join(raw_lines),
-            encoding="utf-8",
-        )
-
-    def run_transcript(self) -> str:
-        transcript_parts = []
-        for turn_dir in sorted(self.run_type_dir.glob("turn-*/outputs")):
-            transcript_path = turn_dir / "transcript.md"
-            if transcript_path.exists():
-                transcript_parts.append(transcript_path.read_text(encoding="utf-8"))
-        return "\n\n".join(transcript_parts)
+        RunArtifactWriter(
+            run_type_dir=self.run_type_dir,
+            timing=self.timing(),
+            events=self.all_events,
+        ).write()
 
     def run_grading_job(self) -> None:
         if not self.grading_job_factory:
@@ -512,19 +554,17 @@ class EvalJob:
         return self.input_tokens + self.output_tokens
 
     def summary(self) -> dict:
-        summary = {
-            "eval_id": self.eval_id,
-            "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
-            "run_type": self.run_type,
-            "session_id": self.session_id,
-            "status": self.status,
-            "duration_ms": self.duration_ms,
-            "total_tokens": self.total_tokens,
-            "cost_usd": round(self.cost_usd, 6),
-        }
-        if self.error_message:
-            summary["error"] = self.error_message
-        return summary
+        return RunSummary(
+            eval_id=self.eval_id,
+            eval_name=self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            run_type=self.run_type,
+            session_id=self.session_id,
+            status=self.status,
+            duration_ms=self.duration_ms,
+            total_tokens=self.total_tokens,
+            cost_usd=self.cost_usd,
+            error=self.error_message,
+        ).to_dict()
 
     def skipped_summary(self) -> dict:
         print(
@@ -532,17 +572,17 @@ class EvalJob:
             "(total timeout exceeded)",
             flush=True,
         )
-        return {
-            "eval_id": self.eval_id,
-            "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
-            "run_type": self.run_type,
-            "session_id": self.session_id,
-            "status": "skipped",
-            "error": "Total timeout exceeded before job started",
-            "duration_ms": 0,
-            "total_tokens": 0,
-            "cost_usd": 0,
-        }
+        return RunSummary(
+            eval_id=self.eval_id,
+            eval_name=self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            run_type=self.run_type,
+            session_id=self.session_id,
+            status="skipped",
+            duration_ms=0,
+            total_tokens=0,
+            cost_usd=0,
+            error="Total timeout exceeded before job started",
+        ).to_dict()
 
 
 def run_single_job(

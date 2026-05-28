@@ -53,6 +53,7 @@ from pathlib import Path
 from .eval_definitions import select_evals
 from .providers.registry import get_provider_skill_root
 from .run_layout import (
+    PreparedRunTypeEntry,
     RUN_TYPES,
     SKILL_RUN_TYPE,
     skill_directory_path,
@@ -422,7 +423,7 @@ def copy_fixture(
     fixture_name: str,
     fixture_in_workdir: bool,
     eval_id: str,
-) -> str:
+) -> Path:
     """Copy one eval fixture for a single run type."""
     source = fixture_staging / fixture_name
     if not source.exists():
@@ -436,14 +437,14 @@ def copy_fixture(
     if fixture_in_workdir:
         dest = run_dir / fixture_name
         shutil.copytree(source, dest)
-        return str(dest)
+        return dest
 
     external_dir = eval_dir / f"{run_type}_fixtures"
     external_dir.mkdir(parents=True, exist_ok=True)
     dest = external_dir / fixture_name
     if not dest.exists():
         shutil.copytree(source, dest)
-    return str(dest)
+    return dest
 
 
 def prepare_run_type(
@@ -482,12 +483,10 @@ def prepare_run_type(
     if run_type == SKILL_RUN_TYPE:
         copy_skill(skill_path, run_dir, skill_name, skill_root)
 
-    entry = {"path": str(run_dir)}
-    if fixture_path:
-        entry["fixture_path"] = fixture_path
+    skill_file = None
     if run_type == SKILL_RUN_TYPE:
-        entry["skill_file"] = str(skill_file_path(run_dir, skill_root, skill_name))
-    return entry
+        skill_file = skill_file_path(run_dir, skill_root, skill_name)
+    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file).to_dict()
 
 
 def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedEval:

@@ -377,6 +377,87 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 [iteration_dir / "eval-1" / "skill"],
             )
 
+    def test_run_artifact_writer_serializes_job_outputs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_type_dir = Path(temp_dir) / "iteration" / "eval-1" / "skill"
+            first_turn = run_type_dir / "turn-1" / "outputs"
+            second_turn = run_type_dir / "turn-2" / "outputs"
+            first_turn.mkdir(parents=True)
+            second_turn.mkdir(parents=True)
+            (first_turn / "transcript.md").write_text("first", encoding="utf-8")
+            (second_turn / "transcript.md").write_text("second", encoding="utf-8")
+
+            eval_job.RunArtifactWriter(
+                run_type_dir=run_type_dir,
+                timing={
+                    "total_tokens": 3,
+                    "input_tokens": 1,
+                    "output_tokens": 2,
+                    "duration_ms": 400,
+                    "total_duration_seconds": 0.4,
+                    "cost_usd": 0.01,
+                },
+                events=[{"event": "one"}, {"event": "two"}],
+            ).write()
+
+            self.assertEqual(
+                (run_type_dir / "transcript.md").read_text(encoding="utf-8"),
+                "first\n\nsecond",
+            )
+            self.assertEqual(
+                json.loads((run_type_dir / "timing.json").read_text(encoding="utf-8")),
+                {
+                    "total_tokens": 3,
+                    "input_tokens": 1,
+                    "output_tokens": 2,
+                    "duration_ms": 400,
+                    "total_duration_seconds": 0.4,
+                    "cost_usd": 0.01,
+                },
+            )
+            self.assertEqual(
+                (run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8"),
+                '{"event": "one"}\n{"event": "two"}',
+            )
+
+    def test_eval_job_run_summary_owns_manifest_shape(self):
+        self.assertEqual(
+            eval_job.RunSummary(
+                eval_id=1,
+                eval_name="basic",
+                run_type="skill",
+                session_id="session-1",
+                status="success",
+                duration_ms=25,
+                total_tokens=7,
+                cost_usd=0.1234567,
+            ).to_dict(),
+            {
+                "eval_id": 1,
+                "eval_name": "basic",
+                "run_type": "skill",
+                "session_id": "session-1",
+                "status": "success",
+                "duration_ms": 25,
+                "total_tokens": 7,
+                "cost_usd": 0.123457,
+            },
+        )
+        self.assertEqual(
+            eval_job.RunSummary(
+                eval_id=1,
+                eval_name="basic",
+                run_type="skill",
+                session_id="session-1",
+                status="error",
+                duration_ms=0,
+                total_tokens=0,
+                cost_usd=0,
+                error="failed",
+            ).to_dict()["error"],
+            "failed",
+        )
+
     def test_execute_resumes_multi_turn_runs_with_provider_session_id(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -892,6 +973,26 @@ class EvalLibTests(unittest.TestCase):
                 "demo-skill",
             ),
             Path("run/eval-1/skill/.codex/skills/demo-skill/SKILL.md"),
+        )
+
+    def test_run_layout_owns_prepared_run_type_entry_shape(self):
+        self.assertEqual(
+            run_layout.PreparedRunTypeEntry(
+                run_dir=Path("run/eval-1/skill"),
+                fixture_path=Path("run/eval-1/skill/project"),
+                skill_file=Path("run/eval-1/skill/.codex/skills/demo/SKILL.md"),
+            ).to_dict(),
+            {
+                "path": str(Path("run/eval-1/skill")),
+                "fixture_path": str(Path("run/eval-1/skill/project")),
+                "skill_file": str(Path("run/eval-1/skill/.codex/skills/demo/SKILL.md")),
+            },
+        )
+        self.assertEqual(
+            run_layout.PreparedRunTypeEntry(
+                run_dir=Path("run/eval-1/baseline")
+            ).to_dict(),
+            {"path": str(Path("run/eval-1/baseline"))},
         )
 
     def test_eval_run_paths_resolves_external_fixtures(self):

@@ -4,7 +4,12 @@ import sys
 from pathlib import Path
 
 from .providers import Provider
-from .run_layout import RUN_TYPES, SKILL_RUN_TYPE, skill_file_path
+from .run_layout import (
+    PreparedRunTypeEntry,
+    RUN_TYPES,
+    SKILL_RUN_TYPE,
+    skill_file_path,
+)
 
 
 def _exit_with_error(message: str) -> None:
@@ -45,8 +50,7 @@ def _build_run_type_entry(
         "prepared run root.",
     )
 
-    entry = {"path": str(run_dir)}
-
+    fixture_path = None
     if fixture_name:
         fixture_path = _fixture_path_for(
             eval_dir,
@@ -61,8 +65,8 @@ def _build_run_type_entry(
             f"run type {run_type} not found at {fixture_path}. "
             "Run prepare_fixture.py first.",
         )
-        entry["fixture_path"] = str(fixture_path)
 
+    skill_file = None
     if run_type == SKILL_RUN_TYPE:
         skill_file = skill_file_path(run_dir, provider.skill_root, skill_name)
         _require_existing_path(
@@ -70,9 +74,8 @@ def _build_run_type_entry(
             f"Error: skill file not found at {skill_file}. "
             "Run prepare_fixture.py first or use the matching provider.",
         )
-        entry["skill_file"] = str(skill_file)
 
-    return entry
+    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file).to_dict()
 
 
 def _build_eval_paths(
