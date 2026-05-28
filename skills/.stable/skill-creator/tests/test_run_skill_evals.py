@@ -13,6 +13,7 @@ from scripts.evaluate import (
     eval_job,
     eval_run_paths,
     eval_runner,
+    run_layout,
 )
 from scripts.evaluate import run_skill_evals
 from scripts.evaluate.eval_job import (
@@ -873,6 +874,25 @@ class EvalLibTests(unittest.TestCase):
                     job.run()
 
             self.assertFalse(config_path.exists())
+
+    def test_run_layout_owns_run_types_and_skill_file_path(self):
+        self.assertEqual(run_layout.RUN_TYPES, ("skill", "baseline"))
+        self.assertEqual(
+            run_layout.skill_directory_path(
+                Path("run/eval-1/skill"),
+                ".codex",
+                "demo-skill",
+            ),
+            Path("run/eval-1/skill/.codex/skills/demo-skill"),
+        )
+        self.assertEqual(
+            run_layout.skill_file_path(
+                Path("run/eval-1/skill"),
+                ".codex",
+                "demo-skill",
+            ),
+            Path("run/eval-1/skill/.codex/skills/demo-skill/SKILL.md"),
+        )
 
     def test_eval_run_paths_resolves_external_fixtures(self):
         with tempfile.TemporaryDirectory() as temp_dir:

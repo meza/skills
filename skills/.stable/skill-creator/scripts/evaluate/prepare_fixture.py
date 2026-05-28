@@ -51,12 +51,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .eval_definitions import select_evals
+from .providers.registry import get_provider_skill_root
+from .run_layout import (
+    RUN_TYPES,
+    SKILL_RUN_TYPE,
+    skill_directory_path,
+    skill_file_path,
+)
 
-RUN_TYPES = ("skill", "baseline")
-PROVIDER_SKILL_ROOTS = {
-    "claude": ".claude",
-    "codex": ".codex",
-}
 GITIGNORE_AUTH_ENTRY = "auth.json"
 
 
@@ -303,7 +305,7 @@ def copy_skill(
     where skill_root varies by provider (.claude, .codex, .github, .agents, etc.)
     and skills/<skill_name>/ is standard across all providers.
     """
-    skill_dest = dest_run_dir / skill_root / "skills" / skill_name
+    skill_dest = skill_directory_path(dest_run_dir, skill_root, skill_name)
     skill_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         skill_path,
@@ -477,16 +479,14 @@ def prepare_run_type(
     if eval_files:
         copy_eval_files(skill_path, run_dir, eval_files, eval_id)
 
-    if run_type == "skill":
+    if run_type == SKILL_RUN_TYPE:
         copy_skill(skill_path, run_dir, skill_name, skill_root)
 
     entry = {"path": str(run_dir)}
     if fixture_path:
         entry["fixture_path"] = fixture_path
-    if run_type == "skill":
-        entry["skill_file"] = str(
-            run_dir / skill_root / "skills" / skill_name / "SKILL.md"
-        )
+    if run_type == SKILL_RUN_TYPE:
+        entry["skill_file"] = str(skill_file_path(run_dir, skill_root, skill_name))
     return entry
 
 
@@ -581,19 +581,6 @@ def assert_eval_dir_inside_run_root(
         file=sys.stderr,
     )
     sys.exit(1)
-
-
-def get_provider_skill_root(provider_name: str) -> str:
-    """Return the skill discovery root for a supported provider."""
-    skill_root = PROVIDER_SKILL_ROOTS.get(provider_name)
-    if skill_root is None:
-        available = ", ".join(sorted(PROVIDER_SKILL_ROOTS))
-        print(
-            f"Error: unknown provider '{provider_name}'. Available: {available}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    return skill_root
 
 
 def prepare(options: PrepareFixtureOptions) -> PreparedRun:

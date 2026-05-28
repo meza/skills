@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from .eval_run_paths import RUN_TYPES
+from .run_layout import RUN_TYPES
 
 
 def selected_run_types(skip_baseline: bool) -> list[str]:

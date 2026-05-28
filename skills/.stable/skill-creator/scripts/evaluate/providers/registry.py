@@ -22,3 +22,8 @@ def get_provider(name: str) -> Provider:
         )
         sys.exit(1)
     return cls()
+
+
+def get_provider_skill_root(name: str) -> str:
+    """Return the skill discovery root for a registered provider."""
+    return get_provider(name).skill_root

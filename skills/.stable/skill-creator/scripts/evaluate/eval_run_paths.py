@@ -4,8 +4,7 @@ import sys
 from pathlib import Path
 
 from .providers import Provider
-
-RUN_TYPES = ["skill", "baseline"]
+from .run_layout import RUN_TYPES, SKILL_RUN_TYPE, skill_file_path
 
 
 def _exit_with_error(message: str) -> None:
@@ -64,8 +63,8 @@ def _build_run_type_entry(
         )
         entry["fixture_path"] = str(fixture_path)
 
-    if run_type == "skill":
-        skill_file = run_dir / provider.skill_root / "skills" / skill_name / "SKILL.md"
+    if run_type == SKILL_RUN_TYPE:
+        skill_file = skill_file_path(run_dir, provider.skill_root, skill_name)
         _require_existing_path(
             skill_file,
             f"Error: skill file not found at {skill_file}. "
