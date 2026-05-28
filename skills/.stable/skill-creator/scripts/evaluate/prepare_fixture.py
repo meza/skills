@@ -51,7 +51,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .eval_definitions import select_evals_or_exit
-from .providers.registry import get_provider_skill_root_or_exit
 from .run_layout import (
     BASELINE_RUN_TYPE,
     PreparedRunTypeEntry,
@@ -71,7 +70,7 @@ class PrepareFixtureOptions:
     skill_path: Path
     run_root: Path
     provider: str
-    skill_root: str | None = None
+    skill_root: str
     eval_ids: str | None = None
 
 
@@ -157,9 +156,7 @@ class FixturePreparer:
         self.options = options
 
     def prepare(self) -> PreparedRun:
-        skill_root = self.options.skill_root or get_provider_skill_root_or_exit(
-            self.options.provider
-        )
+        skill_root = self.options.skill_root
 
         skill_path = self.options.skill_path.expanduser().resolve()
         evals_data = load_skill_evals_data_or_exit(skill_path)

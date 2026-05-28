@@ -743,23 +743,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             },
         )
 
-    def test_get_provider_skill_root_returns_known_provider_root(self):
-        self.assertEqual(
-            prepare_fixture.get_provider_skill_root_or_exit("claude"), ".claude"
-        )
-        self.assertEqual(
-            prepare_fixture.get_provider_skill_root_or_exit("codex"), ".codex"
+    def test_prepare_options_receive_resolved_provider_skill_root(self):
+        options = prepare_fixture.PrepareFixtureOptions(
+            skill_path=Path("skill"),
+            run_root=Path("run"),
+            provider="new-provider",
+            skill_root=".new-provider",
         )
 
-    def test_get_provider_skill_root_exits_for_unknown_provider(self):
-        with (
-            self.assertRaises(SystemExit),
-            contextlib.redirect_stderr(io.StringIO()) as stderr,
-        ):
-            prepare_fixture.get_provider_skill_root_or_exit("unknown")
-
-        self.assertIn("unknown provider 'unknown'", stderr.getvalue())
-        self.assertIn("claude, codex", stderr.getvalue())
+        self.assertEqual(options.skill_root, ".new-provider")
 
     def test_prepare_run_type_copies_skill_files_and_eval_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -845,7 +837,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     skill_path=skill_path,
                     run_root=temp_path / "runs",
                     provider="claude",
-                    skill_root=None,
+                    skill_root=".claude",
                 )
             )
 

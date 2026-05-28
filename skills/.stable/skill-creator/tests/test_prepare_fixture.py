@@ -61,6 +61,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
                 skill_path=skill_path,
                 run_root=run_root,
                 provider=provider,
+                skill_root={"claude": ".claude", "codex": ".codex"}[provider],
                 eval_ids=eval_ids,
             )
         ).prepare()

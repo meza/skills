@@ -12,7 +12,7 @@ from pathlib import Path
 if __package__:
     from .evaluate.eval_job import ActiveProcessRegistry, stop_git_fsmonitor_daemons
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
-    from .evaluate.providers.registry import PROVIDERS
+    from .evaluate.providers.registry import PROVIDERS, get_provider_skill_root_or_exit
     from .evaluate.results_aggregation import GradingResultAggregator
     from .evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from .evaluate.skill_prepare_hook import run_skill_prepare_hook
@@ -23,7 +23,10 @@ else:
         stop_git_fsmonitor_daemons,
     )
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
-    from scripts.evaluate.providers.registry import PROVIDERS
+    from scripts.evaluate.providers.registry import (
+        PROVIDERS,
+        get_provider_skill_root_or_exit,
+    )
     from scripts.evaluate.results_aggregation import GradingResultAggregator
     from scripts.evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from scripts.evaluate.skill_prepare_hook import run_skill_prepare_hook
@@ -92,13 +95,14 @@ def execute(args: argparse.Namespace) -> dict:
     validate_run_root_is_not_in_git_workspace(args.run_root)
     process_registry = ActiveProcessRegistry()
     skill_workspace = args.run_root / args.skill_path.name
+    skill_root = get_provider_skill_root_or_exit(args.provider)
 
     prepared_run = FixturePreparer(
         PrepareFixtureOptions(
             skill_path=args.skill_path,
             run_root=skill_workspace,
             provider=args.provider,
-            skill_root=None,
+            skill_root=skill_root,
             eval_ids=args.eval_ids,
         )
     ).prepare()
