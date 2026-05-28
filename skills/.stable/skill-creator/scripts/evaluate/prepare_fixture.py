@@ -46,6 +46,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -252,9 +253,8 @@ def run_git_or_exit(cmd: list[str], error_prefix: str) -> str:
 def resolve_ref_or_exit(dest: Path, ref: str | None) -> str:
     """Resolve a fixture ref to a concrete commit.
 
-    Supports branch names, tags, commit SHAs, and any rev parse expression
-    reachable after fetch. A ref is required so fixture-backed evals do not
-    depend on mutable remote defaults.
+    Fixture refs must be full commit SHAs so fixture-backed evals do not
+    depend on mutable remote defaults, branches, or tags.
     """
     if not ref:
         print(
@@ -502,10 +502,22 @@ def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None
 
 
 def require_fixture_ref_or_exit(fixture_ref: str | None) -> None:
-    if fixture_ref:
+    if not fixture_ref:
+        print(
+            "Error: fixture_ref is required when fixture_repo is set", file=sys.stderr
+        )
+        sys.exit(1)
+    if is_commit_sha(fixture_ref):
         return
-    print("Error: fixture_ref is required when fixture_repo is set", file=sys.stderr)
+    print(
+        "Error: fixture_ref must be a 40-character commit SHA",
+        file=sys.stderr,
+    )
     sys.exit(1)
+
+
+def is_commit_sha(ref: str) -> bool:
+    return bool(re.fullmatch(r"[0-9a-fA-F]{40}", ref))
 
 
 def fixture_relative_path_or_exit(fixture_name: str, eval_id: str) -> Path:

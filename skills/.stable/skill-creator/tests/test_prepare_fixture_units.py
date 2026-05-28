@@ -480,10 +480,11 @@ class PrepareFixtureUnitTests(unittest.TestCase):
     def test_resolve_fixture_staging_delegates_fixture_repo_setup(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
+            fixture_ref = "a" * 40
             evals_data = self._minimal_evals(
                 {"fixture": "sample-project"},
                 fixture_repo="https://example.invalid/fixtures.git",
-                fixture_ref="abc123",
+                fixture_ref=fixture_ref,
             )
 
             with mock.patch.object(prepare_fixture, "git_clone_or_pull") as clone:
@@ -495,7 +496,30 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             clone.assert_called_once_with(
                 "https://example.invalid/fixtures.git",
                 temp_path / "runs" / "fixtures",
-                "abc123",
+                fixture_ref,
+            )
+
+    def test_resolve_fixture_staging_rejects_mutable_fixture_ref(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            evals_data = self._minimal_evals(
+                {"fixture": "sample-project"},
+                fixture_repo="https://example.invalid/fixtures.git",
+                fixture_ref="main",
+            )
+
+            with (
+                mock.patch.object(prepare_fixture, "git_clone_or_pull") as clone,
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.resolve_fixture_staging_or_exit(
+                    evals_data, temp_path / "runs"
+                )
+
+            clone.assert_not_called()
+            self.assertIn(
+                "fixture_ref must be a 40-character commit SHA", stderr.getvalue()
             )
 
     def test_resolve_fixture_staging_rejects_repo_with_fixture_base_path(self):

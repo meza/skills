@@ -1751,6 +1751,66 @@ class EvalLibTests(unittest.TestCase):
             self.assertIn("failed runs:", stdout.getvalue())
             self.assertIn("eval-2 [baseline]: failed", stdout.getvalue())
 
+    def test_eval_progress_and_manifest_use_stable_run_order(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            completion_order = [
+                {"eval_id": 2, "run_type": "skill", "status": "success"},
+                {"eval_id": 1, "run_type": "baseline", "status": "success"},
+                {"eval_id": 1, "run_type": "skill", "status": "success"},
+            ]
+            progress_path = temp_path / "progress.json"
+            progress = eval_runner.EvalProgress(
+                path=progress_path,
+                start_time=time.time(),
+                total_jobs=3,
+            )
+            for summary in completion_order:
+                progress.record(summary)
+
+            self.assertEqual(
+                json.loads(progress_path.read_text(encoding="utf-8"))["completed_runs"],
+                [
+                    "eval-1/skill: success",
+                    "eval-1/baseline: success",
+                    "eval-2/skill: success",
+                ],
+            )
+
+            runner = EvalRun(
+                EvalRunOptions(
+                    eval_definitions_path=temp_path / "skill" / "evals" / "evals.json",
+                    workspace=temp_path / "workspace",
+                    iteration=1,
+                    provider_name="fake",
+                    model=None,
+                    effort=None,
+                    max_parallel=1,
+                    timeout=30,
+                    total_timeout=None,
+                    run_types=["skill"],
+                    run_root=temp_path / "prepared",
+                ),
+                FakeProvider(),
+                {"skill_name": "unit-skill"},
+                [{"id": 1}],
+                [],
+            )
+
+            manifest = runner.write_run_manifest(
+                temp_path,
+                time.time(),
+                completion_order,
+            )
+
+            self.assertEqual(
+                [
+                    (summary["eval_id"], summary["run_type"])
+                    for summary in manifest["runs"]
+                ],
+                [(1, "skill"), (1, "baseline"), (2, "skill")],
+            )
+
     def test_eval_run_submit_jobs_passes_resolved_job_fields(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

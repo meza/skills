@@ -13,10 +13,24 @@ from typing import TYPE_CHECKING
 
 from .eval_definitions import write_eval_metadata
 from .eval_job import ActiveProcessRegistry, EvalJobRun, run_single_job
+from .run_layout import RUN_TYPES
 from .telemetry import redact_sensitive_telemetry
 
 if TYPE_CHECKING:
     from .prepare_fixture import PreparedEval
+
+RUN_TYPE_ORDER = {run_type: index for index, run_type in enumerate(RUN_TYPES)}
+
+
+def stable_run_summaries(summaries: list[dict]) -> list[dict]:
+    return sorted(
+        summaries,
+        key=lambda summary: (
+            summary.get("eval_id", 0),
+            RUN_TYPE_ORDER.get(summary.get("run_type"), len(RUN_TYPE_ORDER)),
+            summary.get("run_type", ""),
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -88,7 +102,7 @@ class EvalProgress:
             "completed_runs": [
                 f"eval-{summary.get('eval_id')}/{summary.get('run_type')}: "
                 f"{summary.get('status')}"
-                for summary in self.summaries
+                for summary in stable_run_summaries(self.summaries)
             ],
         }
         self.path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -301,7 +315,7 @@ class EvalRun:
             "effort": self.options.effort or "default",
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "total_elapsed_seconds": round(time.time() - start_time, 1),
-            "runs": summaries,
+            "runs": stable_run_summaries(summaries),
         }
         manifest_path = iteration_dir / "run_manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

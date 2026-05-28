@@ -147,11 +147,11 @@ Define fixture sources at the top level of `evals/evals.json`:
 {
   "schema_version": 1,
   "fixture_repo": "https://github.com/example/eval-fixtures.git",
-  "fixture_ref": "2c4d9a8"
+  "fixture_ref": "2c4d9a8c4c7d95c4e5b46f7a0fd5f7f8c6e4d3b2"
 }
 ```
 
-`fixture_repo` points to a git repository containing fixture directories. `fixture_ref` pins that repository to a branch, tag, or commit. Fixture repositories must set `fixture_ref` so repeated eval runs use the same fixture state.
+`fixture_repo` points to a git repository containing fixture directories. `fixture_ref` must be a full 40-character commit SHA. Fixture repositories must set `fixture_ref` so repeated eval runs use the same fixture state.
 
 Use `fixture_base_path` instead when fixtures are already staged locally:
 
