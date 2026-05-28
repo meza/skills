@@ -223,7 +223,16 @@ def kill_active_processes() -> None:
         _kill_process_tree(pid)
 
 
-def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
+@dataclass(frozen=True)
+class TimedProcessResult:
+    stdout: str
+    stderr: str
+    returncode: int | None
+    timed_out: bool
+    duration_ms: int
+
+
+def run_with_timeout(cmd, prompt, cwd, timeout, env=None) -> TimedProcessResult:
     """Run a CLI command with timeout and full process tree cleanup."""
     popen_kwargs = dict(
         stdin=subprocess.PIPE,
@@ -271,7 +280,13 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
         unregister_process(process.pid)
 
     duration_ms = int((time.monotonic() - start) * 1000)
-    return stdout, stderr, process.returncode, timed_out, duration_ms
+    return TimedProcessResult(
+        stdout=stdout,
+        stderr=stderr,
+        returncode=process.returncode,
+        timed_out=timed_out,
+        duration_ms=duration_ms,
+    )
 
 
 @dataclass(frozen=True)
@@ -430,21 +445,23 @@ class EvalJob:
             self.eval_def,
             self.fixture_path,
         )
-        stdout, stderr, returncode, timed_out, wall_clock_ms = self.invoke_provider(
+        process_result = self.invoke_provider(
             turn_idx,
             prompt,
             effective_timeout,
             process_env,
         )
-        turn_result = self.provider.parse_output(stdout, prompt)
+        turn_result = self.provider.parse_output(process_result.stdout, prompt)
         if turn_result.duration_ms <= 0:
-            turn_result.duration_ms = wall_clock_ms
+            turn_result.duration_ms = process_result.duration_ms
         self.session_id = turn_result.session_id or self.session_id
 
-        if timed_out:
+        if process_result.timed_out:
             return self.record_timeout(turn_idx, effective_timeout, turn_result)
-        if returncode != 0 and not stdout.strip():
-            return self.record_error(turn_idx, stderr, returncode)
+        if process_result.returncode != 0 and not process_result.stdout.strip():
+            return self.record_error(
+                turn_idx, process_result.stderr, process_result.returncode
+            )
         self.record_success(turn_idx, turn_result)
         return True
 
@@ -454,7 +471,7 @@ class EvalJob:
         prompt: str,
         effective_timeout: float,
         process_env: dict[str, str],
-    ) -> tuple[str, str, int, bool, int]:
+    ) -> TimedProcessResult:
         cmd = self.provider.build_command(
             session_id=self.session_id,
             session_name=f"eval-{self.eval_id}-{self.run_type}",
@@ -492,7 +509,7 @@ class EvalJob:
         )
         return False
 
-    def record_error(self, turn_idx: int, stderr: str, returncode: int) -> bool:
+    def record_error(self, turn_idx: int, stderr: str, returncode: int | None) -> bool:
         self.status = "error"
         self.error_message = stderr[:500] if stderr else f"Exit code {returncode}"
         print(

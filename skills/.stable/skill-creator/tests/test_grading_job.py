@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from unittest import mock
 
+from scripts.evaluate.eval_job import TimedProcessResult
 from scripts.evaluate.grading import (
     DEFAULT_GRADER_INSTRUCTIONS_PATH,
     DEFAULT_GRADING_SCHEMA_PATH,
@@ -13,6 +14,22 @@ from scripts.evaluate.grading import (
     create_grading_job_factory,
 )
 from scripts.evaluate.providers import TurnResult
+
+
+def timed_process_result(
+    stdout: str = "",
+    stderr: str = "",
+    returncode: int = 0,
+    timed_out: bool = False,
+    duration_ms: int = 125,
+) -> TimedProcessResult:
+    return TimedProcessResult(
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+        timed_out=timed_out,
+        duration_ms=duration_ms,
+    )
 
 
 class FakeProvider:
@@ -278,7 +295,7 @@ class GradingJobTests(unittest.TestCase):
 
             with mock.patch(
                 "scripts.evaluate.grading.run_with_timeout",
-                return_value=(json.dumps(grading_payload), "", 0, False, 125),
+                return_value=timed_process_result(stdout=json.dumps(grading_payload)),
             ) as run_with_timeout:
                 grading_job = GradingJob(
                     eval_def={
@@ -348,7 +365,9 @@ class GradingJobTests(unittest.TestCase):
             with (
                 mock.patch(
                     "scripts.evaluate.grading.run_with_timeout",
-                    return_value=(json.dumps({"expectations": []}), "", 0, False, 125),
+                    return_value=timed_process_result(
+                        stdout=json.dumps({"expectations": []})
+                    ),
                 ),
                 self.assertRaisesRegex(RuntimeError, "Invalid grading output"),
             ):
@@ -390,7 +409,11 @@ class GradingJobTests(unittest.TestCase):
             with (
                 mock.patch(
                     "scripts.evaluate.grading.run_with_timeout",
-                    return_value=("", "", 1, True, 600000),
+                    return_value=timed_process_result(
+                        returncode=1,
+                        timed_out=True,
+                        duration_ms=600000,
+                    ),
                 ),
                 self.assertRaisesRegex(
                     TimeoutError,
@@ -424,7 +447,10 @@ class GradingJobTests(unittest.TestCase):
             with (
                 mock.patch(
                     "scripts.evaluate.grading.run_with_timeout",
-                    return_value=("", "grader failed", 2, False, 125),
+                    return_value=timed_process_result(
+                        stderr="grader failed",
+                        returncode=2,
+                    ),
                 ),
                 self.assertRaisesRegex(RuntimeError, "grader failed"),
             ):

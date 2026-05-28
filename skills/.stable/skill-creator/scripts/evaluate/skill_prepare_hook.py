@@ -49,7 +49,7 @@ def _run_prepare_hook_for_eval(
 ) -> None:
     eval_run_dir = eval_entry.skill_run_path.parent
 
-    stdout, stderr, returncode, timed_out, _duration_ms = run_with_timeout(
+    process_result = run_with_timeout(
         [
             sys.executable,
             str(hook_path),
@@ -63,20 +63,20 @@ def _run_prepare_hook_for_eval(
         timeout,
     )
 
-    if returncode == 0 and not timed_out:
+    if process_result.returncode == 0 and not process_result.timed_out:
         return
 
-    if timed_out:
+    if process_result.timed_out:
         raise SkillPrepareHookError(
             "skill-local prepare hook timed out for eval id "
             f"{eval_entry.eval_id} after {timeout}s\n"
-            f"stdout:\n{stdout}\n"
-            f"stderr:\n{stderr}"
+            f"stdout:\n{process_result.stdout}\n"
+            f"stderr:\n{process_result.stderr}"
         )
 
     raise SkillPrepareHookError(
         "skill-local prepare hook failed for eval id "
-        f"{eval_entry.eval_id} with exit code {returncode}\n"
-        f"stdout:\n{stdout}\n"
-        f"stderr:\n{stderr}"
+        f"{eval_entry.eval_id} with exit code {process_result.returncode}\n"
+        f"stdout:\n{process_result.stdout}\n"
+        f"stderr:\n{process_result.stderr}"
     )

@@ -5,8 +5,25 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
 from scripts.evaluate import skill_prepare_hook
+from scripts.evaluate.eval_job import TimedProcessResult
+from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
+
+
+def timed_process_result(
+    stdout: str = "",
+    stderr: str = "",
+    returncode: int = 0,
+    timed_out: bool = False,
+    duration_ms: int = 100,
+) -> TimedProcessResult:
+    return TimedProcessResult(
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+        timed_out=timed_out,
+        duration_ms=duration_ms,
+    )
 
 
 class SkillPrepareHookTests(unittest.TestCase):
@@ -70,7 +87,7 @@ class SkillPrepareHookTests(unittest.TestCase):
             with mock.patch.object(
                 skill_prepare_hook,
                 "run_with_timeout",
-                return_value=("", "", 0, False, 100),
+                return_value=timed_process_result(),
             ) as run:
                 skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
@@ -106,7 +123,7 @@ class SkillPrepareHookTests(unittest.TestCase):
             with mock.patch.object(
                 skill_prepare_hook,
                 "run_with_timeout",
-                return_value=("", "", 0, False, 100),
+                return_value=timed_process_result(),
             ) as run:
                 skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
@@ -137,7 +154,11 @@ class SkillPrepareHookTests(unittest.TestCase):
                 mock.patch.object(
                     skill_prepare_hook,
                     "run_with_timeout",
-                    return_value=("stdout details", "stderr details", 1, False, 100),
+                    return_value=timed_process_result(
+                        stdout="stdout details",
+                        stderr="stderr details",
+                        returncode=1,
+                    ),
                 ),
                 self.assertRaisesRegex(
                     skill_prepare_hook.SkillPrepareHookError,
@@ -167,7 +188,11 @@ class SkillPrepareHookTests(unittest.TestCase):
                 mock.patch.object(
                     skill_prepare_hook,
                     "run_with_timeout",
-                    return_value=("stdout details", "stderr details", 0, True, 100),
+                    return_value=timed_process_result(
+                        stdout="stdout details",
+                        stderr="stderr details",
+                        timed_out=True,
+                    ),
                 ),
                 self.assertRaisesRegex(
                     skill_prepare_hook.SkillPrepareHookError,

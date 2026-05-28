@@ -105,7 +105,7 @@ class GradingJob:
             str(self.run_type_dir),
             self.run_type_dir,
         ) as process_env:
-            stdout, stderr, returncode, timed_out, _duration_ms = run_with_timeout(
+            process_result = run_with_timeout(
                 command,
                 prompt,
                 str(self.run_type_dir),
@@ -113,12 +113,15 @@ class GradingJob:
                 env=process_env,
             )
 
-        if timed_out:
+        if process_result.timed_out:
             raise TimeoutError(f"Grading eval-{self.eval_id}/{self.run_type} timed out")
-        if returncode != 0 and not stdout.strip():
-            raise RuntimeError(stderr or f"Grading exited with code {returncode}")
+        if process_result.returncode != 0 and not process_result.stdout.strip():
+            raise RuntimeError(
+                process_result.stderr
+                or f"Grading exited with code {process_result.returncode}"
+            )
 
-        result = self.provider.parse_output(stdout, prompt)
+        result = self.provider.parse_output(process_result.stdout, prompt)
         grading_data = json.loads(result.response)
         self.validate_grading_data(grading_data)
         add_grading_expectation_ids(

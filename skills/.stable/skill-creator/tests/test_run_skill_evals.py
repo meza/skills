@@ -39,6 +39,22 @@ from scripts.evaluate.providers.codex import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def timed_process_result(
+    stdout: str = "",
+    stderr: str = "",
+    returncode: int = 0,
+    timed_out: bool = False,
+    duration_ms: int = 100,
+) -> eval_job.TimedProcessResult:
+    return eval_job.TimedProcessResult(
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+        timed_out=timed_out,
+        duration_ms=duration_ms,
+    )
+
+
 class FakeProvider:
     skill_root = ".fake"
 
@@ -283,7 +299,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             "eval-1-skill": "with-skill-output",
             "eval-1-baseline": "without-skill-output",
         }
-        return stdout_by_session[cmd[1]], "", 0, False, 100
+        return timed_process_result(stdout=stdout_by_session[cmd[1]])
 
     def test_eval_job_uses_provider_process_environment(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -375,7 +391,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             with mock.patch.object(
                 eval_job,
                 "run_with_timeout",
-                return_value=("stdout", "", 0, False, 50),
+                return_value=timed_process_result(stdout="stdout", duration_ms=50),
             ):
                 job.run()
 
@@ -493,8 +509,8 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 self._args(skip_baseline=True),
                 provider,
                 [
-                    ("turn-one", "", 0, False, 100),
-                    ("turn-two", "", 0, False, 100),
+                    timed_process_result(stdout="turn-one"),
+                    timed_process_result(stdout="turn-two"),
                 ],
             )
 
@@ -535,7 +551,13 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 prepared_run,
                 self._args(skip_baseline=True),
                 provider,
-                [("partial-output", "", 0, True, 600000)],
+                [
+                    timed_process_result(
+                        stdout="partial-output",
+                        timed_out=True,
+                        duration_ms=600000,
+                    )
+                ],
             )
 
             run = manifest["runs"][0]
@@ -811,19 +833,44 @@ class EvalLibTests(unittest.TestCase):
             mock.patch.object(eval_job.threading, "Timer") as timer,
         ):
             timer.return_value = mock.Mock()
-            stdout, stderr, returncode, timed_out, duration_ms = run_with_timeout(
+            result = run_with_timeout(
                 ["fake"],
                 "prompt",
                 "F:/tmp",
                 5,
             )
 
-        self.assertEqual(stdout, "")
-        self.assertEqual(stderr, "")
-        self.assertEqual(returncode, -9)
-        self.assertFalse(timed_out)
-        self.assertGreaterEqual(duration_ms, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(result.returncode, -9)
+        self.assertFalse(result.timed_out)
+        self.assertGreaterEqual(result.duration_ms, 0)
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
+
+    def test_run_with_timeout_returns_named_process_result(self):
+        class CompletedProcess:
+            pid = 123
+            returncode = 0
+
+            def communicate(self, input=None):
+                return "stdout", "stderr"
+
+        with (
+            mock.patch.object(eval_job, "_IS_WINDOWS", False),
+            mock.patch.object(
+                eval_job.subprocess, "Popen", return_value=CompletedProcess()
+            ),
+            mock.patch.object(eval_job.threading, "Timer") as timer,
+        ):
+            timer.return_value = mock.Mock()
+            result = run_with_timeout(["fake"], "prompt", "F:/tmp", 5)
+
+        self.assertIsInstance(result, eval_job.TimedProcessResult)
+        self.assertEqual(result.stdout, "stdout")
+        self.assertEqual(result.stderr, "stderr")
+        self.assertEqual(result.returncode, 0)
+        self.assertFalse(result.timed_out)
+        self.assertGreaterEqual(result.duration_ms, 0)
 
     def test_run_with_timeout_marks_timeout_when_timer_fires(self):
         class SlowProcess:
@@ -845,15 +892,17 @@ class EvalLibTests(unittest.TestCase):
             mock.patch.object(eval_job.threading, "Timer", side_effect=timer_factory),
             mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree,
         ):
-            stdout, stderr, returncode, timed_out, _ = run_with_timeout(
+            result = run_with_timeout(
                 ["fake"],
                 "prompt",
                 "F:/tmp",
                 5,
             )
 
-        self.assertEqual((stdout, stderr, returncode), ("stdout", "stderr", 0))
-        self.assertTrue(timed_out)
+        self.assertEqual(
+            (result.stdout, result.stderr, result.returncode), ("stdout", "stderr", 0)
+        )
+        self.assertTrue(result.timed_out)
         kill_process_tree.assert_called_once_with(123)
 
     def test_eval_job_skips_when_deadline_already_passed(self):
@@ -906,7 +955,7 @@ class EvalLibTests(unittest.TestCase):
             with mock.patch.object(
                 job,
                 "invoke_provider",
-                return_value=("stdout", "", 0, False, 987),
+                return_value=timed_process_result(stdout="stdout", duration_ms=987),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertTrue(job.run_turn(0, job.turns[0], 30, {}))
@@ -920,7 +969,11 @@ class EvalLibTests(unittest.TestCase):
             with mock.patch.object(
                 job,
                 "invoke_provider",
-                return_value=("", "provider failed badly", 17, False, 10),
+                return_value=timed_process_result(
+                    stderr="provider failed badly",
+                    returncode=17,
+                    duration_ms=10,
+                ),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
@@ -935,7 +988,7 @@ class EvalLibTests(unittest.TestCase):
             with mock.patch.object(
                 job,
                 "invoke_provider",
-                return_value=("", "", 17, False, 10),
+                return_value=timed_process_result(returncode=17, duration_ms=10),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
@@ -1736,7 +1789,7 @@ class GitEnvironmentTests(unittest.TestCase):
             "import os; print(os.environ.get('SKILL_CREATOR_ENV_TEST', 'missing'))",
         ]
 
-        stdout, stderr, returncode, timed_out, _ = run_with_timeout(
+        result = run_with_timeout(
             command,
             "",
             str(PROJECT_ROOT),
@@ -1744,10 +1797,10 @@ class GitEnvironmentTests(unittest.TestCase):
             env={"SKILL_CREATOR_ENV_TEST": "present"},
         )
 
-        self.assertEqual(stderr, "")
-        self.assertEqual(returncode, 0)
-        self.assertFalse(timed_out)
-        self.assertEqual(stdout.strip(), "present")
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(result.returncode, 0)
+        self.assertFalse(result.timed_out)
+        self.assertEqual(result.stdout.strip(), "present")
 
     def test_run_with_timeout_forces_utf8_text_encoding_for_provider_stdin(self):
         process = mock.Mock()
@@ -1760,7 +1813,7 @@ class GitEnvironmentTests(unittest.TestCase):
             "Popen",
             return_value=process,
         ) as popen:
-            stdout, stderr, returncode, timed_out, _ = run_with_timeout(
+            result = run_with_timeout(
                 ["provider"],
                 "curly quote: \u201c",
                 str(PROJECT_ROOT),
@@ -1768,7 +1821,8 @@ class GitEnvironmentTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            (stdout, stderr, returncode, timed_out), ("stdout", "", 0, False)
+            (result.stdout, result.stderr, result.returncode, result.timed_out),
+            ("stdout", "", 0, False),
         )
         self.assertEqual(popen.call_args.kwargs["encoding"], "utf-8")
 
