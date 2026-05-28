@@ -1,5 +1,6 @@
 import contextlib
 import io
+import inspect
 import json
 import tempfile
 import unittest
@@ -647,6 +648,13 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 )
 
             self.assertIn("escapes the skill root", stderr.getvalue())
+
+    def test_copy_skill_requires_explicit_skill_root(self):
+        skill_root = inspect.signature(prepare_fixture.copy_skill).parameters[
+            "skill_root"
+        ]
+
+        self.assertIs(skill_root.default, inspect.Parameter.empty)
 
     def test_write_eval_gitignore_adds_auth_json_once(self):
         with tempfile.TemporaryDirectory() as temp_dir:

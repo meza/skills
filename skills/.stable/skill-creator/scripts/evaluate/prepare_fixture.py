@@ -343,7 +343,7 @@ def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None
 
 
 def copy_skill(
-    skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str = ".claude"
+    skill_path: Path, dest_run_dir: Path, skill_name: str, skill_root: str
 ) -> None:
     """Copy the skill under test into the run directory's skill discovery folder.
 
