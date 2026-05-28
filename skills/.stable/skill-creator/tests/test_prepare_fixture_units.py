@@ -12,6 +12,7 @@ from scripts.evaluate import prepare_fixture
 
 class PrepareFixtureUnitTests(unittest.TestCase):
     def _write_skill(self, root: Path, evals_data: dict) -> Path:
+        evals_data = {"schema_version": 1, **evals_data}
         skill_path = root / "demo-skill"
         skill_path.mkdir()
         (skill_path / "SKILL.md").write_text(
@@ -348,7 +349,8 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             skill_path = self._write_skill(temp_path, evals_data)
 
             self.assertEqual(
-                prepare_fixture.load_skill_evals_data_or_exit(skill_path), evals_data
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path),
+                {"schema_version": 1, **evals_data},
             )
 
     def test_load_evals_data_exits_when_evals_json_is_missing(self):

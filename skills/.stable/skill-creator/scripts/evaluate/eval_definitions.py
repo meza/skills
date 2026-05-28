@@ -7,6 +7,8 @@ from pathlib import Path
 
 from .run_layout import RUN_TYPES, SKILL_RUN_TYPE
 
+SUPPORTED_EVAL_SCHEMA_VERSION = 1
+
 
 @dataclass(frozen=True)
 class EvalDefinition:
@@ -51,6 +53,7 @@ def load_evals_data_or_exit(evals_json_path: Path) -> dict:
 
 
 def validate_evals_data_or_exit(evals_data: dict) -> None:
+    validate_schema_version_or_exit(evals_data)
     evals_list = evals_data.get("evals", [])
     if not evals_list:
         print("Error: no evals found in evals.json", file=sys.stderr)
@@ -58,6 +61,24 @@ def validate_evals_data_or_exit(evals_data: dict) -> None:
 
     for eval_index, eval_def in enumerate(evals_list, start=1):
         validate_eval_definition_or_exit(eval_def, eval_index)
+
+
+def validate_schema_version_or_exit(evals_data: object) -> None:
+    if not isinstance(evals_data, dict):
+        print("Error: evals.json must contain an object", file=sys.stderr)
+        sys.exit(1)
+
+    schema_version = evals_data.get("schema_version")
+    if schema_version is None:
+        print("Error: evals.json must include schema_version", file=sys.stderr)
+        sys.exit(1)
+    if schema_version != SUPPORTED_EVAL_SCHEMA_VERSION:
+        print(
+            f"Error: unsupported evals.json schema_version {schema_version}; "
+            f"expected {SUPPORTED_EVAL_SCHEMA_VERSION}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def validate_eval_definition_or_exit(eval_def: object, eval_index: int) -> None:

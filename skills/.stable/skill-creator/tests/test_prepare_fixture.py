@@ -24,6 +24,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
         return data
 
     def _write_skill(self, root: Path, evals_data: dict) -> Path:
+        evals_data = {"schema_version": 1, **evals_data}
         skill_path = root / "demo-skill"
         skill_path.mkdir()
         (skill_path / "SKILL.md").write_text(

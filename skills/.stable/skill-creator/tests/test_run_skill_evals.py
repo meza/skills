@@ -127,6 +127,7 @@ class EnvironmentProvider(FakeProvider):
 
 class RunSkillEvalsContractTests(unittest.TestCase):
     def _write_skill(self, root: Path, evals_data: dict) -> Path:
+        evals_data = {"schema_version": 1, **evals_data}
         skill_path = root / "fake-skill"
         skill_path.mkdir()
         (skill_path / "SKILL.md").write_text("# Fake Skill\n", encoding="utf-8")
@@ -1365,7 +1366,7 @@ class EvalLibTests(unittest.TestCase):
             evals_dir = skill_path / "evals"
             evals_dir.mkdir(parents=True)
             (evals_dir / "evals.json").write_text(
-                json.dumps({"evals": []}),
+                json.dumps({"schema_version": 1, "evals": []}),
                 encoding="utf-8",
             )
 
@@ -1381,7 +1382,7 @@ class EvalLibTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             evals_json = Path(temp_dir) / "evals.json"
             evals_json.write_text(
-                json.dumps({"evals": [{"id": 1, "turns": [{}]}]}),
+                json.dumps({"schema_version": 1, "evals": [{"id": 1, "turns": [{}]}]}),
                 encoding="utf-8",
             )
 
@@ -1396,6 +1397,29 @@ class EvalLibTests(unittest.TestCase):
                 "eval id=1 turn 1 must include a non-empty prompt",
                 stderr.getvalue(),
             )
+
+        for version_payload, expected_error in (
+            ({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}, "schema_version"),
+            (
+                {
+                    "schema_version": 2,
+                    "evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}],
+                },
+                "unsupported evals.json schema_version 2",
+            ),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                evals_json = Path(temp_dir) / "evals.json"
+                evals_json.write_text(json.dumps(version_payload), encoding="utf-8")
+
+                with (
+                    contextlib.redirect_stderr(io.StringIO()) as stderr,
+                    self.assertRaises(SystemExit) as raised,
+                ):
+                    eval_definitions.load_evals_data_or_exit(evals_json)
+
+                self.assertEqual(raised.exception.code, 1)
+                self.assertIn(expected_error, stderr.getvalue())
 
     def test_eval_definitions_select_evals_warns_and_rejects_empty_selection(self):
         evals_list = [{"id": 1}, {"id": 2}]

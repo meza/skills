@@ -20,7 +20,28 @@ Use this sequence for each iteration:
 
 A skill under test needs a `SKILL.md` file and an eval definition at `evals/evals.json`.
 
-`evals/evals.json` defines the skill name, test prompts, optional expectations, optional eval files, and optional fixture sources.
+`evals/evals.json` defines the skill name, test prompts, optional expectations,
+optional eval files, and optional fixture sources. The file must declare
+`"schema_version": 1` so incompatible eval definition shapes fail at load time.
+
+```json
+{
+  "schema_version": 1,
+  "skill_name": "example-skill",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "basic",
+      "turns": [
+        {
+          "prompt": "Do the task.",
+          "expectations": []
+        }
+      ]
+    }
+  ]
+}
+```
 
 Eval files are copied from paths listed in each eval's `files` array. Paths are relative to the skill directory and must stay inside that directory.
 
@@ -124,6 +145,7 @@ Define fixture sources at the top level of `evals/evals.json`:
 
 ```json
 {
+  "schema_version": 1,
   "fixture_repo": "https://github.com/example/eval-fixtures.git",
   "fixture_ref": "2c4d9a8"
 }
@@ -135,6 +157,7 @@ Use `fixture_base_path` instead when fixtures are already staged locally:
 
 ```json
 {
+  "schema_version": 1,
   "fixture_base_path": "F:/dev/fixtures"
 }
 ```
