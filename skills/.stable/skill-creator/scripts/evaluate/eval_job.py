@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .eval_definitions import EvalDefinition, EvalTurn, ensure_eval_definition
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
@@ -23,7 +24,7 @@ _ACTIVE_PROCESS_IDS_LOCK = threading.Lock()
 
 def build_prompt(
     turn_prompt: str,
-    eval_def: dict,
+    eval_def: EvalDefinition | dict,
     fixture_path: str | None,
 ) -> str:
     """Build the prompt for a turn."""
@@ -37,13 +38,13 @@ def build_prompt(
     return prompt
 
 
-def _should_prefix_fixture_path(eval_def: dict, fixture_path: str | None) -> bool:
-    if not fixture_path or not eval_def.get("fixture_in_workdir", True):
+def _should_prefix_fixture_path(
+    eval_def: EvalDefinition | dict, fixture_path: str | None
+) -> bool:
+    typed_eval = ensure_eval_definition(eval_def)
+    if not fixture_path or not typed_eval.fixture_in_workdir:
         return False
-    return not any(
-        "{{FIXTURE_PATH}}" in turn.get("prompt", "")
-        for turn in eval_def.get("turns", [])
-    )
+    return not any("{{FIXTURE_PATH}}" in turn.prompt for turn in typed_eval.turns)
 
 
 def _resolve_existing_git_global_config(env: dict[str, str]) -> Path | None:
@@ -276,7 +277,7 @@ def run_with_timeout(cmd, prompt, cwd, timeout, env=None):
 
 @dataclass
 class EvalJob:
-    eval_def: dict
+    eval_def: EvalDefinition | dict
     run_type: str
     run_dir: str
     fixture_path: str | None
@@ -296,13 +297,16 @@ class EvalJob:
     status: str = "success"
     error_message: str | None = None
 
-    @property
-    def eval_id(self) -> int:
-        return self.eval_def["id"]
+    def __post_init__(self) -> None:
+        self.eval_def = ensure_eval_definition(self.eval_def)
 
     @property
-    def turns(self) -> list[dict]:
-        return self.eval_def.get("turns", [])
+    def eval_id(self) -> int:
+        return self.eval_def.id
+
+    @property
+    def turns(self) -> list[EvalTurn]:
+        return self.eval_def.turns
 
     @property
     def run_type_dir(self) -> Path:
@@ -334,9 +338,9 @@ class EvalJob:
         return self.summary()
 
     def run_turns(self, process_env: dict[str, str]) -> None:
-        eval_timeout = self.eval_def.get("timeout", self.timeout)
+        eval_timeout = self.eval_def.timeout or self.timeout
         for turn_idx, turn in enumerate(self.turns):
-            turn_timeout = turn.get("timeout", eval_timeout)
+            turn_timeout = turn.timeout or eval_timeout
             effective_timeout = self.effective_timeout(turn_timeout, turn_idx)
             if effective_timeout is None:
                 break
@@ -363,12 +367,12 @@ class EvalJob:
     def run_turn(
         self,
         turn_idx: int,
-        turn: dict,
+        turn: EvalTurn,
         effective_timeout: float,
         process_env: dict[str, str],
     ) -> bool:
         prompt = build_prompt(
-            turn["prompt"],
+            turn.prompt,
             self.eval_def,
             self.fixture_path,
         )
@@ -514,7 +518,7 @@ class EvalJob:
     def summary(self) -> dict:
         summary = {
             "eval_id": self.eval_id,
-            "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            "eval_name": self.eval_def.display_name,
             "run_type": self.run_type,
             "session_id": self.session_id,
             "status": self.status,
@@ -534,7 +538,7 @@ class EvalJob:
         )
         return {
             "eval_id": self.eval_id,
-            "eval_name": self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            "eval_name": self.eval_def.display_name,
             "run_type": self.run_type,
             "session_id": self.session_id,
             "status": "skipped",
@@ -546,7 +550,7 @@ class EvalJob:
 
 
 def run_single_job(
-    eval_def: dict,
+    eval_def: EvalDefinition | dict,
     run_type: str,
     run_dir: str,
     fixture_path: str | None,

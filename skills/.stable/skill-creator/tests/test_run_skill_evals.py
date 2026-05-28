@@ -25,6 +25,7 @@ from scripts.evaluate.eval_runner import (
     EvalRun,
     EvalRunOptions,
 )
+from scripts.evaluate.eval_definitions import EvalDefinition, EvalSuite, EvalTurn
 from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
 from scripts.evaluate.providers import TurnResult
 from scripts.evaluate.providers.claude import (
@@ -614,7 +615,10 @@ class EvalLibTests(unittest.TestCase):
         self.assertEqual(
             build_prompt(
                 "Open {{FIXTURE_PATH}}.",
-                {"turns": [{"prompt": "Open {{FIXTURE_PATH}}."}]},
+                EvalDefinition(
+                    id=1,
+                    turns=[EvalTurn(prompt="Open {{FIXTURE_PATH}}.")],
+                ),
                 "F:/fixture",
             ),
             "Open F:/fixture.",
@@ -622,16 +626,21 @@ class EvalLibTests(unittest.TestCase):
         self.assertEqual(
             build_prompt(
                 "Open the project.",
-                {
-                    "fixture_in_workdir": False,
-                    "turns": [{"prompt": "Open the project."}],
-                },
+                EvalDefinition(
+                    id=1,
+                    fixture_in_workdir=False,
+                    turns=[EvalTurn(prompt="Open the project.")],
+                ),
                 "F:/fixture",
             ),
             "Open the project.",
         )
         self.assertEqual(
-            build_prompt("Open the project.", {"turns": []}, "F:/fixture"),
+            build_prompt(
+                "Open the project.",
+                EvalDefinition(id=1),
+                "F:/fixture",
+            ),
             "The codebase is at F:/fixture.\n\nOpen the project.",
         )
 
@@ -1038,13 +1047,98 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("no evals found", stderr.getvalue())
 
+    def test_eval_definitions_loads_named_domain_types(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            evals_dir = Path(temp_dir) / "skill" / "evals"
+            evals_dir.mkdir(parents=True)
+            evals_path = evals_dir / "evals.json"
+            evals_path.write_text(
+                json.dumps(
+                    {
+                        "skill_name": "typed-skill",
+                        "fixture_repo": "https://example.invalid/fixtures.git",
+                        "fixture_ref": "abc123",
+                        "fixture_base_path": "F:/fixtures",
+                        "evals": [
+                            {
+                                "id": 7,
+                                "eval_name": "typed",
+                                "fixture": "sample-project",
+                                "fixture_in_workdir": False,
+                                "files": ["evals/input.txt"],
+                                "timeout": 120,
+                                "turns": [
+                                    {
+                                        "prompt": "Inspect {{FIXTURE_PATH}}.",
+                                        "expectations": ["report findings"],
+                                        "timeout": 45,
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            suite = eval_definitions.load_evals_data(evals_path)
+
+        self.assertIsInstance(suite, EvalSuite)
+        self.assertEqual(suite.skill_name, "typed-skill")
+        self.assertEqual(suite.fixture_repo, "https://example.invalid/fixtures.git")
+        self.assertEqual(suite.fixture_ref, "abc123")
+        self.assertEqual(suite.fixture_base_path, "F:/fixtures")
+        self.assertEqual(
+            suite.evals,
+            [
+                EvalDefinition(
+                    id=7,
+                    eval_name="typed",
+                    turns=[
+                        EvalTurn(
+                            prompt="Inspect {{FIXTURE_PATH}}.",
+                            expectations=["report findings"],
+                            timeout=45,
+                        )
+                    ],
+                    timeout=120,
+                    fixture="sample-project",
+                    fixture_in_workdir=False,
+                    files=["evals/input.txt"],
+                )
+            ],
+        )
+        self.assertEqual(
+            suite.to_dict()["fixture_repo"],
+            "https://example.invalid/fixtures.git",
+        )
+        self.assertEqual(suite.to_dict()["fixture_ref"], "abc123")
+        self.assertEqual(
+            suite.evals[0].to_dict(),
+            {
+                "id": 7,
+                "eval_name": "typed",
+                "turns": [
+                    {
+                        "prompt": "Inspect {{FIXTURE_PATH}}.",
+                        "expectations": ["report findings"],
+                        "timeout": 45,
+                    }
+                ],
+                "timeout": 120,
+                "fixture": "sample-project",
+                "fixture_in_workdir": False,
+                "files": ["evals/input.txt"],
+            },
+        )
+
     def test_eval_definitions_select_evals_warns_and_rejects_empty_selection(self):
-        evals_list = [{"id": 1}, {"id": 2}]
+        evals_list = [EvalDefinition(id=1), EvalDefinition(id=2)]
 
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             self.assertEqual(
                 eval_definitions.select_evals(evals_list, "1,3"),
-                [{"id": 1}],
+                [EvalDefinition(id=1)],
             )
 
         self.assertIn("eval IDs not found", stderr.getvalue())
@@ -1318,7 +1412,7 @@ class RunSkillEvalsPromptTests(unittest.TestCase):
     def test_build_prompt_preserves_plain_user_prompt(self):
         prompt = build_prompt(
             "Please update the fixture.",
-            {"turns": []},
+            EvalDefinition(id=1),
             fixture_path=None,
         )
 

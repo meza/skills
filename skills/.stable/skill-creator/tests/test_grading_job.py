@@ -170,7 +170,7 @@ class GradingJobTests(unittest.TestCase):
         )(eval_job)
 
         self.assertIsInstance(grading_job, GradingJob)
-        self.assertEqual(grading_job.eval_def, {"id": 1})
+        self.assertEqual(grading_job.eval_def.to_dict(), {"id": 1, "turns": []})
         self.assertEqual(grading_job.run_type, "skill")
         self.assertEqual(grading_job.run_type_dir, Path("F:/runs/eval-1/skill"))
         self.assertEqual(grading_job.run_dir, "F:/runs/workdirs/eval-1/skill")

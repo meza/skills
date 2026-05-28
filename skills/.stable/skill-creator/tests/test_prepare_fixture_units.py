@@ -264,7 +264,10 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             evals_data = self._minimal_evals()
             skill_path = self._write_skill(temp_path, evals_data)
 
-            self.assertEqual(prepare_fixture.load_evals_data(skill_path), evals_data)
+            self.assertEqual(
+                prepare_fixture.load_evals_data(skill_path).to_dict(),
+                evals_data,
+            )
 
     def test_load_evals_data_exits_when_evals_json_is_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:

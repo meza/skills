@@ -8,6 +8,7 @@ from pathlib import Path
 
 import jsonschema
 
+from .eval_definitions import EvalDefinition, ensure_eval_definition
 from .eval_job import run_with_timeout
 from .providers import Provider
 
@@ -78,7 +79,7 @@ def create_grading_job_factory(
 class GradingJob:
     """Run a schema-constrained grader for one completed eval run-type directory."""
 
-    eval_def: dict
+    eval_def: EvalDefinition | dict
     run_type: str
     run_type_dir: Path
     skill_name: str
@@ -89,6 +90,9 @@ class GradingJob:
     schema_path: Path
     grader_instructions_path: Path
     run_dir: str | None = None
+
+    def __post_init__(self) -> None:
+        self.eval_def = ensure_eval_definition(self.eval_def)
 
     def run(self) -> None:
         self.write_run_artifacts_manifest()
@@ -153,7 +157,7 @@ class GradingJob:
 
     @property
     def eval_id(self) -> int:
-        return self.eval_def["id"]
+        return self.eval_def.id
 
     def build_prompt(self) -> str:
         instructions = self.grader_instructions_path.read_text(encoding="utf-8")
@@ -165,7 +169,7 @@ class GradingJob:
     def run_result(self) -> dict:
         return {
             "skill_name": self.skill_name,
-            "eval": self.eval_def,
+            "eval": self.eval_def.to_dict(),
             "run_type": self.run_type,
             "artifacts": self.artifacts(),
             "schema_path": str(self.schema_path),

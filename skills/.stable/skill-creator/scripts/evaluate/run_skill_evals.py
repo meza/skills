@@ -38,7 +38,7 @@ class SkillEvalRunner:
     def run(self) -> dict:
         provider = get_provider(self.prepared_run.provider)
         evals_data = load_evals_data(self.prepared_run.eval_definitions_path)
-        evals_list = select_evals(evals_data.get("evals", []), self.options.eval_ids)
+        evals_list = select_evals(evals_data.evals, self.options.eval_ids)
 
         options = EvalRunOptions(
             eval_definitions_path=self.prepared_run.eval_definitions_path,
@@ -54,7 +54,7 @@ class SkillEvalRunner:
             run_types=selected_run_types(self.options.skip_baseline),
             grading_job_factory=create_grading_job_factory(
                 provider=provider,
-                skill_name=evals_data.get("skill_name", self.prepared_run.skill_name),
+                skill_name=evals_data.skill_name or self.prepared_run.skill_name,
                 model=self.options.model,
                 effort=self.options.effort,
                 timeout=self.options.timeout,

@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+from .eval_definitions import EvalDefinition, ensure_eval_definition
 from .providers import Provider
 
 RUN_TYPES = ["skill", "baseline"]
@@ -79,10 +80,11 @@ def _build_run_type_entry(
 def _build_eval_paths(
     run_root: Path,
     provider: Provider,
-    eval_def: dict,
+    eval_def: EvalDefinition | dict,
     skill_name: str,
 ) -> dict:
-    eval_id = str(eval_def["id"])
+    eval_def = ensure_eval_definition(eval_def)
+    eval_id = str(eval_def.id)
     eval_dir = run_root / f"eval-{eval_id}"
     _require_existing_path(
         eval_dir,
@@ -91,8 +93,8 @@ def _build_eval_paths(
         "prepared run root.",
     )
 
-    fixture_name = eval_def.get("fixture")
-    fixture_in_workdir = eval_def.get("fixture_in_workdir", True)
+    fixture_name = eval_def.fixture
+    fixture_in_workdir = eval_def.fixture_in_workdir
     return {
         run_type: _build_run_type_entry(
             eval_dir,
@@ -109,7 +111,7 @@ def _build_eval_paths(
 def build_run_paths(
     run_root: Path,
     provider: Provider,
-    evals_list: list[dict],
+    evals_list: list[EvalDefinition | dict],
     skill_name: str,
 ) -> dict:
     """Resolve run directories from a prepared run root."""
@@ -123,7 +125,7 @@ def build_run_paths(
         sys.exit(1)
 
     return {
-        str(eval_def["id"]): _build_eval_paths(
+        str(ensure_eval_definition(eval_def).id): _build_eval_paths(
             run_root,
             provider,
             eval_def,

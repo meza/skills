@@ -11,7 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .eval_definitions import write_eval_metadata
+from .eval_definitions import (
+    EvalDefinition,
+    EvalSuite,
+    ensure_eval_definition,
+    ensure_eval_suite,
+    write_eval_metadata,
+)
 from .eval_job import kill_active_processes, run_single_job
 
 if TYPE_CHECKING:
@@ -40,14 +46,17 @@ class EvalRunOptions:
 class EvalJobSpec:
     """Resolved inputs needed to run one eval/run-type pair."""
 
-    eval_def: dict
+    eval_def: EvalDefinition | dict
     run_type: str
     run_dir: str
     fixture_path: str | None
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "eval_def", ensure_eval_definition(self.eval_def))
+
     @property
     def eval_id(self) -> int:
-        return self.eval_def["id"]
+        return self.eval_def.id
 
 
 @dataclass
@@ -96,9 +105,15 @@ class EvalRun:
 
     options: EvalRunOptions
     provider: object
-    evals_data: dict
-    evals_list: list[dict]
+    evals_data: EvalSuite | dict
+    evals_list: list[EvalDefinition | dict]
     prepared_evals: list["PreparedEval"]
+
+    def __post_init__(self) -> None:
+        self.evals_data = ensure_eval_suite(self.evals_data)
+        self.evals_list = [
+            ensure_eval_definition(eval_def) for eval_def in self.evals_list
+        ]
 
     def run(self) -> dict:
         print(
@@ -123,9 +138,7 @@ class EvalRun:
 
     @property
     def skill_name(self) -> str:
-        return self.evals_data.get(
-            "skill_name", self.options.eval_definitions_path.stem
-        )
+        return self.evals_data.skill_name or self.options.eval_definitions_path.stem
 
     def build_jobs(self) -> list[EvalJobSpec]:
         jobs = []
@@ -133,7 +146,7 @@ class EvalRun:
             str(entry.eval_id): entry for entry in self.prepared_evals
         }
         for eval_def in self.evals_list:
-            eval_id = str(eval_def["id"])
+            eval_id = str(eval_def.id)
             prepared_eval = prepared_by_eval_id.get(eval_id)
             for run_type in self.options.run_types:
                 job = self.job_for_run_type(
@@ -147,15 +160,16 @@ class EvalRun:
 
     def job_for_run_type(
         self,
-        eval_def: dict,
+        eval_def: EvalDefinition | dict,
         run_type: str,
         prepared_eval: "PreparedEval | None",
     ) -> EvalJobSpec | None:
+        eval_def = ensure_eval_definition(eval_def)
         run_dir = self.run_dir_for_run_type(prepared_eval, run_type)
         if not run_dir:
             print(
                 "Warning: no run directory for "
-                f"eval {eval_def['id']} run type {run_type}",
+                f"eval {eval_def.id} run type {run_type}",
                 file=sys.stderr,
             )
             return None
