@@ -25,6 +25,7 @@ if _IS_WINDOWS:
 else:
     PIDFILE = Path("/tmp/skill-creator-viewer.json")
 DEFAULT_PORT = 3117
+VIEWER_READY_MARKER = b"EMBEDDED_DATA"
 
 
 def _get_local_ip() -> str:
@@ -109,17 +110,21 @@ def _kill_pid_text(pid_text: str) -> None:
 
 
 def _health_check(port: int, retries: int = 30, interval: float = 0.2) -> bool:
-    """Wait for the server to respond with content."""
+    """Wait for the viewer server to return a rendered workspace payload."""
     url = f"http://127.0.0.1:{port}"
     for _ in range(retries):
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:
-                if resp.status == 200 and len(resp.read()) > 0:
+                if resp.status == 200 and _viewer_response_is_ready(resp.read()):
                     return True
         except Exception:
             pass
         time.sleep(interval)
     return False
+
+
+def _viewer_response_is_ready(body: bytes) -> bool:
+    return VIEWER_READY_MARKER in body
 
 
 def cmd_stop(_args=None, quiet: bool = False) -> None:

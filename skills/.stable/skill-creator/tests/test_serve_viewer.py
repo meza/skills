@@ -76,7 +76,7 @@ class ServeViewerTests(unittest.TestCase):
     def test_health_check_closes_successful_response(self):
         response = mock.MagicMock()
         response.status = 200
-        response.read.return_value = b"ok"
+        response.read.return_value = b"<script>const EMBEDDED_DATA = {}</script>"
         response.__enter__.return_value = response
 
         with mock.patch.object(
@@ -88,6 +88,22 @@ class ServeViewerTests(unittest.TestCase):
 
         response.__enter__.assert_called_once_with()
         response.__exit__.assert_called_once()
+
+    def test_health_check_rejects_non_viewer_response(self):
+        response = mock.MagicMock()
+        response.status = 200
+        response.read.return_value = b"ok"
+        response.__enter__.return_value = response
+
+        with (
+            mock.patch.object(
+                serve_viewer.urllib.request,
+                "urlopen",
+                return_value=response,
+            ),
+            mock.patch.object(serve_viewer.time, "sleep"),
+        ):
+            self.assertFalse(serve_viewer._health_check(3117, retries=1, interval=0))
 
     def test_start_background_viewer_cleans_up_when_health_check_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
