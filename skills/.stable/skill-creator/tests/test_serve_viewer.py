@@ -11,6 +11,68 @@ from scripts import serve_viewer
 
 
 class ServeViewerTests(unittest.TestCase):
+    def test_build_viewer_command_includes_optional_inputs(self):
+        args = Namespace(
+            port=4555,
+            skill_name="demo-skill",
+            previous_workspace="previous",
+            benchmark="benchmark.json",
+        )
+
+        port, command = serve_viewer._build_viewer_command(
+            args,
+            Path("generate_review.py"),
+            Path("iteration-1"),
+        )
+
+        self.assertEqual(port, 4555)
+        self.assertEqual(
+            command,
+            [
+                serve_viewer.sys.executable,
+                "generate_review.py",
+                "iteration-1",
+                "--port",
+                "4555",
+                "--skill-name",
+                "demo-skill",
+                "--previous-workspace",
+                "previous",
+                "--benchmark",
+                "benchmark.json",
+            ],
+        )
+
+    def test_cmd_stop_removes_malformed_pidfile(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pidfile = Path(temp_dir) / "viewer.json"
+            pidfile.write_text("{not-json", encoding="utf-8")
+
+            with (
+                mock.patch.object(serve_viewer, "PIDFILE", pidfile),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                serve_viewer.cmd_stop()
+
+            self.assertFalse(pidfile.exists())
+
+    def test_cmd_stop_reports_when_pidfile_process_is_not_running(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pidfile = Path(temp_dir) / "viewer.json"
+            pidfile.write_text(json.dumps({"pid": 222, "port": 3117}), encoding="utf-8")
+
+            with (
+                mock.patch.object(serve_viewer, "PIDFILE", pidfile),
+                mock.patch.object(serve_viewer, "_kill_pid", return_value=False),
+                mock.patch.object(serve_viewer, "_kill_port") as kill_port,
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                serve_viewer.cmd_stop()
+
+            kill_port.assert_called_once_with(3117)
+            self.assertFalse(pidfile.exists())
+            self.assertIn("Viewer was not running.", stdout.getvalue())
+
     def test_health_check_closes_successful_response(self):
         response = mock.MagicMock()
         response.status = 200
