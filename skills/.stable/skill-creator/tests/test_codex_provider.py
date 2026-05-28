@@ -9,6 +9,33 @@ from scripts.evaluate.providers.codex import CodexProvider
 
 
 class CodexProviderEnvironmentTests(unittest.TestCase):
+    def test_command_builders_share_codex_eval_policy_args(self):
+        policy_args = codex_provider._codex_eval_policy_args()
+
+        start_command = CodexProvider().build_command(
+            session_id=None,
+            session_name="session",
+            turn_index=0,
+            model=None,
+            working_dir="F:/runs/eval-1/skill",
+        )
+        resume_command = CodexProvider().build_command(
+            session_id="thread-123",
+            session_name="session",
+            turn_index=1,
+            model=None,
+        )
+        grading_command = CodexProvider().build_grading_command(
+            model=None,
+            effort=None,
+            working_dir="F:/runs/eval-1/skill",
+            output_schema="F:/schemas/grading.schema.json",
+        )
+
+        for command in (start_command, resume_command, grading_command):
+            for arg in policy_args:
+                self.assertIn(arg, command)
+
     def test_process_environment_isolates_home_and_copies_auth_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

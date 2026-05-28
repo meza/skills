@@ -54,6 +54,24 @@ EVAL_ISOLATION_CONFIG_ARGS = [
 ]
 
 
+def _codex_eval_policy_args(
+    command_args: list[str] | None = None,
+    extra_config_args: list[str] | None = None,
+) -> list[str]:
+    return [
+        "--json",
+        "--skip-git-repo-check",
+        *(command_args or []),
+        *WINDOWS_SANDBOX_FEATURE_ARGS,
+        "--ignore-user-config",
+        "--ignore-rules",
+        *SHELL_ENV_SECRET_FILTER_ARGS,
+        *CODEX_APPROVAL_CONFIG_ARGS,
+        *(extra_config_args or []),
+        *EVAL_ISOLATION_CONFIG_ARGS,
+    ]
+
+
 class CodexProvider(Provider):
     """Provider that uses the Codex CLI in non-interactive mode."""
 
@@ -74,15 +92,7 @@ class CodexProvider(Provider):
             cmd = [
                 executable,
                 "exec",
-                "--json",
-                "--skip-git-repo-check",
-                *CODEX_SANDBOX_ARGS,
-                *WINDOWS_SANDBOX_FEATURE_ARGS,
-                "--ignore-user-config",
-                "--ignore-rules",
-                *SHELL_ENV_SECRET_FILTER_ARGS,
-                *CODEX_APPROVAL_CONFIG_ARGS,
-                *EVAL_ISOLATION_CONFIG_ARGS,
+                *_codex_eval_policy_args(command_args=CODEX_SANDBOX_ARGS),
             ]
             if working_dir:
                 cmd.extend(["--cd", working_dir])
@@ -95,15 +105,7 @@ class CodexProvider(Provider):
                 executable,
                 "exec",
                 "resume",
-                "--json",
-                "--skip-git-repo-check",
-                *WINDOWS_SANDBOX_FEATURE_ARGS,
-                "--ignore-user-config",
-                "--ignore-rules",
-                *SHELL_ENV_SECRET_FILTER_ARGS,
-                *CODEX_APPROVAL_CONFIG_ARGS,
-                *CODEX_SANDBOX_CONFIG_ARGS,
-                *EVAL_ISOLATION_CONFIG_ARGS,
+                *_codex_eval_policy_args(extra_config_args=CODEX_SANDBOX_CONFIG_ARGS),
                 session_id,
                 "-",
             ]
@@ -124,15 +126,7 @@ class CodexProvider(Provider):
         cmd = [
             _find_codex_executable(),
             "exec",
-            "--json",
-            "--skip-git-repo-check",
-            *CODEX_SANDBOX_ARGS,
-            *WINDOWS_SANDBOX_FEATURE_ARGS,
-            "--ignore-user-config",
-            "--ignore-rules",
-            *SHELL_ENV_SECRET_FILTER_ARGS,
-            *CODEX_APPROVAL_CONFIG_ARGS,
-            *EVAL_ISOLATION_CONFIG_ARGS,
+            *_codex_eval_policy_args(command_args=CODEX_SANDBOX_ARGS),
             "--cd",
             working_dir,
             "-",
