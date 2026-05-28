@@ -474,6 +474,13 @@ def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None
     fixture_ref = evals_data.get("fixture_ref")
     fixture_base_raw = evals_data.get("fixture_base_path")
 
+    if fixture_repo and fixture_base_raw:
+        print(
+            "Error: fixture_base_path cannot be used with fixture_repo",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if fixture_base_raw:
         fixture_staging = Path(fixture_base_raw).expanduser().resolve()
     else:

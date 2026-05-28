@@ -60,6 +60,7 @@ def load_evals_data_or_exit(evals_json_path: Path) -> dict:
 
 def validate_evals_data_or_exit(evals_data: dict) -> None:
     validate_schema_version_or_exit(evals_data)
+    validate_skill_name_or_exit(evals_data.get("skill_name"))
     evals_list = evals_data.get("evals", [])
     if not evals_list:
         print("Error: no evals found in evals.json", file=sys.stderr)
@@ -86,6 +87,24 @@ def validate_schema_version_or_exit(evals_data: object) -> None:
         print(
             f"Error: unsupported evals.json schema_version {schema_version}; "
             f"expected {SUPPORTED_EVAL_SCHEMA_VERSION}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def validate_skill_name_or_exit(skill_name: object) -> None:
+    if skill_name is None:
+        return
+    if (
+        not isinstance(skill_name, str)
+        or not skill_name.strip()
+        or skill_name in {".", ".."}
+        or "/" in skill_name
+        or "\\" in skill_name
+        or ":" in skill_name
+    ):
+        print(
+            "Error: skill_name must be a single directory name",
             file=sys.stderr,
         )
         sys.exit(1)

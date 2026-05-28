@@ -1412,6 +1412,14 @@ class EvalLibTests(unittest.TestCase):
             ({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}, "schema_version"),
             (
                 {
+                    "schema_version": 1,
+                    "skill_name": "../escaped",
+                    "evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}],
+                },
+                "skill_name must be a single directory name",
+            ),
+            (
+                {
                     "schema_version": True,
                     "evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}],
                 },

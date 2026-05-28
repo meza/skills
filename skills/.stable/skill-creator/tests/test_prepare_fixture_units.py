@@ -482,6 +482,31 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 "abc123",
             )
 
+    def test_resolve_fixture_staging_rejects_repo_with_fixture_base_path(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            evals_data = self._minimal_evals(
+                {"fixture": "sample-project"},
+                fixture_repo="https://example.invalid/fixtures.git",
+                fixture_ref="abc123",
+                fixture_base_path=str(temp_path / "outside"),
+            )
+
+            with (
+                mock.patch.object(prepare_fixture, "git_clone_or_pull") as clone,
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.resolve_fixture_staging_or_exit(
+                    evals_data, temp_path / "runs"
+                )
+
+            clone.assert_not_called()
+            self.assertIn(
+                "fixture_base_path cannot be used with fixture_repo",
+                stderr.getvalue(),
+            )
+
     def test_resolve_fixture_staging_requires_ref_for_fixture_repo(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
