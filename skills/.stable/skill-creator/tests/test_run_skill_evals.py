@@ -672,21 +672,36 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             options = eval_run.call_args.args[0]
             self.assertEqual(options.iteration, 3)
+            self.assertTrue((run_root / "results" / "iteration-3").is_dir())
 
-    def test_next_iteration_ignores_non_iteration_entries(self):
+    def test_reserve_next_iteration_ignores_non_iteration_entries(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             results_dir = Path(temp_dir) / "results"
             results_dir.mkdir()
             (results_dir / "progress.json").write_text("{}", encoding="utf-8")
             (results_dir / "iteration-old").mkdir()
 
-            self.assertEqual(run_skill_evals.next_iteration(results_dir), 1)
+            self.assertEqual(run_skill_evals.reserve_next_iteration(results_dir), 1)
+            self.assertTrue((results_dir / "iteration-1").is_dir())
             self.assertFalse(
                 run_skill_evals.is_iteration_dir(results_dir / "progress.json")
             )
             self.assertFalse(
                 run_skill_evals.is_iteration_dir(results_dir / "iteration-old")
             )
+
+    def test_reserve_next_iteration_claims_unique_directory_atomically(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir) / "results"
+            (results_dir / "iteration-1").mkdir(parents=True)
+
+            first = run_skill_evals.reserve_next_iteration(results_dir)
+            second = run_skill_evals.reserve_next_iteration(results_dir)
+
+            self.assertEqual(first, 2)
+            self.assertEqual(second, 3)
+            self.assertTrue((results_dir / "iteration-2").is_dir())
+            self.assertTrue((results_dir / "iteration-3").is_dir())
 
     def test_run_skill_evals_delegates_to_runner(self):
         prepared_run = PreparedRun(

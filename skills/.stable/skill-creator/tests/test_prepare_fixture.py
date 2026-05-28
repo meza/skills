@@ -95,13 +95,14 @@ class PrepareFixtureContractTests(unittest.TestCase):
             )
             self.assertEqual(eval_entry.eval_id, 1)
             self.assertEqual(eval_entry.eval_name, "basic")
+            invocation_root = eval_entry.skill_run_path.parents[1]
+            self.assertEqual(invocation_root.parent, prepared_run.run_root / "workdirs")
             self.assertEqual(
-                eval_entry.skill_run_path,
-                prepared_run.run_root / "workdirs" / "eval-1" / "skill",
+                eval_entry.skill_run_path, invocation_root / "eval-1" / "skill"
             )
             self.assertEqual(
                 eval_entry.baseline_run_path,
-                prepared_run.run_root / "workdirs" / "eval-1" / "baseline",
+                invocation_root / "eval-1" / "baseline",
             )
             self.assertEqual(
                 eval_entry.skill_file,
@@ -286,7 +287,7 @@ class PrepareFixtureContractTests(unittest.TestCase):
             )
             self.assertNotEqual(with_fixture, without_fixture)
 
-    def test_reuses_prepared_run_root_for_each_invocation(self):
+    def test_reuses_run_root_and_reserves_workdir_for_each_invocation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             skill_path = self._write_skill(temp_path, self._minimal_evals())
@@ -299,11 +300,13 @@ class PrepareFixtureContractTests(unittest.TestCase):
             second_path = self._prepared_eval(second).skill_run_path
             self.assertEqual(first.run_root, run_base)
             self.assertEqual(second.run_root, run_base)
-            self.assertEqual(first_path, second_path)
+            self.assertNotEqual(first_path, second_path)
+            self.assertEqual(first_path.parents[2], run_base / "workdirs")
+            self.assertEqual(second_path.parents[2], run_base / "workdirs")
             self.assertTrue(first_path.exists())
             self.assertTrue(second_path.exists())
 
-    def test_reuses_run_root_and_replaces_prepared_eval_dirs_between_invocations(self):
+    def test_reuses_run_root_and_keeps_invocation_workdirs_isolated(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             fixtures = self._write_fixture_base(temp_path)
@@ -321,20 +324,24 @@ class PrepareFixtureContractTests(unittest.TestCase):
             run_root = temp_path / "runs" / "demo-skill"
 
             first = self._run_prepare(skill_path, run_root)
-            stale_file = first.run_root / "workdirs" / "eval-1" / "skill" / "stale.txt"
+            stale_file = first.evals[0].skill_run_path / "stale.txt"
             stale_file.write_text("stale", encoding="utf-8")
             preserved_result = first.run_root / "results" / "iteration-1" / "marker.txt"
             preserved_result.parent.mkdir(parents=True)
             preserved_result.write_text("keep", encoding="utf-8")
-            stale_workdir = first.run_root / "workdirs" / "stale-eval"
+            stale_workdir = first.evals[0].skill_run_path.parent / "stale-eval"
             stale_workdir.mkdir()
 
             second = self._run_prepare(skill_path, run_root)
 
             self.assertEqual(first.run_root, run_root)
             self.assertEqual(second.run_root, run_root)
-            self.assertFalse(stale_file.exists())
-            self.assertFalse(stale_workdir.exists())
+            self.assertNotEqual(
+                first.evals[0].skill_run_path.parent,
+                second.evals[0].skill_run_path.parent,
+            )
+            self.assertTrue(stale_file.exists())
+            self.assertTrue(stale_workdir.exists())
             self.assertEqual(preserved_result.read_text(encoding="utf-8"), "keep")
             self.assertEqual(
                 (second.evals[0].skill_fixture_path / "README.md").read_text(
@@ -370,8 +377,9 @@ class PrepareFixtureContractTests(unittest.TestCase):
 
             self.assertEqual(prepared_run.eval_count, 1)
             self.assertEqual(prepared_run.evals[0].eval_id, 2)
-            self.assertFalse((run_root / "workdirs" / "eval-1").exists())
-            self.assertTrue((run_root / "workdirs" / "eval-2").exists())
+            invocation_root = prepared_run.evals[0].skill_run_path.parents[1]
+            self.assertFalse((invocation_root / "eval-1").exists())
+            self.assertTrue((invocation_root / "eval-2").exists())
 
     def test_fixture_staging_uses_only_requested_eval_ids(self):
         with tempfile.TemporaryDirectory() as temp_dir:

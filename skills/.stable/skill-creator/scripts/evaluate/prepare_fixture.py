@@ -9,10 +9,11 @@ eval run type:
 
     <run-root>/
       fixtures/                 # cloned or reused fixture source, when needed
-      <skill>-eval-runs-xxxxxx/  # fresh prepared run root for this invocation
-        eval-1/
-          skill/                 # provider-specific skills/<skill-name>/ copy
-          baseline/              # no skill copy
+      workdirs/
+        prepared-xxxxxx/         # fresh prepared workdir root for this invocation
+          eval-1/
+            skill/               # provider-specific skills/<skill-name>/ copy
+            baseline/            # no skill copy
 
 Each eval directory is isolated from every other eval directory. Within an eval,
 the skill and baseline run types receive separate fixture copies
@@ -42,11 +43,10 @@ eval runner:
 """
 
 import json
-import os
 import shutil
-import stat
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -171,10 +171,8 @@ class FixturePreparer:
         base = self.options.run_root.expanduser().resolve()
         base.mkdir(parents=True, exist_ok=True)
 
-        reset_workdirs(base)
         fixture_staging = resolve_fixture_staging_or_exit(selected_evals_data, base)
-        run_root = base / "workdirs"
-        run_root.mkdir(parents=True, exist_ok=True)
+        run_root = create_prepared_workdir_root(base)
 
         prepared_evals = [
             prepare_eval(
@@ -667,22 +665,15 @@ def reset_prepared_eval_dir(run_root: Path, eval_id: int) -> None:
     shutil.rmtree(eval_dir)
 
 
-def reset_workdirs(run_root: Path) -> None:
-    """Clear the disposable workdir root before preparing a new run."""
+def create_prepared_workdir_root(run_root: Path) -> Path:
+    """Reserve a unique prepared workdir root for one eval invocation.
+
+    Existing invocation directories are left intact so repeated or concurrent
+    eval preparations do not delete work another runner may still be using.
+    """
     workdirs = run_root / "workdirs"
-    if workdirs.exists():
-        remove_tree(workdirs)
     workdirs.mkdir(parents=True, exist_ok=True)
-
-
-def remove_tree(path: Path) -> None:
-    """Remove an orchestrator-owned tree, retrying read-only files on Windows."""
-    shutil.rmtree(path, onexc=retry_read_only_delete)
-
-
-def retry_read_only_delete(function, path, _error) -> None:
-    os.chmod(path, stat.S_IWRITE)
-    function(path)
+    return Path(tempfile.mkdtemp(prefix="prepared-", dir=workdirs))
 
 
 def assert_eval_dir_inside_run_root_or_exit(

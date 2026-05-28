@@ -900,26 +900,30 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertFalse(eval_dir.exists())
 
-    def test_reset_workdirs_creates_missing_scratch_root(self):
+    def test_create_prepared_workdir_root_reserves_unique_invocation_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_root = Path(temp_dir)
 
-            prepare_fixture.reset_workdirs(run_root)
+            first = prepare_fixture.create_prepared_workdir_root(run_root)
+            second = prepare_fixture.create_prepared_workdir_root(run_root)
 
-            self.assertTrue((run_root / "workdirs").is_dir())
+            self.assertEqual(first.parent, run_root / "workdirs")
+            self.assertEqual(second.parent, run_root / "workdirs")
+            self.assertNotEqual(first, second)
+            self.assertTrue(first.is_dir())
+            self.assertTrue(second.is_dir())
 
-    def test_reset_workdirs_removes_read_only_files(self):
+    def test_create_prepared_workdir_root_preserves_existing_active_workdirs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_root = Path(temp_dir)
-            read_only_file = run_root / "workdirs" / "repo" / ".git" / "objects" / "1"
-            read_only_file.parent.mkdir(parents=True)
-            read_only_file.write_text("object", encoding="utf-8")
-            read_only_file.chmod(read_only_file.stat().st_mode & ~0o222)
+            active_file = run_root / "workdirs" / "active" / "eval-1" / "marker.txt"
+            active_file.parent.mkdir(parents=True)
+            active_file.write_text("active", encoding="utf-8")
 
-            prepare_fixture.reset_workdirs(run_root)
+            prepared_root = prepare_fixture.create_prepared_workdir_root(run_root)
 
-            self.assertTrue((run_root / "workdirs").is_dir())
-            self.assertFalse(read_only_file.exists())
+            self.assertTrue(prepared_root.is_dir())
+            self.assertEqual(active_file.read_text(encoding="utf-8"), "active")
 
     def test_assert_eval_dir_inside_run_root_accepts_direct_child(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -53,7 +53,7 @@ class SkillEvalRunner:
         options = EvalRunOptions(
             eval_definitions_path=self.prepared_run.eval_definitions_path,
             workspace=self.prepared_run.run_root / "results",
-            iteration=next_iteration(self.prepared_run.run_root / "results"),
+            iteration=reserve_next_iteration(self.prepared_run.run_root / "results"),
             provider_name=self.prepared_run.provider,
             model=self.options.model,
             effort=self.options.effort,
@@ -97,6 +97,20 @@ def next_iteration(results_dir: Path) -> int:
     if not existing_iterations:
         return 1
     return max(existing_iterations) + 1
+
+
+def reserve_next_iteration(results_dir: Path) -> int:
+    """Atomically reserve the next results iteration directory."""
+    results_dir.mkdir(parents=True, exist_ok=True)
+    iteration = next_iteration(results_dir)
+    while True:
+        iteration_dir = results_dir / f"iteration-{iteration}"
+        try:
+            iteration_dir.mkdir()
+        except FileExistsError:
+            iteration += 1
+            continue
+        return iteration
 
 
 def is_iteration_dir(path: Path) -> bool:
