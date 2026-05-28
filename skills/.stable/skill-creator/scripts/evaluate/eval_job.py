@@ -280,10 +280,7 @@ def run_with_timeout(
     except Exception as error:
         stdout = ""
         stderr = f"Provider communication failed: {error}"
-        try:
-            process.kill()
-        except OSError:
-            pass
+        _kill_process_tree(process.pid)
         process.wait()
     finally:
         timer.cancel()

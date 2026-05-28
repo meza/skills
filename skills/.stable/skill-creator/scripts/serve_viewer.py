@@ -113,9 +113,9 @@ def _health_check(port: int, retries: int = 30, interval: float = 0.2) -> bool:
     url = f"http://127.0.0.1:{port}"
     for _ in range(retries):
         try:
-            resp = urllib.request.urlopen(url, timeout=2)
-            if resp.status == 200 and len(resp.read()) > 0:
-                return True
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                if resp.status == 200 and len(resp.read()) > 0:
+                    return True
         except Exception:
             pass
         time.sleep(interval)
@@ -222,7 +222,20 @@ def _start_background_viewer(args, cmd: list[str], port: int) -> None:
             f"but did not respond on port {port}.",
             file=sys.stderr,
         )
+        _cleanup_failed_start(proc)
         sys.exit(1)
+
+
+def _cleanup_failed_start(proc) -> None:
+    try:
+        proc.terminate()
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+    except OSError:
+        pass
+    PIDFILE.unlink(missing_ok=True)
 
 
 def _viewer_popen_kwargs() -> dict:

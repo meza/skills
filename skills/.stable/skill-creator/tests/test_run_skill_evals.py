@@ -846,6 +846,7 @@ class EvalLibTests(unittest.TestCase):
                 eval_job.subprocess, "Popen", return_value=BrokenProcess()
             ) as popen,
             mock.patch.object(eval_job.threading, "Timer") as timer,
+            mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree,
         ):
             timer.return_value = mock.Mock()
             result = run_with_timeout(
@@ -861,6 +862,7 @@ class EvalLibTests(unittest.TestCase):
         self.assertFalse(result.timed_out)
         self.assertGreaterEqual(result.duration_ms, 0)
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
+        kill_process_tree.assert_called_once_with(123)
 
     def test_run_with_timeout_returns_named_process_result(self):
         class CompletedProcess:
