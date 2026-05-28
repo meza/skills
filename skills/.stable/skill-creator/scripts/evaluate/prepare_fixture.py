@@ -53,6 +53,7 @@ from pathlib import Path
 from .eval_definitions import select_evals_or_exit
 from .providers.registry import get_provider_skill_root_or_exit
 from .run_layout import (
+    BASELINE_RUN_TYPE,
     PreparedRunTypeEntry,
     RUN_TYPES,
     SKILL_RUN_TYPE,
@@ -594,8 +595,8 @@ def prepare_run_type(
 def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedEval:
     """Build the prepared run entry for one eval."""
     eval_id = str(eval_def["id"])
-    skill_entry = run_paths["skill"]
-    baseline_entry = run_paths["baseline"]
+    skill_entry = run_paths[SKILL_RUN_TYPE]
+    baseline_entry = run_paths[BASELINE_RUN_TYPE]
     return PreparedEval(
         eval_id=eval_def["id"],
         eval_name=eval_def.get("eval_name", f"eval-{eval_id}"),

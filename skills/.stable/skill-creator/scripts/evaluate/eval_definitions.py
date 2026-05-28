@@ -4,13 +4,13 @@ import json
 import sys
 from pathlib import Path
 
-from .run_layout import RUN_TYPES
+from .run_layout import RUN_TYPES, SKILL_RUN_TYPE
 
 
 def selected_run_types(skip_baseline: bool) -> list[str]:
     """Return the run types requested for one eval invocation."""
     if skip_baseline:
-        return ["skill"]
+        return [SKILL_RUN_TYPE]
     return list(RUN_TYPES)
 
 

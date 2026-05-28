@@ -1285,6 +1285,16 @@ class EvalLibTests(unittest.TestCase):
             eval_definitions.selected_run_types(False), ["skill", "baseline"]
         )
         self.assertEqual(eval_definitions.selected_run_types(True), ["skill"])
+        with mock.patch.object(
+            eval_definitions,
+            "SKILL_RUN_TYPE",
+            "custom-skill",
+            create=True,
+        ):
+            self.assertEqual(
+                eval_definitions.selected_run_types(True),
+                ["custom-skill"],
+            )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             missing_evals_json = (

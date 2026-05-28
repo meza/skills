@@ -72,6 +72,40 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             with self.subTest(helper_name=helper_name):
                 self.assertTrue(hasattr(prepare_fixture, helper_name))
 
+    def test_build_prepared_eval_uses_shared_run_type_names(self):
+        run_paths = {
+            "custom-skill": {
+                "path": "runs/eval-1/custom-skill",
+                "skill_file": "runs/eval-1/custom-skill/SKILL.md",
+            },
+            "custom-baseline": {
+                "path": "runs/eval-1/custom-baseline",
+            },
+        }
+
+        with (
+            mock.patch.object(prepare_fixture, "SKILL_RUN_TYPE", "custom-skill"),
+            mock.patch.object(
+                prepare_fixture,
+                "BASELINE_RUN_TYPE",
+                "custom-baseline",
+                create=True,
+            ),
+        ):
+            prepared_eval = prepare_fixture.build_prepared_eval(
+                {"id": 1, "eval_name": "custom"},
+                run_paths,
+            )
+
+        self.assertEqual(
+            prepared_eval.skill_run_path,
+            Path("runs/eval-1/custom-skill"),
+        )
+        self.assertEqual(
+            prepared_eval.baseline_run_path,
+            Path("runs/eval-1/custom-baseline"),
+        )
+
     def test_run_git_returns_trimmed_stdout(self):
         with mock.patch.object(
             prepare_fixture.subprocess,
