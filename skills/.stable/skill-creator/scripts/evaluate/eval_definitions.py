@@ -14,7 +14,7 @@ def selected_run_types(skip_baseline: bool) -> list[str]:
     return list(RUN_TYPES)
 
 
-def load_evals_data(evals_json_path: Path) -> dict:
+def load_evals_data_or_exit(evals_json_path: Path) -> dict:
     """Load an eval definitions JSON file and reject empty eval suites."""
     if not evals_json_path.exists():
         print(f"Error: {evals_json_path} not found", file=sys.stderr)
@@ -30,7 +30,9 @@ def load_evals_data(evals_json_path: Path) -> dict:
     return evals_data
 
 
-def select_evals(evals_list: list[dict], raw_eval_ids: str | None) -> list[dict]:
+def select_evals_or_exit(
+    evals_list: list[dict], raw_eval_ids: str | None
+) -> list[dict]:
     """Return the eval definitions selected by the optional ID filter."""
     if not raw_eval_ids:
         return evals_list

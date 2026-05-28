@@ -57,13 +57,28 @@ class PrepareFixtureUnitTests(unittest.TestCase):
     ):
         return mock.Mock(returncode=returncode, stdout=stdout, stderr=stderr)
 
+    def test_process_exiting_fixture_helpers_have_explicit_names(self):
+        expected_helpers = [
+            "assert_eval_dir_inside_run_root_or_exit",
+            "copy_eval_files_or_exit",
+            "copy_fixture_or_exit",
+            "load_skill_evals_data_or_exit",
+            "resolve_fixture_staging_or_exit",
+            "resolve_ref_or_exit",
+            "run_git_or_exit",
+        ]
+
+        for helper_name in expected_helpers:
+            with self.subTest(helper_name=helper_name):
+                self.assertTrue(hasattr(prepare_fixture, helper_name))
+
     def test_run_git_returns_trimmed_stdout(self):
         with mock.patch.object(
             prepare_fixture.subprocess,
             "run",
             return_value=self._completed_process(stdout="abc123\n"),
         ) as run:
-            result = prepare_fixture.run_git(["git", "status"], "failed")
+            result = prepare_fixture.run_git_or_exit(["git", "status"], "failed")
 
         self.assertEqual(result, "abc123")
         run.assert_called_once_with(["git", "status"], capture_output=True, text=True)
@@ -80,19 +95,19 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             self.assertRaises(SystemExit),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
-            prepare_fixture.run_git(["git", "status"], "failed")
+            prepare_fixture.run_git_or_exit(["git", "status"], "failed")
 
         self.assertIn("failed", stderr.getvalue())
         self.assertIn("fatal error", stderr.getvalue())
 
     def test_resolve_ref_uses_origin_head_when_ref_is_missing(self):
         with mock.patch.object(
-            prepare_fixture, "run_git", return_value="origin-head"
-        ) as run_git:
-            resolved = prepare_fixture.resolve_ref(Path("repo"), None)
+            prepare_fixture, "run_git_or_exit", return_value="origin-head"
+        ) as run_git_or_exit:
+            resolved = prepare_fixture.resolve_ref_or_exit(Path("repo"), None)
 
         self.assertEqual(resolved, "origin-head")
-        run_git.assert_called_once_with(
+        run_git_or_exit.assert_called_once_with(
             ["git", "-C", "repo", "rev-parse", "origin/HEAD"],
             "Error: could not resolve origin/HEAD for fixture repo",
         )
@@ -106,7 +121,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         with mock.patch.object(
             prepare_fixture.subprocess, "run", side_effect=results
         ) as run:
-            resolved = prepare_fixture.resolve_ref(Path("repo"), "v1")
+            resolved = prepare_fixture.resolve_ref_or_exit(Path("repo"), "v1")
 
         self.assertEqual(resolved, "tag-commit")
         self.assertEqual(
@@ -128,7 +143,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             "run",
             side_effect=[*failed_candidates, fetch_success, fetched_ref],
         ) as run:
-            resolved = prepare_fixture.resolve_ref(Path("repo"), "feature")
+            resolved = prepare_fixture.resolve_ref_or_exit(Path("repo"), "feature")
 
         self.assertEqual(resolved, "fetched-commit")
         self.assertEqual(
@@ -153,7 +168,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             self.assertRaises(SystemExit),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
-            prepare_fixture.resolve_ref(Path("repo"), "missing")
+            prepare_fixture.resolve_ref_or_exit(Path("repo"), "missing")
 
         self.assertIn("could not resolve fixture_ref 'missing'", stderr.getvalue())
 
@@ -167,10 +182,12 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     "run",
                     return_value=self._completed_process(),
                 ) as run,
-                mock.patch.object(prepare_fixture, "run_git") as run_git,
                 mock.patch.object(
-                    prepare_fixture, "resolve_ref", return_value="abc123"
-                ) as resolve_ref,
+                    prepare_fixture, "run_git_or_exit"
+                ) as run_git_or_exit,
+                mock.patch.object(
+                    prepare_fixture, "resolve_ref_or_exit", return_value="abc123"
+                ) as resolve_ref_or_exit,
             ):
                 prepare_fixture.git_clone_or_pull(
                     "https://example.invalid/repo.git", dest, "main"
@@ -181,9 +198,9 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-            resolve_ref.assert_called_once_with(dest, "main")
+            resolve_ref_or_exit.assert_called_once_with(dest, "main")
             self.assertEqual(
-                run_git.call_args_list,
+                run_git_or_exit.call_args_list,
                 [
                     mock.call(
                         ["git", "-C", str(dest), "fetch", "--tags", "origin"],
@@ -207,19 +224,21 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             with (
                 mock.patch.object(prepare_fixture.subprocess, "run") as run,
-                mock.patch.object(prepare_fixture, "run_git") as run_git,
                 mock.patch.object(
-                    prepare_fixture, "resolve_ref", return_value="abc123"
-                ) as resolve_ref,
+                    prepare_fixture, "run_git_or_exit"
+                ) as run_git_or_exit,
+                mock.patch.object(
+                    prepare_fixture, "resolve_ref_or_exit", return_value="abc123"
+                ) as resolve_ref_or_exit,
             ):
                 prepare_fixture.git_clone_or_pull(
                     "https://example.invalid/repo.git", dest, "main"
                 )
 
             run.assert_not_called()
-            resolve_ref.assert_called_once_with(dest, "main")
+            resolve_ref_or_exit.assert_called_once_with(dest, "main")
             self.assertEqual(
-                run_git.call_args_list,
+                run_git_or_exit.call_args_list,
                 [
                     mock.call(
                         ["git", "-C", str(dest), "fetch", "--tags", "origin"],
@@ -264,7 +283,9 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             evals_data = self._minimal_evals()
             skill_path = self._write_skill(temp_path, evals_data)
 
-            self.assertEqual(prepare_fixture.load_evals_data(skill_path), evals_data)
+            self.assertEqual(
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path), evals_data
+            )
 
     def test_load_evals_data_exits_when_evals_json_is_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -275,13 +296,13 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.load_evals_data(skill_path)
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path)
 
             self.assertIn("evals.json not found", stderr.getvalue())
 
     def test_resolve_fixture_staging_returns_none_when_no_eval_uses_fixture(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            staging = prepare_fixture.resolve_fixture_staging(
+            staging = prepare_fixture.resolve_fixture_staging_or_exit(
                 self._minimal_evals(),
                 Path(temp_dir),
             )
@@ -297,7 +318,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 fixture_base_path=str(fixtures),
             )
 
-            staging = prepare_fixture.resolve_fixture_staging(
+            staging = prepare_fixture.resolve_fixture_staging_or_exit(
                 evals_data, temp_path / "runs"
             )
 
@@ -309,7 +330,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             default_fixtures = self._write_fixture_base(temp_path / "runs")
             evals_data = self._minimal_evals({"fixture": "sample-project"})
 
-            staging = prepare_fixture.resolve_fixture_staging(
+            staging = prepare_fixture.resolve_fixture_staging_or_exit(
                 evals_data, temp_path / "runs"
             )
 
@@ -327,7 +348,9 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.resolve_fixture_staging(evals_data, temp_path / "runs")
+                prepare_fixture.resolve_fixture_staging_or_exit(
+                    evals_data, temp_path / "runs"
+                )
 
             self.assertIn("fixture_base_path", stderr.getvalue())
 
@@ -341,7 +364,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             )
 
             with mock.patch.object(prepare_fixture, "git_clone_or_pull") as clone:
-                staging = prepare_fixture.resolve_fixture_staging(
+                staging = prepare_fixture.resolve_fixture_staging_or_exit(
                     evals_data, temp_path / "runs"
                 )
 
@@ -360,7 +383,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run_dir = eval_dir / "skill"
             run_dir.mkdir(parents=True)
 
-            copied = prepare_fixture.copy_fixture(
+            copied = prepare_fixture.copy_fixture_or_exit(
                 fixture_staging=fixtures,
                 eval_dir=eval_dir,
                 run_dir=run_dir,
@@ -384,7 +407,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run_dir = eval_dir / "skill"
             run_dir.mkdir(parents=True)
 
-            copied = prepare_fixture.copy_fixture(
+            copied = prepare_fixture.copy_fixture_or_exit(
                 fixture_staging=fixtures,
                 eval_dir=eval_dir,
                 run_dir=run_dir,
@@ -414,7 +437,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.copy_fixture(
+                prepare_fixture.copy_fixture_or_exit(
                     fixture_staging=fixtures,
                     eval_dir=eval_dir,
                     run_dir=run_dir,
@@ -437,7 +460,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.copy_eval_files(
+                prepare_fixture.copy_eval_files_or_exit(
                     skill_path,
                     run_dir,
                     ["evals/files/missing.txt"],
@@ -459,7 +482,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.copy_eval_files(
+                prepare_fixture.copy_eval_files_or_exit(
                     skill_path,
                     run_dir,
                     ["evals/files/directory"],
@@ -480,7 +503,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 self.assertRaises(SystemExit),
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
-                prepare_fixture.copy_eval_files(
+                prepare_fixture.copy_eval_files_or_exit(
                     skill_path,
                     run_dir,
                     ["../outside.txt"],
@@ -585,15 +608,19 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         )
 
     def test_get_provider_skill_root_returns_known_provider_root(self):
-        self.assertEqual(prepare_fixture.get_provider_skill_root("claude"), ".claude")
-        self.assertEqual(prepare_fixture.get_provider_skill_root("codex"), ".codex")
+        self.assertEqual(
+            prepare_fixture.get_provider_skill_root_or_exit("claude"), ".claude"
+        )
+        self.assertEqual(
+            prepare_fixture.get_provider_skill_root_or_exit("codex"), ".codex"
+        )
 
     def test_get_provider_skill_root_exits_for_unknown_provider(self):
         with (
             self.assertRaises(SystemExit),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
-            prepare_fixture.get_provider_skill_root("unknown")
+            prepare_fixture.get_provider_skill_root_or_exit("unknown")
 
         self.assertIn("unknown provider 'unknown'", stderr.getvalue())
         self.assertIn("claude, codex", stderr.getvalue())
@@ -700,7 +727,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             self.assertRaises(SystemExit),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
-            prepare_fixture.assert_eval_dir_inside_run_root(
+            prepare_fixture.assert_eval_dir_inside_run_root_or_exit(
                 Path("run").resolve(),
                 Path("elsewhere/eval-1").resolve(),
                 Path("elsewhere/eval-1"),
@@ -745,7 +772,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run_root = Path(temp_dir)
             eval_dir = run_root / "eval-1"
 
-            prepare_fixture.assert_eval_dir_inside_run_root(
+            prepare_fixture.assert_eval_dir_inside_run_root_or_exit(
                 run_root.resolve(),
                 eval_dir.resolve(),
                 eval_dir,

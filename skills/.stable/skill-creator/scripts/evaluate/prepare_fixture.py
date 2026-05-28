@@ -50,8 +50,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from .eval_definitions import select_evals
-from .providers.registry import get_provider_skill_root
+from .eval_definitions import select_evals_or_exit
+from .providers.registry import get_provider_skill_root_or_exit
 from .run_layout import (
     PreparedRunTypeEntry,
     RUN_TYPES,
@@ -140,13 +140,15 @@ class FixturePreparer:
         self.options = options
 
     def prepare(self) -> PreparedRun:
-        skill_root = self.options.skill_root or get_provider_skill_root(
+        skill_root = self.options.skill_root or get_provider_skill_root_or_exit(
             self.options.provider
         )
 
         skill_path = self.options.skill_path.expanduser().resolve()
-        evals_data = load_evals_data(skill_path)
-        eval_defs = select_evals(evals_data.get("evals", []), self.options.eval_ids)
+        evals_data = load_skill_evals_data_or_exit(skill_path)
+        eval_defs = select_evals_or_exit(
+            evals_data.get("evals", []), self.options.eval_ids
+        )
         selected_evals_data = {**evals_data, "evals": eval_defs}
         skill_name = evals_data.get("skill_name", skill_path.name)
 
@@ -156,7 +158,7 @@ class FixturePreparer:
         base.mkdir(parents=True, exist_ok=True)
 
         reset_workdirs(base)
-        fixture_staging = resolve_fixture_staging(selected_evals_data, base)
+        fixture_staging = resolve_fixture_staging_or_exit(selected_evals_data, base)
         run_root = base / "workdirs"
         run_root.mkdir(parents=True, exist_ok=True)
 
@@ -185,7 +187,7 @@ def _optional_path_to_string(path: Path | None) -> str | None:
     return str(path) if path else None
 
 
-def run_git(cmd: list[str], error_prefix: str) -> str:
+def run_git_or_exit(cmd: list[str], error_prefix: str) -> str:
     """Run a git command and return stdout, exiting with context on failure."""
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -197,14 +199,14 @@ def run_git(cmd: list[str], error_prefix: str) -> str:
     return result.stdout.strip()
 
 
-def resolve_ref(dest: Path, ref: str | None) -> str:
+def resolve_ref_or_exit(dest: Path, ref: str | None) -> str:
     """Resolve a fixture ref to a concrete commit.
 
     Supports branch names, tags, commit SHAs, and any rev parse expression
     reachable after fetch. When no ref is provided, use origin/HEAD.
     """
     if not ref:
-        return run_git(
+        return run_git_or_exit(
             ["git", "-C", str(dest), "rev-parse", "origin/HEAD"],
             "Error: could not resolve origin/HEAD for fixture repo",
         )
@@ -267,7 +269,7 @@ def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None
     """
     git_dir = dest / ".git"
     if git_dir.exists():
-        run_git(
+        run_git_or_exit(
             ["git", "-C", str(dest), "fetch", "--tags", "origin"],
             "Error: fixture repo fetch failed",
         )
@@ -281,17 +283,17 @@ def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None
         if clone_result.returncode != 0:
             print(f"Error: git clone failed:\n{clone_result.stderr}", file=sys.stderr)
             sys.exit(1)
-        run_git(
+        run_git_or_exit(
             ["git", "-C", str(dest), "fetch", "--tags", "origin"],
             "Error: fixture repo tag fetch failed",
         )
 
-    resolved_ref = resolve_ref(dest, ref)
-    run_git(
+    resolved_ref = resolve_ref_or_exit(dest, ref)
+    run_git_or_exit(
         ["git", "-C", str(dest), "reset", "--hard", resolved_ref],
         "Error: fixture repo reset failed",
     )
-    run_git(
+    run_git_or_exit(
         ["git", "-C", str(dest), "clean", "-fd"],
         "Error: fixture repo clean failed",
     )
@@ -329,7 +331,7 @@ def write_eval_gitignore(run_dir: Path) -> None:
     gitignore_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
 
 
-def copy_eval_files(
+def copy_eval_files_or_exit(
     skill_path: Path, dest_run_dir: Path, files: list[str], eval_id: str
 ) -> None:
     """Copy eval input files into the run directory, preserving relative paths.
@@ -375,7 +377,7 @@ def copy_eval_files(
         shutil.copy2(source, destination)
 
 
-def load_evals_data(skill_path: Path) -> dict:
+def load_skill_evals_data_or_exit(skill_path: Path) -> dict:
     """Load evals/evals.json for a skill directory."""
     evals_json_path = skill_path / "evals" / "evals.json"
 
@@ -387,7 +389,7 @@ def load_evals_data(skill_path: Path) -> dict:
         return json.load(f)
 
 
-def resolve_fixture_staging(evals_data: dict, base: Path) -> Path | None:
+def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None:
     """Resolve or prepare the fixture source directory for this run."""
     has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
     if not has_fixtures:
@@ -415,7 +417,7 @@ def resolve_fixture_staging(evals_data: dict, base: Path) -> Path | None:
     return fixture_staging
 
 
-def copy_fixture(
+def copy_fixture_or_exit(
     fixture_staging: Path,
     eval_dir: Path,
     run_dir: Path,
@@ -466,7 +468,7 @@ def prepare_run_type(
     fixture_path = None
     fixture_name = eval_def.get("fixture")
     if fixture_name and fixture_staging:
-        fixture_path = copy_fixture(
+        fixture_path = copy_fixture_or_exit(
             fixture_staging=fixture_staging,
             eval_dir=eval_dir,
             run_dir=run_dir,
@@ -478,7 +480,7 @@ def prepare_run_type(
 
     eval_files = eval_def.get("files", [])
     if eval_files:
-        copy_eval_files(skill_path, run_dir, eval_files, eval_id)
+        copy_eval_files_or_exit(skill_path, run_dir, eval_files, eval_id)
 
     if run_type == SKILL_RUN_TYPE:
         copy_skill(skill_path, run_dir, skill_name, skill_root)
@@ -544,7 +546,9 @@ def reset_prepared_eval_dir(run_root: Path, eval_id: int) -> None:
 
     resolved_run_root = run_root.resolve()
     resolved_eval_dir = eval_dir.resolve()
-    assert_eval_dir_inside_run_root(resolved_run_root, resolved_eval_dir, eval_dir)
+    assert_eval_dir_inside_run_root_or_exit(
+        resolved_run_root, resolved_eval_dir, eval_dir
+    )
 
     shutil.rmtree(eval_dir)
 
@@ -567,7 +571,7 @@ def retry_read_only_delete(function, path, _error) -> None:
     function(path)
 
 
-def assert_eval_dir_inside_run_root(
+def assert_eval_dir_inside_run_root_or_exit(
     resolved_run_root: Path,
     resolved_eval_dir: Path,
     display_path: Path,

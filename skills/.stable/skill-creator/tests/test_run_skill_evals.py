@@ -160,6 +160,11 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             effort=None,
         )
 
+    def test_process_exiting_eval_helpers_have_explicit_names(self):
+        self.assertTrue(hasattr(eval_definitions, "load_evals_data_or_exit"))
+        self.assertTrue(hasattr(eval_definitions, "select_evals_or_exit"))
+        self.assertTrue(hasattr(eval_run_paths, "build_run_paths_or_exit"))
+
     def _execute_with_fake_provider(
         self,
         prepared_run: PreparedRun,
@@ -172,7 +177,9 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 pass
 
         with (
-            mock.patch.object(run_skill_evals, "get_provider", return_value=provider),
+            mock.patch.object(
+                run_skill_evals, "get_provider_or_exit", return_value=provider
+            ),
             mock.patch.object(
                 run_skill_evals,
                 "create_grading_job_factory",
@@ -306,7 +313,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    run_skill_evals, "get_provider", return_value=provider
+                    run_skill_evals, "get_provider_or_exit", return_value=provider
                 ),
                 mock.patch.object(
                     eval_job,
@@ -565,7 +572,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    run_skill_evals, "get_provider", return_value=provider
+                    run_skill_evals, "get_provider_or_exit", return_value=provider
                 ),
                 mock.patch.object(
                     run_skill_evals,
@@ -612,7 +619,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
             with (
                 mock.patch.object(
-                    run_skill_evals, "get_provider", return_value=provider
+                    run_skill_evals, "get_provider_or_exit", return_value=provider
                 ),
                 mock.patch.object(
                     run_skill_evals,
@@ -1011,7 +1018,7 @@ class EvalLibTests(unittest.TestCase):
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
 
-            paths = eval_run_paths.build_run_paths(
+            paths = eval_run_paths.build_run_paths_or_exit(
                 temp_path,
                 provider,
                 [
@@ -1042,7 +1049,9 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_run_paths.build_run_paths(missing_root, provider, [], "fake-skill")
+                eval_run_paths.build_run_paths_or_exit(
+                    missing_root, provider, [], "fake-skill"
+                )
 
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("prepared run root", stderr.getvalue())
@@ -1052,7 +1061,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_run_paths.build_run_paths(
+                eval_run_paths.build_run_paths_or_exit(
                     Path(temp_dir),
                     provider,
                     [{"id": 1}],
@@ -1070,7 +1079,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_run_paths.build_run_paths(
+                eval_run_paths.build_run_paths_or_exit(
                     temp_path,
                     provider,
                     [{"id": 1}],
@@ -1093,7 +1102,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_run_paths.build_run_paths(
+                eval_run_paths.build_run_paths_or_exit(
                     temp_path,
                     provider,
                     [{"id": 1, "fixture": "fixture"}],
@@ -1110,7 +1119,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_run_paths.build_run_paths(
+                eval_run_paths.build_run_paths_or_exit(
                     temp_path,
                     provider,
                     [{"id": 1, "fixture": "fixture"}],
@@ -1136,7 +1145,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_definitions.load_evals_data(missing_evals_json)
+                eval_definitions.load_evals_data_or_exit(missing_evals_json)
 
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("evals.json not found", stderr.getvalue())
@@ -1154,7 +1163,7 @@ class EvalLibTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
                 self.assertRaises(SystemExit) as raised,
             ):
-                eval_definitions.load_evals_data(evals_dir / "evals.json")
+                eval_definitions.load_evals_data_or_exit(evals_dir / "evals.json")
 
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("no evals found", stderr.getvalue())
@@ -1164,7 +1173,7 @@ class EvalLibTests(unittest.TestCase):
 
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             self.assertEqual(
-                eval_definitions.select_evals(evals_list, "1,3"),
+                eval_definitions.select_evals_or_exit(evals_list, "1,3"),
                 [{"id": 1}],
             )
 
@@ -1174,7 +1183,7 @@ class EvalLibTests(unittest.TestCase):
             contextlib.redirect_stderr(io.StringIO()) as stderr,
             self.assertRaises(SystemExit) as raised,
         ):
-            eval_definitions.select_evals(evals_list, "3")
+            eval_definitions.select_evals_or_exit(evals_list, "3")
 
         self.assertEqual(raised.exception.code, 1)
         self.assertIn("no matching evals", stderr.getvalue())

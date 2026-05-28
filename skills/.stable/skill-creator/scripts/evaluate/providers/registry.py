@@ -12,7 +12,7 @@ PROVIDERS = {
 }
 
 
-def get_provider(name: str) -> Provider:
+def get_provider_or_exit(name: str) -> Provider:
     """Return the registered provider for ``name``.
 
     Returns a new provider instance on each successful lookup. For an unknown
@@ -30,10 +30,10 @@ def get_provider(name: str) -> Provider:
     return cls()
 
 
-def get_provider_skill_root(name: str) -> str:
+def get_provider_skill_root_or_exit(name: str) -> str:
     """Return the skill discovery root for a registered provider.
 
     Unknown provider names use the same stderr plus SystemExit error contract
-    as get_provider.
+    as get_provider_or_exit.
     """
-    return get_provider(name).skill_root
+    return get_provider_or_exit(name).skill_root

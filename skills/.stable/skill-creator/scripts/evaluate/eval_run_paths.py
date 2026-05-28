@@ -108,7 +108,7 @@ def _build_eval_paths(
     }
 
 
-def build_run_paths(
+def build_run_paths_or_exit(
     run_root: Path,
     provider: Provider,
     evals_list: list[dict],

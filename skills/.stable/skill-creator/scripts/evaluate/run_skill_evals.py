@@ -3,11 +3,15 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from .eval_definitions import load_evals_data, select_evals, selected_run_types
+from .eval_definitions import (
+    load_evals_data_or_exit,
+    select_evals_or_exit,
+    selected_run_types,
+)
 from .eval_runner import EvalRun, EvalRunOptions
 from .grading import create_grading_job_factory
 from .prepare_fixture import PreparedRun
-from .providers.registry import get_provider
+from .providers.registry import get_provider_or_exit
 
 DEFAULT_MAX_PARALLEL = 10
 DEFAULT_TIMEOUT_SECONDS = 600
@@ -36,9 +40,11 @@ class SkillEvalRunner:
         self.options = options
 
     def run(self) -> dict:
-        provider = get_provider(self.prepared_run.provider)
-        evals_data = load_evals_data(self.prepared_run.eval_definitions_path)
-        evals_list = select_evals(evals_data.get("evals", []), self.options.eval_ids)
+        provider = get_provider_or_exit(self.prepared_run.provider)
+        evals_data = load_evals_data_or_exit(self.prepared_run.eval_definitions_path)
+        evals_list = select_evals_or_exit(
+            evals_data.get("evals", []), self.options.eval_ids
+        )
 
         options = EvalRunOptions(
             eval_definitions_path=self.prepared_run.eval_definitions_path,
