@@ -8,7 +8,7 @@ import { RunNavigation } from './components/RunNavigation.js';
 import { RunSummary } from './components/RunSummary.js';
 import { TranscriptPanel } from './components/TranscriptPanel.js';
 import { type FeedbackDraftUpdater, feedbackDraftFromRun, runKey } from './feedbackDraft.js';
-import { type RunFilter, visibleReviewRuns } from './runFilters.js';
+import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from './runFilters.js';
 
 type FeedbackDraft = RunFeedbackView;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -28,12 +28,12 @@ export function App({
   initialIteration: IterationView;
   saveFeedback?: (feedback: FeedbackInput) => Promise<unknown>;
 }) {
-  const [filter, setFilter] = useState<RunFilter>('all');
   const reviewRuns = useMemo(
     () =>
       initialIteration.runs.filter((run) => run.runType === 'skill').sort((left, right) => left.evalId - right.evalId),
     [initialIteration.runs]
   );
+  const [filter, setFilter] = useState<RunFilter>(() => defaultReviewFilter(reviewRuns));
   const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] ?? initialIteration.runs[0]));
   const visibleRuns = useMemo(() => visibleReviewRuns(reviewRuns, filter), [filter, reviewRuns]);
   const selectedRun = visibleRuns.find((run) => runKey(run) === selectedKey) ?? visibleRuns[0] ?? reviewRuns[0];

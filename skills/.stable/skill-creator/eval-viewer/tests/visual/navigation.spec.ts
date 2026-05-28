@@ -5,6 +5,43 @@ test.beforeEach(async () => {
   await resetFeedbackArtifact();
 });
 
+test('default state shows all evals when every eval passed', async ({ page }) => {
+  const response = await page.request.get('/api/iteration');
+  const iteration = await response.json();
+  const passingRuns = iteration.runs.filter(
+    (run: { issues: Array<{ severity: string }>; passRate: number; runType: string }) =>
+      run.runType === 'skill' && run.passRate === 1 && run.issues.every((issue) => issue.severity !== 'error')
+  );
+  await page.route('**/api/iteration', async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        ...iteration,
+        runs: passingRuns,
+        summary: {
+          ...iteration.summary,
+          runCount: passingRuns.length
+        }
+      }),
+      contentType: 'application/json'
+    });
+  });
+
+  await page.goto('/');
+
+  await expect(page.getByRole('button', { name: 'all' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'fail', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('navigation', { name: 'Evals' }).locator('.run-link > span:first-child')).toHaveText([
+    'internal-refactor-stays-refactor',
+    'breaking-change-returns-full-message-when-needed'
+  ]);
+  await expectNoHorizontalOverflow(page);
+  await scrollContentToTop(page);
+
+  await expect(page).toHaveScreenshot('viewer-all-passed-default-state.png', {
+    fullPage: true
+  });
+});
+
 test('baseline expectation toggle shows baseline grading results', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
@@ -39,9 +76,8 @@ test('pass filter state shows only successful evals', async ({ page }) => {
   });
 });
 
-test('fail filter state shows only artifact error evals', async ({ page }) => {
+test('default state shows failed evals when failures exist', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'fail', exact: true }).click();
 
   await expect(page.getByRole('button', { name: 'fail', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();

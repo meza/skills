@@ -78,6 +78,42 @@ it('filters passing runs', async () => {
   expect(document.body).not.toHaveTextContent('without_skill');
 });
 
+it('defaults to failed runs when the iteration has failures', () => {
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs = [
+    { ...firstRun, evalId: 1, evalName: 'first-failing-eval', passRate: 0.5 },
+    { ...firstRun, evalId: 2, evalName: 'passing-eval', passRate: 1 }
+  ];
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByRole('button', { name: /^fail$/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('heading', { name: 'first-failing-eval' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /passing-eval/i })).not.toBeInTheDocument();
+});
+
+it('defaults to all runs when every eval passed', () => {
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs = [
+    { ...firstRun, evalId: 1, evalName: 'first-passing-eval', passRate: 1 },
+    { ...firstRun, evalId: 2, evalName: 'second-passing-eval', passRate: 1 }
+  ];
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByRole('button', { name: /^all$/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: /first-passing-eval/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /second-passing-eval/i })).toBeInTheDocument();
+});
+
 it('labels partial pass-rate runs as failed in navigation', () => {
   const view = iterationView();
   const run = view.runs[0];
@@ -242,6 +278,7 @@ it('falls back to the visible eval when a filter hides the pending nav highlight
     saveFeedback: vi.fn(async () => ({ ok: true }))
   });
 
+  await user.click(screen.getByRole('button', { name: /^all$/i }));
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
   await user.click(screen.getByRole('button', { name: /^fail$/i }));
 

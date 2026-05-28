@@ -24,6 +24,10 @@ export function reviewStatusLabel(run: RunView): 'fail' | 'success' {
   return run.passRate === 1 ? 'success' : 'fail';
 }
 
+export function defaultReviewFilter(runs: RunView[]): RunFilter {
+  return runs.some(isFailingRun) ? 'fail' : 'all';
+}
+
 export function visibleReviewRuns(runs: RunView[], filter: RunFilter): RunView[] {
   if (filter === 'pass') {
     return runs.filter(isPassingRun);

@@ -179,6 +179,7 @@ it('saves before advancing through the visible eval queue', async () => {
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
 
+  await user.click(screen.getByRole('button', { name: /^all$/i }));
   fireEvent.change(screen.getByLabelText('Review comments'), {
     target: { value: 'Move through the queue.' }
   });
@@ -205,6 +206,7 @@ it('moves to the previous visible eval after saving current feedback', async () 
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
 
+  await user.click(screen.getByRole('button', { name: /^all$/i }));
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
   fireEvent.change(screen.getByLabelText('Review comments'), {
     target: { value: 'Back-check this eval.' }

@@ -12,6 +12,7 @@ test.beforeEach(async () => {
 
 test('feedback hover state gives the review rail a neon glow', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   const feedback = page.locator('.feedback');
   await feedback.scrollIntoViewIfNeeded();
@@ -26,6 +27,7 @@ test('feedback hover state gives the review rail a neon glow', async ({ page }) 
 
 test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill('Expectation order needs a quick reviewer check.');
@@ -46,6 +48,7 @@ test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
 
 test('feedback workflow has visual coverage and persists only filled values', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   const comments = 'Reviewer confirmed this run is ready for the next iteration.';
   const expectationComment = 'Expectation order matches the first graded turn result.';
@@ -80,6 +83,7 @@ test('feedback workflow has visual coverage and persists only filled values', as
   expect(JSON.stringify(artifact)).not.toContain('""');
 
   await page.reload();
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
   await expect(page.getByLabel('Review comments')).toHaveValue(comments);
@@ -87,6 +91,7 @@ test('feedback workflow has visual coverage and persists only filled values', as
 
 test('past feedback state loads saved review content', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   const comments = 'Past review loaded from the feedback artifact.';
   const expectationComment = 'Previously saved expectation note.';
@@ -96,6 +101,7 @@ test('past feedback state loads saved review content', async ({ page }) => {
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
   await page.reload();
+  await page.getByRole('button', { name: 'pass', exact: true }).click();
 
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
   await expect(page.getByLabel('Review comments')).toHaveValue(comments);
