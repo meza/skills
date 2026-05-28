@@ -177,6 +177,41 @@ class SkillPrepareHookTests(unittest.TestCase):
         self.assertIn("stderr details", str(raised.exception))
         self.assertIn("stdout details", str(raised.exception))
 
+    def test_skill_prepare_script_failure_redacts_sensitive_streams(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = temp_path / "skill"
+            (skill_path / "scripts").mkdir(parents=True)
+            (skill_path / "scripts" / "prepare.py").write_text(
+                "print('prepare')\n",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(
+                    skill_prepare_hook,
+                    "run_with_timeout",
+                    return_value=timed_process_result(
+                        stdout="API_KEY=sk-live-stdout safe detail",
+                        stderr="Authorization: Bearer stderr-token",
+                        returncode=1,
+                    ),
+                ),
+                self.assertRaises(skill_prepare_hook.SkillPrepareHookError) as raised,
+            ):
+                skill_prepare_hook.run_skill_prepare_hook(
+                    skill_path=skill_path,
+                    prepared_run=self._prepared_run(temp_path / "runs"),
+                    eval_ids="1",
+                )
+
+        message = str(raised.exception)
+        self.assertIn("safe detail", message)
+        self.assertIn("API_KEY=[REDACTED]", message)
+        self.assertIn("Authorization: Bearer [REDACTED]", message)
+        self.assertNotIn("sk-live-stdout", message)
+        self.assertNotIn("stderr-token", message)
+
     def test_skill_prepare_script_timeout_is_reported_with_context(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

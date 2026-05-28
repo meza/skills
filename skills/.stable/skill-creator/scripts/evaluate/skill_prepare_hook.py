@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .eval_job import ActiveProcessRegistry, run_with_timeout
 from .prepare_fixture import PreparedEval, PreparedRun
+from .telemetry import redact_sensitive_telemetry
 
 
 class SkillPrepareHookError(RuntimeError):
@@ -74,13 +75,13 @@ def _run_prepare_hook_for_eval(
         raise SkillPrepareHookError(
             "skill-local prepare hook timed out for eval id "
             f"{eval_entry.eval_id} after {timeout}s\n"
-            f"stdout:\n{process_result.stdout}\n"
-            f"stderr:\n{process_result.stderr}"
+            f"stdout:\n{redact_sensitive_telemetry(process_result.stdout)}\n"
+            f"stderr:\n{redact_sensitive_telemetry(process_result.stderr)}"
         )
 
     raise SkillPrepareHookError(
         "skill-local prepare hook failed for eval id "
         f"{eval_entry.eval_id} with exit code {process_result.returncode}\n"
-        f"stdout:\n{process_result.stdout}\n"
-        f"stderr:\n{process_result.stderr}"
+        f"stdout:\n{redact_sensitive_telemetry(process_result.stdout)}\n"
+        f"stderr:\n{redact_sensitive_telemetry(process_result.stderr)}"
     )

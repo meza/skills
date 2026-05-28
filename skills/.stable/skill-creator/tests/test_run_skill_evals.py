@@ -1469,6 +1469,20 @@ class EvalLibTests(unittest.TestCase):
             )
             self.assertIn("EXCEPTION: boom", stderr.getvalue())
 
+            secret_future = mock.Mock()
+            secret_future.result.side_effect = RuntimeError(
+                "prepare failed TOKEN=secret-value"
+            )
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                summary = runner.future_summary(secret_future, failed_job)
+
+            self.assertEqual(
+                summary["error"],
+                "prepare failed TOKEN=[REDACTED]",
+            )
+            self.assertIn("TOKEN=[REDACTED]", stderr.getvalue())
+            self.assertNotIn("secret-value", stderr.getvalue())
+
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 runner.print_failed_runs(
                     [

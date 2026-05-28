@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .eval_definitions import EvalDefinition
 from .providers import Provider
+from .telemetry import redact_sensitive_telemetry
 
 _IS_WINDOWS = sys.platform == "win32"
 DEFAULT_PROVIDER_OUTPUT_LIMIT_BYTES = 20 * 1024 * 1024
@@ -682,7 +683,11 @@ class EvalJob:
         process_result: TimedProcessResult | None = None,
     ) -> TurnFlow:
         self.status = "error"
-        self.error_message = stderr[:500] if stderr else f"Exit code {returncode}"
+        self.error_message = (
+            redact_sensitive_telemetry(stderr[:500])
+            if stderr
+            else f"Exit code {returncode}"
+        )
         if process_result:
             self.all_events.append(
                 self.provider_error_event(turn_idx, self.error_message, process_result)
@@ -710,8 +715,8 @@ class EvalJob:
             "timed_out": process_result.timed_out,
             "duration_ms": process_result.duration_ms,
             "output_limit_exceeded": process_result.output_limit_exceeded,
-            "stdout": process_result.stdout,
-            "stderr": process_result.stderr,
+            "stdout": redact_sensitive_telemetry(process_result.stdout),
+            "stderr": redact_sensitive_telemetry(process_result.stderr),
         }
 
     def record_success(self, turn_idx: int, turn_result) -> None:

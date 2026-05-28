@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from .eval_definitions import write_eval_metadata
 from .eval_job import ActiveProcessRegistry, run_single_job
+from .telemetry import redact_sensitive_telemetry
 
 if TYPE_CHECKING:
     from .prepare_fixture import PreparedEval
@@ -271,12 +272,16 @@ class EvalRun:
             return self.exception_summary(job.eval_id, job.run_type, error)
 
     def exception_summary(self, eval_id: int, run_type: str, error: Exception) -> dict:
-        print(f"  [{run_type}] eval-{eval_id} EXCEPTION: {error}", file=sys.stderr)
+        error_text = redact_sensitive_telemetry(str(error))
+        print(
+            f"  [{run_type}] eval-{eval_id} EXCEPTION: {error_text}",
+            file=sys.stderr,
+        )
         return {
             "eval_id": eval_id,
             "run_type": run_type,
             "status": "exception",
-            "error": str(error),
+            "error": error_text,
         }
 
     def write_run_manifest(
