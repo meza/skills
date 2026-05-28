@@ -60,6 +60,46 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             self.assertFalse((isolated_codex_home / "auth.json").exists())
             self.assertFalse(isolated_home.exists())
 
+    def test_process_environment_writes_codex_auth_audit_events(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_codex_home = temp_path / "source-codex-home"
+            source_codex_home.mkdir()
+            (source_codex_home / "auth.json").write_text(
+                json.dumps({"tokens": {"access_token": "secret-access-token"}}),
+                encoding="utf-8",
+            )
+            artifact_dir = temp_path / "artifacts"
+
+            with CodexProvider().process_environment(
+                {"CODEX_HOME": str(source_codex_home)},
+                str(temp_path / "run"),
+                artifact_dir,
+            ):
+                pass
+
+            audit_log = artifact_dir / "sensitive_actions.jsonl"
+            raw_audit = audit_log.read_text(encoding="utf-8")
+            audit_events = [
+                json.loads(line) for line in raw_audit.splitlines() if line.strip()
+            ]
+
+            self.assertEqual(
+                audit_events,
+                [
+                    {
+                        "type": "codex.auth_staged",
+                        "source": str(source_codex_home / "auth.json"),
+                        "target": str(temp_path / "run" / ".codex" / "auth.json"),
+                    },
+                    {
+                        "type": "codex.auth_removed",
+                        "target": str(temp_path / "run" / ".codex" / "auth.json"),
+                    },
+                ],
+            )
+            self.assertNotIn("secret-access-token", raw_audit)
+
     def test_process_environment_uses_home_codex_auth_without_codex_home(
         self,
     ):

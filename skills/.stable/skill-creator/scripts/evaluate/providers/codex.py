@@ -16,6 +16,7 @@ from . import Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
 
 AUTH_FILENAME = "auth.json"
+SENSITIVE_ACTIONS_FILENAME = "sensitive_actions.jsonl"
 CODEX_API_KEY_ENV = "CODEX_API_KEY"
 CODEX_ACCESS_TOKEN_ENV = "CODEX_ACCESS_TOKEN"
 CODEX_HOME_ENV = "CODEX_HOME"
@@ -163,8 +164,6 @@ class CodexProvider(Provider):
         run_dir: str,
         artifact_dir,
     ) -> Iterator[dict[str, str]]:
-        del artifact_dir
-
         with tempfile.TemporaryDirectory(prefix="skill-creator-codex-") as temp_dir:
             isolated_root = Path(temp_dir)
             isolated_home = isolated_root / "home"
@@ -172,10 +171,19 @@ class CodexProvider(Provider):
 
             isolated_codex_home = Path(run_dir) / self.skill_root
             isolated_codex_home.mkdir(parents=True, exist_ok=True)
-            _copy_codex_auth_file(
+            copied_auth = _copy_codex_auth_file(
                 source_codex_home=_source_codex_home(base_env),
                 target_codex_home=isolated_codex_home,
             )
+            if copied_auth:
+                _write_sensitive_action_event(
+                    Path(artifact_dir),
+                    {
+                        "type": "codex.auth_staged",
+                        "source": str(copied_auth["source"]),
+                        "target": str(copied_auth["target"]),
+                    },
+                )
 
             process_env = _base_process_env(base_env)
             process_env[CODEX_HOME_ENV] = str(isolated_codex_home)
@@ -185,6 +193,14 @@ class CodexProvider(Provider):
                 yield process_env
             finally:
                 _remove_copied_codex_auth_file(isolated_codex_home)
+                if copied_auth:
+                    _write_sensitive_action_event(
+                        Path(artifact_dir),
+                        {
+                            "type": "codex.auth_removed",
+                            "target": str(copied_auth["target"]),
+                        },
+                    )
 
     @property
     def skill_root(self) -> str:
@@ -217,16 +233,21 @@ def _base_process_env(env: dict[str, str]) -> dict[str, str]:
     return process_env
 
 
-def _copy_codex_auth_file(source_codex_home: Path, target_codex_home: Path) -> None:
+def _copy_codex_auth_file(
+    source_codex_home: Path,
+    target_codex_home: Path,
+) -> dict[str, Path] | None:
     source_auth = source_codex_home / AUTH_FILENAME
     if not source_auth.exists():
-        return
+        return None
 
+    target_auth = target_codex_home / AUTH_FILENAME
     try:
         target_codex_home.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_auth, target_codex_home / AUTH_FILENAME)
+        shutil.copy2(source_auth, target_auth)
     except OSError as error:
         raise RuntimeError(f"Unable to copy Codex auth from {source_auth}") from error
+    return {"source": source_auth, "target": target_auth}
 
 
 def _remove_copied_codex_auth_file(target_codex_home: Path) -> None:
@@ -236,6 +257,16 @@ def _remove_copied_codex_auth_file(target_codex_home: Path) -> None:
         raise RuntimeError(
             f"Unable to remove copied Codex auth from {target_codex_home}"
         ) from error
+
+
+def _write_sensitive_action_event(artifact_dir: Path, event: dict[str, str]) -> None:
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    with (artifact_dir / SENSITIVE_ACTIONS_FILENAME).open(
+        "a",
+        encoding="utf-8",
+    ) as audit_file:
+        audit_file.write(json.dumps(event))
+        audit_file.write("\n")
 
 
 def _parse_json_events(raw_output: str) -> list[dict]:
