@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .eval_definitions import write_eval_metadata
+from .eval_definitions import EvalDefinition, write_eval_metadata
 from .eval_job import ActiveProcessRegistry, EvalJobRun, run_single_job
 from .run_layout import RUN_TYPES
 from .telemetry import redact_sensitive_telemetry
@@ -65,7 +65,7 @@ class EvalJobSpec:
 
     @property
     def eval_id(self) -> int:
-        return self.eval_def["id"]
+        return EvalDefinition(self.eval_def).eval_id
 
 
 @dataclass
@@ -151,8 +151,8 @@ class EvalRun:
             str(entry.eval_id): entry for entry in self.prepared_evals
         }
         for eval_def in self.evals_list:
-            eval_id = str(eval_def["id"])
-            prepared_eval = prepared_by_eval_id.get(eval_id)
+            eval_definition = EvalDefinition(eval_def)
+            prepared_eval = prepared_by_eval_id.get(eval_definition.eval_id_string)
             for run_type in self.options.run_types:
                 job = self.job_for_run_type(
                     eval_def,
@@ -171,9 +171,10 @@ class EvalRun:
     ) -> EvalJobSpec | None:
         run_dir = self.run_dir_for_run_type(prepared_eval, run_type)
         if not run_dir:
+            eval_definition = EvalDefinition(eval_def)
             print(
                 "Warning: no run directory for "
-                f"eval {eval_def['id']} run type {run_type}",
+                f"eval {eval_definition.eval_id} run type {run_type}",
                 file=sys.stderr,
             )
             return None

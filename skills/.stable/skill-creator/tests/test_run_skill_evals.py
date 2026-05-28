@@ -1410,12 +1410,29 @@ class EvalLibTests(unittest.TestCase):
 
         self.assertEqual(eval_definition.eval_id, 7)
         self.assertEqual(eval_definition.eval_name, "custom")
-        self.assertEqual(eval_definition.turns, [{"prompt": "Do it"}])
+        self.assertEqual(eval_definition.eval_id_string, "7")
+        self.assertEqual(eval_definition.turns[0].prompt, "Do it")
+        self.assertEqual(eval_definition.turns[0].timeout_or_default(30), 30)
+        self.assertFalse(eval_definition.uses_fixture_path_placeholder)
         self.assertEqual(eval_definition.timeout_or_default(30), 45)
+        self.assertEqual(eval_definition.fixture_name, None)
+        self.assertEqual(eval_definition.files, [])
         self.assertEqual(
             eval_definition.fixture_placement,
             eval_definitions.FixturePlacement.WORKDIR,
         )
+        fixture_eval_definition = eval_definitions.EvalDefinition(
+            {
+                "id": 9,
+                "fixture": "project",
+                "files": ["evals/files/input.txt"],
+                "turns": [{"prompt": "Open {{FIXTURE_PATH}}.", "timeout": 5}],
+            }
+        )
+        self.assertEqual(fixture_eval_definition.fixture_name, "project")
+        self.assertEqual(fixture_eval_definition.files, ["evals/files/input.txt"])
+        self.assertTrue(fixture_eval_definition.uses_fixture_path_placeholder)
+        self.assertEqual(fixture_eval_definition.turns[0].timeout_or_default(30), 5)
         self.assertEqual(
             eval_definitions.EvalDefinition({"id": 8}).eval_name,
             "eval-8",

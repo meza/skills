@@ -17,8 +17,7 @@ from pathlib import Path
 
 from .eval_definitions import (
     EvalDefinition,
-    FixturePlacement,
-    fixture_placement_for_eval,
+    EvalTurn,
 )
 from .providers import Provider
 from .telemetry import redact_sensitive_telemetry
@@ -49,15 +48,7 @@ def build_prompt(
 
 
 def _should_prefix_fixture_path(eval_def: dict, fixture_path: str | None) -> bool:
-    if (
-        not fixture_path
-        or fixture_placement_for_eval(eval_def) is not FixturePlacement.WORKDIR
-    ):
-        return False
-    return not any(
-        "{{FIXTURE_PATH}}" in turn.get("prompt", "")
-        for turn in eval_def.get("turns", [])
-    )
+    return EvalDefinition(eval_def).should_prefix_fixture_path(fixture_path)
 
 
 def _resolve_existing_git_global_config(env: dict[str, str]) -> Path | None:
@@ -490,7 +481,7 @@ class EvalJob:
         return self.eval_definition.eval_id
 
     @property
-    def turns(self) -> list[dict]:
+    def turns(self) -> list[EvalTurn]:
         return self.eval_definition.turns
 
     @property
@@ -525,7 +516,7 @@ class EvalJob:
     def run_turns(self, process_env: dict[str, str]) -> None:
         eval_timeout = self.eval_definition.timeout_or_default(self.timeout)
         for turn_idx, turn in enumerate(self.turns):
-            turn_timeout = turn.get("timeout", eval_timeout)
+            turn_timeout = turn.timeout_or_default(eval_timeout)
             effective_timeout = self.effective_timeout(turn_timeout, turn_idx)
             if effective_timeout is None:
                 break
@@ -555,12 +546,12 @@ class EvalJob:
     def run_turn(
         self,
         turn_idx: int,
-        turn: dict,
+        turn: EvalTurn,
         effective_timeout: float,
         process_env: dict[str, str],
     ) -> TurnFlow:
         prompt = build_prompt(
-            turn["prompt"],
+            turn.prompt,
             self.eval_def,
             self.fixture_path,
         )

@@ -17,6 +17,24 @@ class FixturePlacement(Enum):
 
 
 @dataclass(frozen=True)
+class EvalTurn:
+    """Domain view over one validated eval turn."""
+
+    data: dict
+
+    @property
+    def prompt(self) -> str:
+        return self.data["prompt"]
+
+    @property
+    def uses_fixture_path_placeholder(self) -> bool:
+        return "{{FIXTURE_PATH}}" in self.prompt
+
+    def timeout_or_default(self, default_timeout: int) -> int:
+        return self.data.get("timeout", default_timeout)
+
+
+@dataclass(frozen=True)
 class EvalDefinition:
     """Domain view over one eval definition loaded from evals.json."""
 
@@ -27,19 +45,53 @@ class EvalDefinition:
         return self.data["id"]
 
     @property
+    def eval_id_string(self) -> str:
+        return str(self.eval_id)
+
+    @property
     def eval_name(self) -> str:
         return self.data.get("eval_name", f"eval-{self.eval_id}")
 
     @property
-    def turns(self) -> list[dict]:
+    def turns(self) -> list[EvalTurn]:
+        return [EvalTurn(turn) for turn in self.raw_turns]
+
+    @property
+    def raw_turns(self) -> list[dict]:
         return self.data.get("turns", [])
+
+    @property
+    def fixture_name(self) -> str | None:
+        return self.data.get("fixture")
+
+    @property
+    def files(self) -> list[str]:
+        return self.data.get("files", [])
 
     @property
     def fixture_placement(self) -> FixturePlacement:
         return fixture_placement_for_eval(self.data)
 
+    @property
+    def uses_fixture_path_placeholder(self) -> bool:
+        return any(turn.uses_fixture_path_placeholder for turn in self.turns)
+
     def timeout_or_default(self, default_timeout: int) -> int:
         return self.data.get("timeout", default_timeout)
+
+    def should_prefix_fixture_path(self, fixture_path: str | None) -> bool:
+        return (
+            bool(fixture_path)
+            and self.fixture_placement is FixturePlacement.WORKDIR
+            and not self.uses_fixture_path_placeholder
+        )
+
+    def to_metadata(self) -> dict:
+        return {
+            "eval_id": self.eval_id,
+            "eval_name": self.eval_name,
+            "turns": self.raw_turns,
+        }
 
 
 def fixture_placement_for_eval(eval_def: dict) -> FixturePlacement:
@@ -230,15 +282,12 @@ def parse_eval_ids_or_exit(raw_eval_ids: str) -> set[int]:
 def write_eval_metadata(iteration_dir: Path, evals_list: list[dict]) -> None:
     """Write per-eval metadata files into the iteration output directory."""
     for eval_def in evals_list:
-        eval_id = eval_def["id"]
+        eval_definition = EvalDefinition(eval_def)
+        eval_id = eval_definition.eval_id
         eval_dir = iteration_dir / f"eval-{eval_id}"
         eval_dir.mkdir(parents=True, exist_ok=True)
 
-        metadata = {
-            "eval_id": eval_id,
-            "eval_name": eval_def.get("eval_name", f"eval-{eval_id}"),
-            "turns": eval_def.get("turns", []),
-        }
+        metadata = eval_definition.to_metadata()
         (eval_dir / "eval_metadata.json").write_text(
             json.dumps(metadata, indent=2),
             encoding="utf-8",

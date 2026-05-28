@@ -51,8 +51,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .eval_definitions import (
+    EvalDefinition,
     FixturePlacement,
-    fixture_placement_for_eval,
     load_evals_json_or_exit,
     select_evals_or_exit,
     validate_evals_data_or_exit,
@@ -462,14 +462,18 @@ def load_skill_evals_data_or_exit(skill_path: Path) -> dict:
 
 def validate_eval_fixture_names_or_exit(evals_data: dict) -> None:
     for eval_def in evals_data.get("evals", []):
-        fixture_name = eval_def.get("fixture")
+        eval_definition = EvalDefinition(eval_def)
+        fixture_name = eval_definition.fixture_name
         if fixture_name:
-            fixture_relative_path_or_exit(fixture_name, str(eval_def["id"]))
+            fixture_relative_path_or_exit(fixture_name, eval_definition.eval_id_string)
 
 
 def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None:
     """Resolve or prepare the fixture source directory for this run."""
-    has_fixtures = any(e.get("fixture") for e in evals_data.get("evals", []))
+    has_fixtures = any(
+        EvalDefinition(eval_def).fixture_name
+        for eval_def in evals_data.get("evals", [])
+    )
     if not has_fixtures:
         return None
 
@@ -607,14 +611,15 @@ def copy_fixture_or_exit(fixture: FixtureCopy) -> Path:
 
 def prepare_run_type(preparation: RunTypePreparation) -> PreparedRunTypeEntry:
     """Prepare one eval run-type working directory."""
-    eval_id = str(preparation.eval_def["id"])
+    eval_definition = EvalDefinition(preparation.eval_def)
+    eval_id = eval_definition.eval_id_string
     eval_dir = preparation.run_root / f"eval-{eval_id}"
     run_dir = eval_dir / preparation.run_type
     run_dir.mkdir(parents=True, exist_ok=True)
     write_eval_gitignore(run_dir)
 
     fixture_path = None
-    fixture_name = preparation.eval_def.get("fixture")
+    fixture_name = eval_definition.fixture_name
     if fixture_name and preparation.fixture_staging:
         fixture_path = copy_fixture_or_exit(
             FixtureCopy(
@@ -623,12 +628,12 @@ def prepare_run_type(preparation: RunTypePreparation) -> PreparedRunTypeEntry:
                 run_dir=run_dir,
                 run_type=preparation.run_type,
                 fixture_name=fixture_name,
-                fixture_placement=fixture_placement_for_eval(preparation.eval_def),
+                fixture_placement=eval_definition.fixture_placement,
                 eval_id=eval_id,
             )
         )
 
-    eval_files = preparation.eval_def.get("files", [])
+    eval_files = eval_definition.files
     if eval_files:
         copy_eval_files_or_exit(preparation.skill_path, run_dir, eval_files, eval_id)
 
@@ -655,12 +660,12 @@ def build_prepared_eval(
     run_paths: dict[str, PreparedRunTypeEntry],
 ) -> PreparedEval:
     """Build the prepared run entry for one eval."""
-    eval_id = str(eval_def["id"])
+    eval_definition = EvalDefinition(eval_def)
     skill_entry = run_paths[SKILL_RUN_TYPE]
     baseline_entry = run_paths[BASELINE_RUN_TYPE]
     return PreparedEval(
-        eval_id=eval_def["id"],
-        eval_name=eval_def.get("eval_name", f"eval-{eval_id}"),
+        eval_id=eval_definition.eval_id,
+        eval_name=eval_definition.eval_name,
         skill_run_path=skill_entry.run_dir,
         baseline_run_path=baseline_entry.run_dir,
         skill_file=skill_entry.require_skill_file(),
@@ -682,7 +687,8 @@ def prepare_eval(
     skill_root: str,
 ) -> PreparedEval:
     """Prepare all run types for one eval and return its manifest entry."""
-    reset_prepared_eval_dir(run_root, eval_def["id"])
+    eval_definition = EvalDefinition(eval_def)
+    reset_prepared_eval_dir(run_root, eval_definition.eval_id)
     run_paths = {
         run_type: prepare_run_type(
             RunTypePreparation(
