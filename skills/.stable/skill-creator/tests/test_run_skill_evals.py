@@ -600,7 +600,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 temp_path,
                 {
                     "skill_name": "fake-skill",
-                    "evals": [{"id": 1, "turns": []}],
+                    "evals": [{"id": 1, "turns": [{"prompt": "Do the task"}]}],
                 },
             )
             run_root = self._write_prepared_run_root(temp_path)
@@ -645,7 +645,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 temp_path,
                 {
                     "skill_name": "fake-skill",
-                    "evals": [{"id": 1, "turns": []}],
+                    "evals": [{"id": 1, "turns": [{"prompt": "Do the task"}]}],
                 },
             )
             run_root = self._write_prepared_run_root(temp_path)
@@ -1374,6 +1374,25 @@ class EvalLibTests(unittest.TestCase):
 
             self.assertEqual(raised.exception.code, 1)
             self.assertIn("no evals found", stderr.getvalue())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            evals_json = Path(temp_dir) / "evals.json"
+            evals_json.write_text(
+                json.dumps({"evals": [{"id": 1, "turns": [{}]}]}),
+                encoding="utf-8",
+            )
+
+            with (
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+                self.assertRaises(SystemExit) as raised,
+            ):
+                eval_definitions.load_evals_data_or_exit(evals_json)
+
+            self.assertEqual(raised.exception.code, 1)
+            self.assertIn(
+                "eval id=1 turn 1 must include a non-empty prompt",
+                stderr.getvalue(),
+            )
 
     def test_eval_definitions_select_evals_warns_and_rejects_empty_selection(self):
         evals_list = [{"id": 1}, {"id": 2}]

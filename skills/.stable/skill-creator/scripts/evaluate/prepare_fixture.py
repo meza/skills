@@ -50,7 +50,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from .eval_definitions import select_evals_or_exit
+from .eval_definitions import select_evals_or_exit, validate_evals_data_or_exit
 from .run_layout import (
     BASELINE_RUN_TYPE,
     PreparedRunTypeEntry,
@@ -431,6 +431,7 @@ def load_skill_evals_data_or_exit(skill_path: Path) -> dict:
     with open(evals_json_path, encoding="utf-8") as f:
         evals_data = json.load(f)
 
+    validate_evals_data_or_exit(evals_data)
     validate_eval_fixture_names_or_exit(evals_data)
     return evals_data
 

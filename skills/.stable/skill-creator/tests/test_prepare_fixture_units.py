@@ -367,6 +367,21 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertIn("evals.json not found", stderr.getvalue())
 
+    def test_load_evals_data_uses_shared_eval_suite_validation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_path = self._write_skill(
+                Path(temp_dir),
+                {"skill_name": "demo-skill", "evals": []},
+            )
+
+            with (
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path)
+
+            self.assertIn("no evals found", stderr.getvalue())
+
     def test_load_evals_data_exits_when_fixture_name_is_unsafe(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

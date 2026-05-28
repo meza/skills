@@ -46,11 +46,77 @@ def load_evals_data_or_exit(evals_json_path: Path) -> dict:
     with open(evals_json_path, encoding="utf-8") as evals_json:
         evals_data = json.load(evals_json)
 
-    if not evals_data.get("evals", []):
+    validate_evals_data_or_exit(evals_data)
+    return evals_data
+
+
+def validate_evals_data_or_exit(evals_data: dict) -> None:
+    evals_list = evals_data.get("evals", [])
+    if not evals_list:
         print("Error: no evals found in evals.json", file=sys.stderr)
         sys.exit(1)
 
-    return evals_data
+    for eval_index, eval_def in enumerate(evals_list, start=1):
+        validate_eval_definition_or_exit(eval_def, eval_index)
+
+
+def validate_eval_definition_or_exit(eval_def: object, eval_index: int) -> None:
+    if not isinstance(eval_def, dict):
+        print(f"Error: eval {eval_index} must be an object", file=sys.stderr)
+        sys.exit(1)
+
+    eval_id = eval_def.get("id")
+    if not isinstance(eval_id, int):
+        print(f"Error: eval {eval_index} must include integer id", file=sys.stderr)
+        sys.exit(1)
+
+    validate_timeout_or_exit(eval_def.get("timeout"), f"eval id={eval_id}")
+    for turn_index, turn in enumerate(
+        require_turns_or_exit(eval_def, eval_id), start=1
+    ):
+        validate_turn_or_exit(turn, eval_id, turn_index)
+
+
+def require_turns_or_exit(eval_def: dict, eval_id: int) -> list[dict]:
+    turns = eval_def.get("turns")
+    if not isinstance(turns, list) or not turns:
+        print(
+            f"Error: eval id={eval_id} must include non-empty turns",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return turns
+
+
+def validate_turn_or_exit(turn: object, eval_id: int, turn_index: int) -> None:
+    if not isinstance(turn, dict):
+        print(
+            f"Error: eval id={eval_id} turn {turn_index} must be an object",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    prompt = turn.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        print(
+            f"Error: eval id={eval_id} turn {turn_index} must include "
+            "a non-empty prompt",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    validate_timeout_or_exit(
+        turn.get("timeout"),
+        f"eval id={eval_id} turn {turn_index}",
+    )
+
+
+def validate_timeout_or_exit(timeout: object, context: str) -> None:
+    if timeout is None:
+        return
+    if not isinstance(timeout, int) or timeout <= 0:
+        print(f"Error: {context} timeout must be a positive integer", file=sys.stderr)
+        sys.exit(1)
 
 
 def select_evals_or_exit(
