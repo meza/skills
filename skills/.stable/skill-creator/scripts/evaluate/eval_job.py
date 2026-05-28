@@ -752,7 +752,7 @@ class EvalJob:
         ).write()
 
     def run_grading_job(self) -> None:
-        if not self.grading_job_factory:
+        if self.status != "success" or not self.grading_job_factory:
             return
         self.grading_job_factory(self).run()
 

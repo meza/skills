@@ -732,6 +732,7 @@ class EvalLibTests(unittest.TestCase):
         provider: FakeProvider | None = None,
         eval_def: dict | None = None,
         deadline: float | None = None,
+        grading_job_factory=None,
     ) -> eval_job.EvalJob:
         return eval_job.EvalJob(
             eval_def=eval_def
@@ -749,6 +750,7 @@ class EvalLibTests(unittest.TestCase):
             effort="high",
             timeout=30,
             deadline=deadline,
+            grading_job_factory=grading_job_factory,
         )
 
     def test_build_prompt_handles_fixture_path_variants(self):
@@ -1180,7 +1182,8 @@ class EvalLibTests(unittest.TestCase):
     def test_eval_job_writes_process_failure_to_raw_output(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            job = self._job(temp_path)
+            grading_job_factory = mock.Mock()
+            job = self._job(temp_path, grading_job_factory=grading_job_factory)
 
             with (
                 mock.patch.object(
@@ -1198,6 +1201,7 @@ class EvalLibTests(unittest.TestCase):
                 summary = job.run()
 
             self.assertEqual(summary["status"], "error")
+            grading_job_factory.assert_not_called()
             raw_output = json.loads(
                 (job.run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8")
             )
