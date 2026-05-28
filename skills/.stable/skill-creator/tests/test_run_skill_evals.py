@@ -975,7 +975,10 @@ class EvalLibTests(unittest.TestCase):
                 return_value=timed_process_result(stdout="stdout", duration_ms=987),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertTrue(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.CONTINUE,
+                    )
 
         self.assertEqual(job.duration_ms, 987)
 
@@ -993,7 +996,10 @@ class EvalLibTests(unittest.TestCase):
                 ),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
@@ -1008,7 +1014,10 @@ class EvalLibTests(unittest.TestCase):
                 return_value=timed_process_result(returncode=17, duration_ms=10),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "Exit code 17")
@@ -1028,7 +1037,10 @@ class EvalLibTests(unittest.TestCase):
                 ),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
@@ -1056,7 +1068,10 @@ class EvalLibTests(unittest.TestCase):
                 ),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
 
             self.assertEqual(job.status, "error")
             self.assertEqual(
@@ -1084,7 +1099,10 @@ class EvalLibTests(unittest.TestCase):
                 return_value=timed_process_result(stdout="{}", duration_ms=10),
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
-                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
 
             self.assertEqual(job.status, "error")
             self.assertEqual(

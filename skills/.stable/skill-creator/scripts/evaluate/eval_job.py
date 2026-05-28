@@ -12,11 +12,17 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
+
+
+class TurnFlow(Enum):
+    CONTINUE = "continue"
+    STOP = "stop"
 
 
 def build_prompt(
@@ -423,7 +429,10 @@ class EvalJob:
             effective_timeout = self.effective_timeout(turn_timeout, turn_idx)
             if effective_timeout is None:
                 break
-            if not self.run_turn(turn_idx, turn, effective_timeout, process_env):
+            if (
+                self.run_turn(turn_idx, turn, effective_timeout, process_env)
+                is TurnFlow.STOP
+            ):
                 break
 
     def effective_timeout(self, turn_timeout: int, turn_idx: int) -> float | None:
@@ -449,7 +458,7 @@ class EvalJob:
         turn: dict,
         effective_timeout: float,
         process_env: dict[str, str],
-    ) -> bool:
+    ) -> TurnFlow:
         prompt = build_prompt(
             turn["prompt"],
             self.eval_def,
@@ -489,7 +498,7 @@ class EvalJob:
         effective_timeout: float,
         process_result: TimedProcessResult,
         turn_result,
-    ) -> bool:
+    ) -> TurnFlow:
         if self.first_turn_session_id_required(turn_idx, turn_result):
             return self.record_error(
                 turn_idx,
@@ -507,7 +516,7 @@ class EvalJob:
                 process_result.returncode,
             )
         self.record_success(turn_idx, turn_result)
-        return True
+        return TurnFlow.CONTINUE
 
     def first_turn_session_id_required(self, turn_idx: int, turn_result) -> bool:
         return (
@@ -546,7 +555,9 @@ class EvalJob:
             process_registry=self.process_registry,
         )
 
-    def record_timeout(self, turn_idx: int, effective_timeout: float, turn_result):
+    def record_timeout(
+        self, turn_idx: int, effective_timeout: float, turn_result
+    ) -> TurnFlow:
         if turn_result.events:
             self.all_events.extend(turn_result.events)
             self.write_turn_outputs(turn_idx, turn_result)
@@ -560,9 +571,11 @@ class EvalJob:
             f"{turn_idx + 1}/{len(self.turns)} TIMEOUT",
             flush=True,
         )
-        return False
+        return TurnFlow.STOP
 
-    def record_error(self, turn_idx: int, stderr: str, returncode: int | None) -> bool:
+    def record_error(
+        self, turn_idx: int, stderr: str, returncode: int | None
+    ) -> TurnFlow:
         self.status = "error"
         self.error_message = stderr[:500] if stderr else f"Exit code {returncode}"
         print(
@@ -570,7 +583,7 @@ class EvalJob:
             f"{turn_idx + 1}/{len(self.turns)} ERROR: {self.error_message[:100]}",
             flush=True,
         )
-        return False
+        return TurnFlow.STOP
 
     def record_success(self, turn_idx: int, turn_result) -> None:
         self.all_events.extend(turn_result.events)
