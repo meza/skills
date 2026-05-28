@@ -13,7 +13,13 @@ PROVIDERS = {
 
 
 def get_provider(name: str) -> Provider:
-    """Look up a provider by name."""
+    """Return the registered provider for ``name``.
+
+    Returns a new provider instance on each successful lookup. For an unknown
+    provider name, this function writes the registry error to stderr and
+    raises SystemExit with code 1. This keeps CLI callers and application
+    orchestration on one provider-name error contract.
+    """
     cls = PROVIDERS.get(name)
     if cls is None:
         available = ", ".join(sorted(PROVIDERS))
@@ -25,5 +31,9 @@ def get_provider(name: str) -> Provider:
 
 
 def get_provider_skill_root(name: str) -> str:
-    """Return the skill discovery root for a registered provider."""
+    """Return the skill discovery root for a registered provider.
+
+    Unknown provider names use the same stderr plus SystemExit error contract
+    as get_provider.
+    """
     return get_provider(name).skill_root

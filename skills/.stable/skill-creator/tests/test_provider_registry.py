@@ -1,4 +1,5 @@
 import io
+import inspect
 import unittest
 from contextlib import redirect_stderr
 
@@ -29,6 +30,13 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIsInstance(second, ClaudeProvider)
         self.assertIsNot(first, second)
         self.assertIsInstance(get_provider("codex"), CodexProvider)
+
+    def test_get_provider_documents_process_exit_contract(self):
+        doc = inspect.getdoc(get_provider)
+
+        self.assertIn("Returns a new provider instance", doc)
+        self.assertIn("writes the registry error to stderr", doc)
+        self.assertIn("raises SystemExit with code 1", doc)
 
     def test_get_provider_skill_root_uses_provider_contract(self):
         self.assertEqual(get_provider_skill_root("claude"), ".claude")
