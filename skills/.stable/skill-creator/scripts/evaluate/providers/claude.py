@@ -92,15 +92,25 @@ def _session_args(
 def _parse_stream_json(raw_output: str) -> list[dict]:
     """Parse newline-delimited stream-json output into a list of events."""
     events = []
-    for line in raw_output.splitlines():
+    for line_number, line in enumerate(raw_output.splitlines(), start=1):
         line = line.strip()
         if not line:
             continue
         try:
             events.append(json.loads(line))
         except json.JSONDecodeError:
-            pass
+            events.append(_parse_warning_event(line_number, line))
     return events
+
+
+def _parse_warning_event(line_number: int, content: str) -> dict:
+    return {
+        "type": "provider.parse_warning",
+        "provider": "claude",
+        "line": line_number,
+        "message": "Malformed JSON event",
+        "content": content,
+    }
 
 
 def _extract_response(events: list[dict]) -> str:

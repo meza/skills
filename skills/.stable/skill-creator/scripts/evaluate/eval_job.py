@@ -561,7 +561,10 @@ class EvalJob:
         )
         if self.process_failed(process_result):
             return self.record_error(
-                turn_idx, process_result.stderr, process_result.returncode
+                turn_idx,
+                process_result.stderr,
+                process_result.returncode,
+                process_result,
             )
 
         turn_result = self.parse_turn_result(process_result, prompt)
@@ -595,19 +598,26 @@ class EvalJob:
                 turn_idx,
                 "Provider did not return a session id for multi-turn resume",
                 process_result.returncode,
+                process_result,
             )
         self.session_id = turn_result.session_id or self.session_id
 
         if process_result.timed_out:
             return self.record_timeout(turn_idx, effective_timeout, turn_result)
-        if process_result.stdout.strip() and not turn_result.events:
+        if process_result.stdout.strip() and not self.has_provider_events(
+            turn_result.events
+        ):
             return self.record_error(
                 turn_idx,
                 "Provider output did not contain parseable events",
                 process_result.returncode,
+                process_result,
             )
         self.record_success(turn_idx, turn_result)
         return TurnFlow.CONTINUE
+
+    def has_provider_events(self, events: list[dict]) -> bool:
+        return any(event.get("type") != "provider.parse_warning" for event in events)
 
     def first_turn_session_id_required(self, turn_idx: int, turn_result) -> bool:
         return (
@@ -665,16 +675,44 @@ class EvalJob:
         return TurnFlow.STOP
 
     def record_error(
-        self, turn_idx: int, stderr: str, returncode: int | None
+        self,
+        turn_idx: int,
+        stderr: str,
+        returncode: int | None,
+        process_result: TimedProcessResult | None = None,
     ) -> TurnFlow:
         self.status = "error"
         self.error_message = stderr[:500] if stderr else f"Exit code {returncode}"
+        if process_result:
+            self.all_events.append(
+                self.provider_error_event(turn_idx, self.error_message, process_result)
+            )
         print(
             f"  [{self.run_type}] eval-{self.eval_id} turn "
             f"{turn_idx + 1}/{len(self.turns)} ERROR: {self.error_message[:100]}",
             flush=True,
         )
         return TurnFlow.STOP
+
+    def provider_error_event(
+        self,
+        turn_idx: int,
+        message: str,
+        process_result: TimedProcessResult,
+    ) -> dict:
+        return {
+            "type": "provider.error",
+            "eval_id": self.eval_id,
+            "run_type": self.run_type,
+            "turn": turn_idx + 1,
+            "message": message,
+            "returncode": process_result.returncode,
+            "timed_out": process_result.timed_out,
+            "duration_ms": process_result.duration_ms,
+            "output_limit_exceeded": process_result.output_limit_exceeded,
+            "stdout": process_result.stdout,
+            "stderr": process_result.stderr,
+        }
 
     def record_success(self, turn_idx: int, turn_result) -> None:
         self.all_events.extend(turn_result.events)

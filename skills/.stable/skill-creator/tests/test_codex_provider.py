@@ -419,7 +419,17 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIn("[TOOL CALL] shell\ngit status", result.transcript)
         self.assertIn("[TOOL RESULT]\nclean", result.transcript)
         self.assertIn("[ASSISTANT TEXT]\nfinal response", result.transcript)
-        self.assertEqual(len(result.events), 5)
+        self.assertEqual(len(result.events), 6)
+        self.assertEqual(
+            result.events[0],
+            {
+                "type": "provider.parse_warning",
+                "provider": "codex",
+                "line": 2,
+                "message": "Malformed JSON event",
+                "content": "not json",
+            },
+        )
 
     def test_parse_output_handles_missing_optional_codex_events(self):
         stdout = "\n".join(

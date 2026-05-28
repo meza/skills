@@ -241,15 +241,25 @@ def _remove_copied_codex_auth_file(target_codex_home: Path) -> None:
 def _parse_json_events(raw_output: str) -> list[dict]:
     """Parse newline-delimited Codex JSON events into a list of dicts."""
     events = []
-    for line in raw_output.splitlines():
+    for line_number, line in enumerate(raw_output.splitlines(), start=1):
         line = line.strip()
         if not line:
             continue
         try:
             events.append(json.loads(line))
         except json.JSONDecodeError:
-            pass
+            events.append(_parse_warning_event("codex", line_number, line))
     return events
+
+
+def _parse_warning_event(provider: str, line_number: int, content: str) -> dict:
+    return {
+        "type": "provider.parse_warning",
+        "provider": provider,
+        "line": line_number,
+        "message": "Malformed JSON event",
+        "content": content,
+    }
 
 
 def _extract_thread_id(events: list[dict]) -> str | None:

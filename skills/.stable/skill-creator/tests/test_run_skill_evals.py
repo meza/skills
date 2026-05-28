@@ -1084,6 +1084,24 @@ class EvalLibTests(unittest.TestCase):
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
+            self.assertEqual(
+                job.all_events,
+                [
+                    {
+                        "type": "provider.error",
+                        "eval_id": 1,
+                        "run_type": "skill",
+                        "turn": 1,
+                        "message": "provider failed badly",
+                        "returncode": 17,
+                        "timed_out": False,
+                        "duration_ms": 10,
+                        "output_limit_exceeded": False,
+                        "stdout": "partial provider output",
+                        "stderr": "provider failed badly",
+                    }
+                ],
+            )
 
     def test_eval_job_records_output_limit_as_process_error(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1140,6 +1158,53 @@ class EvalLibTests(unittest.TestCase):
                 job.error_message,
                 "Provider output did not contain parseable events",
             )
+            self.assertEqual(
+                job.all_events,
+                [
+                    {
+                        "type": "provider.error",
+                        "eval_id": 1,
+                        "run_type": "skill",
+                        "turn": 1,
+                        "message": "Provider output did not contain parseable events",
+                        "returncode": 0,
+                        "timed_out": False,
+                        "duration_ms": 10,
+                        "output_limit_exceeded": False,
+                        "stdout": "not json",
+                        "stderr": "",
+                    }
+                ],
+            )
+
+    def test_eval_job_writes_process_failure_to_raw_output(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            job = self._job(temp_path)
+
+            with (
+                mock.patch.object(
+                    job,
+                    "invoke_provider",
+                    return_value=timed_process_result(
+                        stdout="partial provider output",
+                        stderr="provider failed badly",
+                        returncode=17,
+                        duration_ms=10,
+                    ),
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                summary = job.run()
+
+            self.assertEqual(summary["status"], "error")
+            raw_output = json.loads(
+                (job.run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8")
+            )
+            self.assertEqual(raw_output["type"], "provider.error")
+            self.assertEqual(raw_output["stdout"], "partial provider output")
+            self.assertEqual(raw_output["stderr"], "provider failed badly")
+            self.assertEqual(raw_output["returncode"], 17)
 
     def test_eval_job_requires_first_turn_session_id_for_multi_turn_provider(self):
         eval_def = {

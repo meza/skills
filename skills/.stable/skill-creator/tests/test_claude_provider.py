@@ -170,6 +170,16 @@ class ClaudeProviderParseOutputTests(unittest.TestCase):
 
         self.assertEqual(result.response, "I will inspect it.\n\nDone.")
         self.assertEqual(result.events[-1], {"type": "unknown"})
+        self.assertEqual(
+            result.events[0],
+            {
+                "type": "provider.parse_warning",
+                "provider": "claude",
+                "line": 2,
+                "message": "Malformed JSON event",
+                "content": "{not-json",
+            },
+        )
         self.assertEqual(result.duration_ms, 1234)
         self.assertEqual(result.input_tokens, 60)
         self.assertEqual(result.output_tokens, 40)
