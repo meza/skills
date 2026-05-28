@@ -1315,6 +1315,10 @@ class EvalLibTests(unittest.TestCase):
     def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(
         self,
     ):
+        self.assertIn(
+            "schema_version", eval_definitions.load_evals_data_or_exit.__doc__
+        )
+
         eval_definition = eval_definitions.EvalDefinition(
             {
                 "id": 7,

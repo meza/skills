@@ -40,7 +40,13 @@ def selected_run_types(skip_baseline: bool) -> list[str]:
 
 
 def load_evals_data_or_exit(evals_json_path: Path) -> dict:
-    """Load an eval definitions JSON file and reject empty eval suites."""
+    """Load and validate an eval definitions JSON file.
+
+    The file must be a JSON object with the supported top-level
+    schema_version and at least one eval definition. Invalid shapes,
+    unsupported schema versions, empty eval suites, and invalid eval entries
+    are reported to stderr before exiting.
+    """
     if not evals_json_path.exists():
         print(f"Error: {evals_json_path} not found", file=sys.stderr)
         sys.exit(1)
