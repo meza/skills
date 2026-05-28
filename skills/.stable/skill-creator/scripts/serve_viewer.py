@@ -206,9 +206,15 @@ def _resolve_workspace(workspace_text: str) -> Path:
 def _start_background_viewer(args, cmd: list[str], port: int) -> None:
     _kill_port(port)
 
-    proc = subprocess.Popen(cmd, **_viewer_popen_kwargs())
+    log_path = PIDFILE.with_suffix(".log")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("ab") as log_file:
+        proc = subprocess.Popen(cmd, **_viewer_popen_kwargs(log_file))
 
-    PIDFILE.write_text(json.dumps({"pid": proc.pid, "port": port}), encoding="utf-8")
+    PIDFILE.write_text(
+        json.dumps({"pid": proc.pid, "port": port, "log_path": str(log_path)}),
+        encoding="utf-8",
+    )
 
     ip = _get_local_ip()
     url = f"http://{ip}:{port}"
@@ -218,8 +224,15 @@ def _start_background_viewer(args, cmd: list[str], port: int) -> None:
             webbrowser.open(url)
     else:
         print(
-            f"Viewer process started (PID {proc.pid}) "
-            f"but did not respond on port {port}.",
+            json.dumps(
+                {
+                    "event": "viewer_start_failed",
+                    "pid": proc.pid,
+                    "port": port,
+                    "log_path": str(log_path),
+                    "command": cmd,
+                }
+            ),
             file=sys.stderr,
         )
         _cleanup_failed_start(proc)
@@ -238,10 +251,10 @@ def _cleanup_failed_start(proc) -> None:
     PIDFILE.unlink(missing_ok=True)
 
 
-def _viewer_popen_kwargs() -> dict:
+def _viewer_popen_kwargs(log_file) -> dict:
     popen_kwargs = {
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
+        "stdout": log_file,
+        "stderr": subprocess.STDOUT,
     }
     if _IS_WINDOWS:
         popen_kwargs["creationflags"] = (

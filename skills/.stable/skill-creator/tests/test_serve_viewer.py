@@ -100,7 +100,7 @@ class ServeViewerTests(unittest.TestCase):
                 mock.patch.object(serve_viewer, "_kill_port"),
                 mock.patch.object(
                     serve_viewer, "_viewer_popen_kwargs", return_value={}
-                ),
+                ) as popen_kwargs,
                 mock.patch.object(serve_viewer.subprocess, "Popen", return_value=proc),
                 mock.patch.object(
                     serve_viewer, "_get_local_ip", return_value="127.0.0.1"
@@ -114,7 +114,12 @@ class ServeViewerTests(unittest.TestCase):
             proc.terminate.assert_called_once_with()
             proc.wait.assert_called_once_with(timeout=5)
             self.assertFalse(pidfile.exists())
-            self.assertIn("did not respond", stderr.getvalue())
+            self.assertIn('"event": "viewer_start_failed"', stderr.getvalue())
+            self.assertIn('"port": 3117', stderr.getvalue())
+            self.assertIn('"log_path":', stderr.getvalue())
+            self.assertEqual(
+                Path(popen_kwargs.call_args.args[0].name), pidfile.with_suffix(".log")
+            )
 
     def test_start_background_viewer_writes_pidfile_on_success(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -127,7 +132,7 @@ class ServeViewerTests(unittest.TestCase):
                 mock.patch.object(serve_viewer, "_kill_port"),
                 mock.patch.object(
                     serve_viewer, "_viewer_popen_kwargs", return_value={}
-                ),
+                ) as popen_kwargs,
                 mock.patch.object(serve_viewer.subprocess, "Popen", return_value=proc),
                 mock.patch.object(
                     serve_viewer, "_get_local_ip", return_value="127.0.0.1"
@@ -139,8 +144,23 @@ class ServeViewerTests(unittest.TestCase):
 
             self.assertEqual(
                 json.loads(pidfile.read_text(encoding="utf-8")),
-                {"pid": 1234, "port": 3117},
+                {
+                    "pid": 1234,
+                    "port": 3117,
+                    "log_path": str(pidfile.with_suffix(".log")),
+                },
             )
+            self.assertEqual(
+                Path(popen_kwargs.call_args.args[0].name), pidfile.with_suffix(".log")
+            )
+
+    def test_viewer_popen_kwargs_routes_output_to_log_file(self):
+        log_file = mock.Mock()
+
+        kwargs = serve_viewer._viewer_popen_kwargs(log_file)
+
+        self.assertEqual(kwargs["stdout"], log_file)
+        self.assertEqual(kwargs["stderr"], serve_viewer.subprocess.STDOUT)
 
 
 if __name__ == "__main__":
