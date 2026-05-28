@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { iterationView } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
@@ -142,6 +142,111 @@ it('moves through runs with the prototype pager controls', async () => {
   expect(
     screen.getByRole('heading', { name: /breaking-change-returns-full-message-when-needed/i })
   ).toBeInTheDocument();
+});
+
+it('scrolls back to the top when the selected eval changes', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  view.runs.push({
+    ...(view.runs[0] as (typeof view.runs)[number]),
+    evalId: 2,
+    evalName: 'user-visible-fix-avoids-code-narration'
+  });
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+  renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback: vi.fn(async () => ({ ok: true })) });
+  scrollTo.mockClear();
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+  expect(screen.getByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).toBeInTheDocument();
+  expect(scrollTo).toHaveBeenCalledWith({ left: 0, top: 0 });
+});
+
+it('keeps the current eval visible while the next eval transitions in', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  view.runs.push({
+    ...(view.runs[0] as (typeof view.runs)[number]),
+    evalId: 2,
+    evalName: 'user-visible-fix-avoids-code-narration'
+  });
+  renderApp({
+    autosaveDelayMs: 50_000,
+    evalTransitionMs: 20,
+    initialIteration: view,
+    saveFeedback: vi.fn(async () => ({ ok: true }))
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+  expect(
+    screen.getByRole('heading', { name: /breaking-change-returns-full-message-when-needed/i })
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(document.querySelector('.eval-detail')).toHaveClass('eval-detail-exiting');
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).toBeInTheDocument();
+  });
+});
+
+it('ignores current eval selections and lets a later selection replace an active transition', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0] as (typeof view.runs)[number];
+  view.runs.push(
+    {
+      ...firstRun,
+      evalId: 2,
+      evalName: 'user-visible-fix-avoids-code-narration'
+    },
+    {
+      ...firstRun,
+      evalId: 3,
+      evalName: 'third-visible-eval'
+    }
+  );
+  renderApp({
+    autosaveDelayMs: 50_000,
+    evalTransitionMs: 25,
+    initialIteration: view,
+    saveFeedback: vi.fn(async () => ({ ok: true }))
+  });
+
+  await user.click(screen.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }));
+  expect(document.querySelector('.eval-detail')).toHaveClass('eval-detail-idle');
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+  await user.click(screen.getByRole('button', { name: /third-visible-eval/i }));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: /third-visible-eval/i })).toBeInTheDocument();
+  });
+  expect(screen.queryByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).not.toBeInTheDocument();
+});
+
+it('falls back to the visible eval when a filter hides the pending nav highlight', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0] as (typeof view.runs)[number];
+  view.runs = [
+    { ...firstRun, evalId: 1, evalName: 'first-failing-visible-eval', passRate: 0.5 },
+    { ...firstRun, evalId: 2, evalName: 'passing-hidden-pending-eval', passRate: 1 }
+  ];
+  renderApp({
+    autosaveDelayMs: 50_000,
+    evalTransitionMs: 25,
+    initialIteration: view,
+    saveFeedback: vi.fn(async () => ({ ok: true }))
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+  await user.click(screen.getByRole('button', { name: /^fail$/i }));
+
+  expect(screen.getByRole('button', { name: /first-failing-visible-eval/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByRole('button', { name: /passing-hidden-pending-eval/i })).not.toBeInTheDocument();
 });
 
 it('keeps the current run when a pager control has no target', async () => {

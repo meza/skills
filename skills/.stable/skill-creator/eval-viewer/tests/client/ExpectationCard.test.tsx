@@ -74,6 +74,57 @@ it('toggles passing expectation feedback from the card button', async () => {
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
 });
 
+it('toggles expectation feedback from the card surface', async () => {
+  const user = userEvent.setup();
+  render(
+    <ExpectationCard
+      allowFeedback
+      comparisonExpectation={undefined}
+      comparisonLabel="Baseline"
+      draft={draft}
+      expectation={expectation}
+      expectations={[expectation]}
+      index={0}
+      resultLabel="Run"
+      updateDraft={() => undefined}
+    />
+  );
+
+  const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+  const card = screen.getByText('The response uses a breaking-change marker.').closest('article');
+
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'true');
+
+  await user.click(card as HTMLElement);
+
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+});
+
+it('keeps feedback open when interacting with the textarea', async () => {
+  const user = userEvent.setup();
+  render(
+    <ExpectationCard
+      allowFeedback
+      comparisonExpectation={undefined}
+      comparisonLabel="Baseline"
+      draft={draft}
+      expectation={{ ...expectation, passed: false }}
+      expectations={[expectation]}
+      index={0}
+      resultLabel="Run"
+      updateDraft={() => undefined}
+    />
+  );
+
+  const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+
+  await user.click(feedback);
+
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+});
+
 it('records feedback through the draft updater', async () => {
   const user = userEvent.setup();
   const updateDraft = vi.fn();

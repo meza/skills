@@ -45,6 +45,80 @@ test('passing expectation card shows feedback after toggling open', async ({ pag
   await expect(expectation).toHaveScreenshot('viewer-passing-expectation-open-state.png');
 });
 
+test('expectation card surface toggles feedback outside of the header', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  const expectation = page.locator('.expectation.fail').first();
+  const feedback = expectation.locator('.inline-feedback');
+  await expect(expectation).toBeVisible();
+  await expect(feedback).toHaveAttribute('aria-hidden', 'false');
+
+  await expectation.locator('.evidence').first().click();
+
+  await expect(feedback).toHaveAttribute('aria-hidden', 'true');
+  await expect(expectation.locator('textarea')).toHaveAttribute('tabindex', '-1');
+});
+
+test('expectation feedback textarea keeps the card open while editing', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+
+  const expectation = page.locator('.expectation.pass').first();
+  const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
+  await expectation.click();
+  await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+
+  await feedback.fill('Textarea interaction should not collapse the expectation.');
+  await feedback.click();
+
+  await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  await expect(feedback).toHaveValue('Textarea interaction should not collapse the expectation.');
+});
+
+test('expectation feedback active border animates over the inactive frame', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+
+  const expectation = page.locator('.expectation.pass').first();
+  await expectation.click();
+
+  const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
+  const feedbackFrame = expectation.locator('.feedback-input-frame');
+  await feedback.focus();
+  await page.waitForTimeout(350);
+
+  await expect(feedback).toBeFocused();
+  await expect(feedbackFrame).toHaveScreenshot('viewer-expectation-feedback-active-border-state.png');
+});
+
+test('expectation feedback active left border fades after the rails shrink on blur', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+
+  const expectation = page.locator('.expectation.pass').first();
+  await expectation.click();
+
+  const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
+  const inactiveLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
+
+  await feedback.focus();
+  await page.waitForTimeout(350);
+  const activeLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
+  expect(activeLeftBorder).not.toBe(inactiveLeftBorder);
+
+  await page.mouse.click(8, 8);
+  await page.waitForTimeout(50);
+  const earlyBlurLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
+  expect(earlyBlurLeftBorder).not.toBe(inactiveLeftBorder);
+
+  await page.waitForTimeout(450);
+  await expect(feedback).not.toBeFocused();
+  await expect
+    .poll(() => feedback.evaluate((element) => getComputedStyle(element).borderLeftColor))
+    .toBe(inactiveLeftBorder);
+});
+
 test('failed expectation hover state gives the status bar a neon glow', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();

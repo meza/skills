@@ -43,15 +43,26 @@ export function ExpectationCard({
     }
   }, []);
 
+  const toggleFeedback = () => {
+    setIsFeedbackOpen((current) => !current);
+  };
+
+  const className = [
+    'expectation',
+    expectation.passed ? 'pass' : 'fail',
+    allowFeedback ? 'feedback-enabled' : undefined
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <article className={expectation.passed ? 'expectation pass' : 'expectation fail'}>
+    <article className={className} onClick={allowFeedback ? toggleFeedback : undefined}>
       {allowFeedback ? (
         <button
           aria-controls={feedbackId}
           aria-expanded={isFeedbackOpen}
           aria-label={`Toggle feedback for ${expectation.text}`}
           className="expectation-main"
-          onClick={() => setIsFeedbackOpen((current) => !current)}
           type="button">
           <ExpectationCardHeader
             comparisonExpectation={comparisonExpectation}
@@ -79,17 +90,20 @@ export function ExpectationCard({
       ) : null}
       {allowFeedback ? (
         <div aria-hidden={!isFeedbackOpen} className="inline-feedback" id={feedbackId}>
-          <textarea
-            aria-label={label}
-            onChange={(event) => {
-              const nextComment = event.currentTarget.value;
-              updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
-            }}
-            placeholder="Add feedback for this expectation..."
-            ref={feedbackRef}
-            tabIndex={isFeedbackOpen ? undefined : -1}
-            value={comment}
-          />
+          <div className="feedback-input-frame">
+            <textarea
+              aria-label={label}
+              onChange={(event) => {
+                const nextComment = event.currentTarget.value;
+                updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
+              }}
+              onClick={(event) => event.stopPropagation()}
+              placeholder="Add feedback for this expectation..."
+              ref={feedbackRef}
+              tabIndex={isFeedbackOpen ? undefined : -1}
+              value={comment}
+            />
+          </div>
         </div>
       ) : null}
     </article>

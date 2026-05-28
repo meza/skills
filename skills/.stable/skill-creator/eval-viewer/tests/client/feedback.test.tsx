@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import {
@@ -11,33 +11,44 @@ import {
 } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
-it('records reviewer feedback with expectation ids', async () => {
-  const user = userEvent.setup();
+it('autosaves reviewer feedback with expectation ids', async () => {
   const saveFeedback = vi.fn(async () => ({
     comments: 'Ready for the next iteration.'
   }));
-  renderApp({ saveFeedback });
+  renderApp({ autosaveDelayMs: 0, saveFeedback });
 
-  await user.type(screen.getByLabelText('Review comments'), 'Ready for the next iteration.');
-  await user.type(screen.getByLabelText('Feedback for turn 1 expectation 1'), 'Expectation-level note.');
-  await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Ready for the next iteration.' }
+  });
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith({
+      comments: 'Ready for the next iteration.',
+      evalId: 1,
+      overall: [],
+      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+    });
+  });
+  fireEvent.change(screen.getByLabelText('Feedback for turn 1 expectation 1'), {
+    target: { value: 'Expectation-level note.' }
+  });
 
-  expect(saveFeedback).toHaveBeenCalledWith({
-    comments: 'Ready for the next iteration.',
-    evalId: 1,
-    overall: [],
-    turns: [
-      {
-        expectations: [{ comment: 'Expectation-level note.', expectation_id: TURN_EXPECTATION_ID }],
-        turn: 1
-      }
-    ]
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith({
+      comments: 'Ready for the next iteration.',
+      evalId: 1,
+      overall: [],
+      turns: [
+        {
+          expectations: [{ comment: 'Expectation-level note.', expectation_id: TURN_EXPECTATION_ID }],
+          turn: 1
+        }
+      ]
+    });
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
 
 it('records overall expectation feedback by grading order', async () => {
-  const user = userEvent.setup();
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   const view = iterationView();
   const run = view.runs[0];
@@ -68,19 +79,22 @@ it('records overall expectation feedback by grading order', async () => {
     ],
     turns: []
   };
-  renderApp({ initialIteration: view, saveFeedback });
+  renderApp({ autosaveDelayMs: 0, initialIteration: view, saveFeedback });
 
-  await user.type(screen.getByLabelText('Feedback for overall expectation 2'), 'Overall expectation note.');
-  await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
+  fireEvent.change(screen.getByLabelText('Feedback for overall expectation 2'), {
+    target: { value: 'Overall expectation note.' }
+  });
 
-  expect(saveFeedback).toHaveBeenCalledWith({
-    comments: '',
-    evalId: 1,
-    overall: [
-      { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
-      { comment: 'Overall expectation note.', expectation_id: OVERALL_EXPECTATION_TWO_ID }
-    ],
-    turns: []
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith({
+      comments: '',
+      evalId: 1,
+      overall: [
+        { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
+        { comment: 'Overall expectation note.', expectation_id: OVERALL_EXPECTATION_TWO_ID }
+      ],
+      turns: []
+    });
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
@@ -124,29 +138,129 @@ it('keeps turn expectation feedback aligned across turn and expectation position
     overall: [],
     turns: []
   };
-  renderApp({ initialIteration: view, saveFeedback });
+  renderApp({ autosaveDelayMs: 0, initialIteration: view, saveFeedback });
 
-  await user.type(screen.getByLabelText('Feedback for turn 1 expectation 2'), 'Second expectation note.');
+  fireEvent.change(screen.getByLabelText('Feedback for turn 1 expectation 2'), {
+    target: { value: 'Second expectation note.' }
+  });
   await user.click(screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i }));
-  await user.type(screen.getByLabelText('Feedback for turn 2 expectation 1'), 'Later turn note.');
-  await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
+  fireEvent.change(screen.getByLabelText('Feedback for turn 2 expectation 1'), {
+    target: { value: 'Later turn note.' }
+  });
 
-  expect(saveFeedback).toHaveBeenCalledWith({
-    comments: '',
-    evalId: 1,
-    overall: [],
-    turns: [
-      {
-        expectations: [
-          { comment: '', expectation_id: TURN_EXPECTATION_ID },
-          { comment: 'Second expectation note.', expectation_id: TURN_ONE_SECOND_EXPECTATION_ID }
-        ],
-        turn: 1
-      },
-      { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
-    ]
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith({
+      comments: '',
+      evalId: 1,
+      overall: [],
+      turns: [
+        {
+          expectations: [
+            { comment: '', expectation_id: TURN_EXPECTATION_ID },
+            { comment: 'Second expectation note.', expectation_id: TURN_ONE_SECOND_EXPECTATION_ID }
+          ],
+          turn: 1
+        },
+        { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
+      ]
+    });
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
+});
+
+it('saves before advancing through the visible eval queue', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs.push({ ...firstRun, evalId: 2, evalName: 'second-visible-eval', passRate: 0.5 });
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+  renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
+
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Move through the queue.' }
+  });
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+  expect(saveFeedback).toHaveBeenCalledWith({
+    comments: 'Move through the queue.',
+    evalId: 1,
+    overall: [],
+    turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+  });
+  expect(screen.getByRole('heading', { name: 'second-visible-eval' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
+});
+
+it('moves to the previous visible eval after saving current feedback', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs.push({ ...firstRun, evalId: 2, evalName: 'second-visible-eval', passRate: 0.5 });
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+  renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Back-check this eval.' }
+  });
+  await user.click(screen.getByRole('button', { name: 'Previous' }));
+
+  expect(saveFeedback).toHaveBeenLastCalledWith({
+    comments: 'Back-check this eval.',
+    evalId: 2,
+    overall: [],
+    turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+  });
+  expect(screen.getByRole('heading', { name: 'breaking-change-returns-full-message-when-needed' })).toBeInTheDocument();
+});
+
+it('uses the filtered nav visibility as the next queue', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs = [
+    { ...firstRun, evalId: 1, evalName: 'first-failing-visible-eval', passRate: 0.5 },
+    { ...firstRun, evalId: 2, evalName: 'passing-hidden-eval', passRate: 1 },
+    { ...firstRun, evalId: 3, evalName: 'second-failing-visible-eval', passRate: 0.25 }
+  ];
+  renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback: vi.fn(async () => ({ ok: true })) });
+
+  await user.click(screen.getByRole('button', { name: /^fail$/i }));
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+  expect(screen.getByRole('heading', { name: 'second-failing-visible-eval' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'passing-hidden-eval' })).not.toBeInTheDocument();
+});
+
+it('stays on the current eval when the save before navigation fails', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs.push({ ...firstRun, evalId: 2, evalName: 'second-visible-eval' });
+  renderApp({
+    autosaveDelayMs: 50_000,
+    initialIteration: view,
+    saveFeedback: vi.fn(async () => {
+      throw new Error('write failed');
+    })
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+  expect(screen.getByRole('heading', { name: 'breaking-change-returns-full-message-when-needed' })).toBeInTheDocument();
+  expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
 });
 
 it('persists feedback through the default server API and reports failures', async () => {
@@ -157,9 +271,9 @@ it('persists feedback through the default server API and reports failures', asyn
     .mockResolvedValueOnce(new Response('', { status: 500 }));
   vi.stubGlobal('fetch', fetcher);
 
-  renderApp();
+  renderApp({ autosaveDelayMs: 50_000 });
 
-  await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
+  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
 
   expect(fetcher).toHaveBeenCalledWith('/api/feedback/1', {
     body: JSON.stringify({
@@ -174,8 +288,8 @@ it('persists feedback through the default server API and reports failures', asyn
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 
-  await user.type(screen.getByLabelText('Review comments'), 'Needs another pass.');
-  await user.click(screen.getByRole('button', { name: /submit review & finalize/i }));
+  fireEvent.change(screen.getByLabelText('Review comments'), { target: { value: 'Needs another pass.' } });
+  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
 
   expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
   vi.unstubAllGlobals();

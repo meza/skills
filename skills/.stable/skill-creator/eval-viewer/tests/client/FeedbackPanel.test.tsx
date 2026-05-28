@@ -5,36 +5,36 @@ import { FeedbackPanel } from '../../src/client/components/FeedbackPanel.js';
 import type { RunFeedbackView } from '../../src/shared/viewModel.js';
 import { iterationView } from './appFixture.js';
 
-it('submits the current feedback draft and reports success', async () => {
+it('renders workflow actions and reports save state', async () => {
   const user = userEvent.setup();
   const run = iterationView().runs[0];
   if (!run) {
     throw new Error('Expected a run for the feedback fixture.');
   }
-  const saveFeedback = vi.fn().mockResolvedValue(undefined);
+  const onPrimaryAction = vi.fn();
+  const onPrevious = vi.fn();
 
   render(
     <FeedbackPanel
       draft={{ ...run.feedback, comments: 'Ready to keep.' }}
-      run={run}
-      saveFeedback={saveFeedback}
+      hasPrevious={true}
+      onPrevious={onPrevious}
+      onPrimaryAction={onPrimaryAction}
+      primaryActionLabel="Save & Next"
+      saveState="saved"
       updateDraft={() => undefined}
     />
   );
 
-  await user.click(screen.getByRole('button', { name: 'Submit Review & Finalize' }));
+  await user.click(screen.getByRole('button', { name: 'Previous' }));
+  await user.click(screen.getByRole('button', { name: 'Save & Next' }));
 
-  expect(saveFeedback).toHaveBeenCalledWith({
-    comments: 'Ready to keep.',
-    evalId: run.evalId,
-    overall: run.feedback.overall,
-    turns: run.feedback.turns
-  });
-  expect(await screen.findByText('Saved')).toBeInTheDocument();
+  expect(onPrevious).toHaveBeenCalledTimes(1);
+  expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('Saved')).toBeInTheDocument();
 });
 
 it('updates draft comments and reports save failures', async () => {
-  const user = userEvent.setup();
   const run = iterationView().runs[0];
   if (!run) {
     throw new Error('Expected a run for the feedback fixture.');
@@ -47,15 +47,18 @@ it('updates draft comments and reports save failures', async () => {
   render(
     <FeedbackPanel
       draft={run.feedback}
-      run={run}
-      saveFeedback={vi.fn().mockRejectedValue(new Error('write failed'))}
+      hasPrevious={false}
+      onPrevious={vi.fn()}
+      onPrimaryAction={vi.fn()}
+      primaryActionLabel="Complete feedback for iteration"
+      saveState="error"
       updateDraft={updateDraft}
     />
   );
 
   fireEvent.change(screen.getByLabelText('Review comments'), { target: { value: 'Needs a follow-up.' } });
   expect(updatedDraft?.comments).toBe('Needs a follow-up.');
-
-  await user.click(screen.getByRole('button', { name: 'Submit Review & Finalize' }));
-  expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
+  expect(screen.getByText('Could not save feedback.')).toBeInTheDocument();
 });

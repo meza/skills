@@ -5,10 +5,21 @@ import { iterationView } from './appFixture.js';
 
 export function renderApp({
   initialIteration = iterationView(),
+  autosaveDelayMs,
+  evalTransitionMs = 0,
   saveFeedback
 }: {
+  autosaveDelayMs?: number;
+  evalTransitionMs?: number;
   initialIteration?: IterationView;
   saveFeedback?: (feedback: FeedbackInput) => Promise<unknown>;
 } = {}) {
-  return render(<App initialIteration={initialIteration} saveFeedback={saveFeedback} />);
+  return render(
+    <App
+      autosaveDelayMs={autosaveDelayMs}
+      evalTransitionMs={evalTransitionMs}
+      initialIteration={initialIteration}
+      saveFeedback={saveFeedback}
+    />
+  );
 }
