@@ -169,8 +169,10 @@ class CodexProvider(Provider):
             isolated_home = isolated_root / "home"
             isolated_home.mkdir()
 
-            isolated_codex_home = Path(run_dir) / self.skill_root
+            prepared_codex_home = Path(run_dir) / self.skill_root
+            isolated_codex_home = isolated_root / self.skill_root
             isolated_codex_home.mkdir(parents=True, exist_ok=True)
+            _copy_prepared_codex_skills(prepared_codex_home, isolated_codex_home)
             copied_auth = _copy_codex_auth_file(
                 source_codex_home=_source_codex_home(base_env),
                 target_codex_home=isolated_codex_home,
@@ -231,6 +233,21 @@ def _base_process_env(env: dict[str, str]) -> dict[str, str]:
     for auth_env_var in CODEX_AUTH_ENV_VARS:
         process_env.pop(auth_env_var, None)
     return process_env
+
+
+def _copy_prepared_codex_skills(
+    prepared_codex_home: Path,
+    isolated_codex_home: Path,
+) -> None:
+    prepared_skills = prepared_codex_home / "skills"
+    if not prepared_skills.exists():
+        return
+
+    shutil.copytree(
+        prepared_skills,
+        isolated_codex_home / "skills",
+        dirs_exist_ok=True,
+    )
 
 
 def _copy_codex_auth_file(

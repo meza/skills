@@ -23,6 +23,10 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (source_codex_home / "skills" / "global").mkdir(parents=True)
+            run_dir = temp_path / "run"
+            prepared_skill = run_dir / ".codex" / "skills" / "demo" / "SKILL.md"
+            prepared_skill.parent.mkdir(parents=True)
+            prepared_skill.write_text("demo skill", encoding="utf-8")
             user_home = temp_path / "user-home"
             user_home.mkdir()
 
@@ -33,7 +37,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                     "USERPROFILE": str(user_home),
                     "KEEP": "present",
                 },
-                str(temp_path / "run"),
+                str(run_dir),
                 temp_path / "artifacts",
             ) as env:
                 isolated_codex_home = Path(env["CODEX_HOME"])
@@ -41,7 +45,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
 
                 self.assertNotEqual(isolated_codex_home, source_codex_home)
                 self.assertNotEqual(isolated_home, user_home)
-                self.assertEqual(isolated_codex_home, temp_path / "run" / ".codex")
+                self.assertFalse(isolated_codex_home.is_relative_to(run_dir))
                 self.assertEqual(env["USERPROFILE"], str(isolated_home))
                 self.assertEqual(env["KEEP"], "present")
                 self.assertNotIn("CODEX_API_KEY", env)
@@ -53,12 +57,40 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                     {"tokens": {"access_token": "secret-access-token"}},
                 )
                 self.assertFalse((isolated_codex_home / "config.toml").exists())
-                self.assertFalse((isolated_codex_home / "skills").exists())
+                self.assertEqual(
+                    (isolated_codex_home / "skills" / "demo" / "SKILL.md").read_text(
+                        encoding="utf-8"
+                    ),
+                    "demo skill",
+                )
                 self.assertTrue(isolated_home.exists())
 
-            self.assertTrue(isolated_codex_home.exists())
+            self.assertFalse(isolated_codex_home.exists())
             self.assertFalse((isolated_codex_home / "auth.json").exists())
             self.assertFalse(isolated_home.exists())
+
+    def test_process_environment_keeps_codex_auth_outside_agent_workspace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_codex_home = temp_path / "source-codex-home"
+            source_codex_home.mkdir()
+            (source_codex_home / "auth.json").write_text(
+                json.dumps({"tokens": {"access_token": "secret-access-token"}}),
+                encoding="utf-8",
+            )
+            run_dir = temp_path / "run"
+
+            with CodexProvider().process_environment(
+                {"CODEX_HOME": str(source_codex_home)},
+                str(run_dir),
+                temp_path / "artifacts",
+            ) as env:
+                isolated_codex_home = Path(env["CODEX_HOME"])
+                isolated_auth = isolated_codex_home / "auth.json"
+
+                self.assertTrue(isolated_auth.exists())
+                self.assertFalse(isolated_codex_home.is_relative_to(run_dir))
+                self.assertFalse((run_dir / ".codex" / "auth.json").exists())
 
     def test_process_environment_writes_codex_auth_audit_events(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -84,19 +116,15 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 json.loads(line) for line in raw_audit.splitlines() if line.strip()
             ]
 
+            self.assertEqual(audit_events[0]["type"], "codex.auth_staged")
             self.assertEqual(
-                audit_events,
-                [
-                    {
-                        "type": "codex.auth_staged",
-                        "source": str(source_codex_home / "auth.json"),
-                        "target": str(temp_path / "run" / ".codex" / "auth.json"),
-                    },
-                    {
-                        "type": "codex.auth_removed",
-                        "target": str(temp_path / "run" / ".codex" / "auth.json"),
-                    },
-                ],
+                audit_events[0]["source"],
+                str(source_codex_home / "auth.json"),
+            )
+            self.assertEqual(audit_events[1]["type"], "codex.auth_removed")
+            self.assertEqual(audit_events[1]["target"], audit_events[0]["target"])
+            self.assertFalse(
+                Path(audit_events[0]["target"]).is_relative_to(temp_path / "run")
             )
             self.assertNotIn("secret-access-token", raw_audit)
 
