@@ -190,6 +190,10 @@ class CodexProvider(Provider):
     def skill_root(self) -> str:
         return ".codex"
 
+    @property
+    def requires_first_turn_session_id(self) -> bool:
+        return True
+
 
 def _find_codex_executable() -> str:
     """Resolve the Codex executable path for subprocess use on Windows."""

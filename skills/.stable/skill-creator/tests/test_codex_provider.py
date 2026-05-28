@@ -360,6 +360,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         provider = CodexProvider()
 
         self.assertEqual(provider.skill_root, ".codex")
+        self.assertTrue(provider.requires_first_turn_session_id)
 
     def test_parse_output_extracts_response_transcript_session_and_usage(self):
         stdout = "\n".join(

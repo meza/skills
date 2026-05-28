@@ -111,6 +111,11 @@ class Provider(ABC):
         yield base_env
 
     @property
+    def requires_first_turn_session_id(self) -> bool:
+        """Whether multi-turn runs must observe a provider-created session ID."""
+        return False
+
+    @property
     @abstractmethod
     def skill_root(self) -> str:
         """The provider-specific root directory for skill discovery.

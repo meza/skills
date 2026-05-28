@@ -464,14 +464,41 @@ class EvalJob:
             effective_timeout,
             process_env,
         )
-        if process_result.returncode != 0 and not process_result.timed_out:
+        if self.process_failed(process_result):
             return self.record_error(
                 turn_idx, process_result.stderr, process_result.returncode
             )
 
+        turn_result = self.parse_turn_result(process_result, prompt)
+        return self.record_turn_result(
+            turn_idx,
+            effective_timeout,
+            process_result,
+            turn_result,
+        )
+
+    def process_failed(self, process_result: TimedProcessResult) -> bool:
+        return process_result.returncode != 0 and not process_result.timed_out
+
+    def parse_turn_result(self, process_result: TimedProcessResult, prompt: str):
         turn_result = self.provider.parse_output(process_result.stdout, prompt)
         if turn_result.duration_ms <= 0:
             turn_result.duration_ms = process_result.duration_ms
+        return turn_result
+
+    def record_turn_result(
+        self,
+        turn_idx: int,
+        effective_timeout: float,
+        process_result: TimedProcessResult,
+        turn_result,
+    ) -> bool:
+        if self.first_turn_session_id_required(turn_idx, turn_result):
+            return self.record_error(
+                turn_idx,
+                "Provider did not return a session id for multi-turn resume",
+                process_result.returncode,
+            )
         self.session_id = turn_result.session_id or self.session_id
 
         if process_result.timed_out:
@@ -484,6 +511,14 @@ class EvalJob:
             )
         self.record_success(turn_idx, turn_result)
         return True
+
+    def first_turn_session_id_required(self, turn_idx: int, turn_result) -> bool:
+        return (
+            turn_idx == 0
+            and len(self.turns) > 1
+            and self.provider.requires_first_turn_session_id
+            and not turn_result.session_id
+        )
 
     def invoke_provider(
         self,

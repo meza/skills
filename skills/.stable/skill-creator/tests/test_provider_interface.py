@@ -44,6 +44,9 @@ class ProviderInterfaceTests(unittest.TestCase):
         ) as env:
             self.assertIs(env, base_env)
 
+    def test_provider_does_not_require_first_turn_session_id_by_default(self):
+        self.assertFalse(MinimalProvider().requires_first_turn_session_id)
+
 
 if __name__ == "__main__":
     unittest.main()

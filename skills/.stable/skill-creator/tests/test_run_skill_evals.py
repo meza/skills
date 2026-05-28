@@ -57,6 +57,7 @@ def timed_process_result(
 
 class FakeProvider:
     skill_root = ".fake"
+    requires_first_turn_session_id = False
 
     def __init__(self):
         self.commands = []
@@ -96,6 +97,20 @@ class FakeProvider:
             input_tokens=10,
             output_tokens=5,
             cost_usd=0.25,
+        )
+
+
+class FirstTurnSessionProvider(FakeProvider):
+    requires_first_turn_session_id = True
+
+    def parse_output(self, stdout, prompt):
+        self.prompts.append(prompt)
+        return TurnResult(
+            response="response",
+            transcript="transcript",
+            events=[{"event": "completed"}],
+            session_id=None,
+            duration_ms=123,
         )
 
 
@@ -1045,6 +1060,34 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(
                 job.error_message,
                 "Provider output did not contain parseable events",
+            )
+
+    def test_eval_job_requires_first_turn_session_id_for_multi_turn_provider(self):
+        eval_def = {
+            "id": 1,
+            "eval_name": "unit",
+            "turns": [
+                {"prompt": "First", "expectations": []},
+                {"prompt": "Second", "expectations": []},
+            ],
+        }
+        provider = FirstTurnSessionProvider()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            job = self._job(Path(temp_dir), provider=provider, eval_def=eval_def)
+
+            with mock.patch.object(
+                job,
+                "invoke_provider",
+                return_value=timed_process_result(stdout="{}", duration_ms=10),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+
+            self.assertEqual(job.status, "error")
+            self.assertEqual(
+                job.error_message,
+                "Provider did not return a session id for multi-turn resume",
             )
 
     def test_eval_job_unlinks_temporary_git_config(self):
