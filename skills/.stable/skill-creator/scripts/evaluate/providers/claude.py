@@ -6,18 +6,23 @@ through .claude/skills/ in the working directory.
 """
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from . import Provider, TurnResult
 from ..prompt_format import extract_prompt_sections
 
 DEFAULT_EFFORT = "medium"
+CLAUDE_PERMISSION_MODE = "acceptEdits"
 STREAM_JSON_ARGS = [
     "--output-format",
     "stream-json",
     "--verbose",
     "--permission-mode",
-    "bypassPermissions",
+    CLAUDE_PERMISSION_MODE,
 ]
+CLAUDE_SECRET_ENV_PREFIXES = ("ANTHROPIC_", "CLAUDE_")
+SECRET_ENV_MARKERS = ("API_KEY", "PASSWORD", "SECRET", "TOKEN")
 
 
 class ClaudeProvider(Provider):
@@ -32,10 +37,10 @@ class ClaudeProvider(Provider):
         effort: str | None = None,
         working_dir: str | None = None,
     ) -> list[str]:
-        del working_dir
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
         cmd.extend(_session_args(session_id, session_name, turn_index))
         cmd.extend(STREAM_JSON_ARGS)
+        _add_working_dir_boundary(cmd, working_dir)
 
         if model:
             cmd.extend(["--model", model])
@@ -49,10 +54,10 @@ class ClaudeProvider(Provider):
         working_dir: str,
         output_schema: str,
     ) -> list[str]:
-        del working_dir
         del output_schema
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
         cmd.extend(STREAM_JSON_ARGS)
+        _add_working_dir_boundary(cmd, working_dir)
         if model:
             cmd.extend(["--model", model])
         return cmd
@@ -75,6 +80,33 @@ class ClaudeProvider(Provider):
     @property
     def skill_root(self) -> str:
         return ".claude"
+
+    @contextmanager
+    def process_environment(
+        self,
+        base_env: dict[str, str],
+        run_dir: str,
+        artifact_dir,
+    ) -> Iterator[dict[str, str]]:
+        del run_dir
+        del artifact_dir
+        yield _filtered_claude_env(base_env)
+
+
+def _add_working_dir_boundary(cmd: list[str], working_dir: str | None) -> None:
+    if working_dir:
+        cmd.extend(["--add-dir", working_dir])
+
+
+def _filtered_claude_env(env: dict[str, str]) -> dict[str, str]:
+    return {key: value for key, value in env.items() if _is_allowed_env_var(key)}
+
+
+def _is_allowed_env_var(name: str) -> bool:
+    normalized = name.upper()
+    if normalized.startswith(CLAUDE_SECRET_ENV_PREFIXES):
+        return True
+    return not any(marker in normalized for marker in SECRET_ENV_MARKERS)
 
 
 def _session_args(

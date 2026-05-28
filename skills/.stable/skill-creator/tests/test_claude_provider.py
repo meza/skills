@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 
 from scripts.evaluate.providers.claude import ClaudeProvider
 
@@ -37,7 +38,9 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "stream-json",
                 "--verbose",
                 "--permission-mode",
-                "bypassPermissions",
+                "acceptEdits",
+                "--add-dir",
+                "F:/tmp/eval-1/skill",
                 "--model",
                 "claude-sonnet-4-5",
             ],
@@ -64,7 +67,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "stream-json",
                 "--verbose",
                 "--permission-mode",
-                "bypassPermissions",
+                "acceptEdits",
             ],
         )
 
@@ -101,11 +104,44 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "stream-json",
                 "--verbose",
                 "--permission-mode",
-                "bypassPermissions",
+                "acceptEdits",
+                "--add-dir",
+                "F:/tmp/eval-1/skill",
                 "--model",
                 "claude-sonnet-4-5",
             ],
         )
+
+    def test_commands_do_not_bypass_permissions(self):
+        command = ClaudeProvider().build_command(
+            session_id="session-123",
+            session_name="eval-1-skill",
+            turn_index=0,
+            model=None,
+            working_dir="F:/tmp/eval-1/skill",
+        )
+
+        self.assertNotIn("bypassPermissions", command)
+
+    def test_process_environment_filters_non_claude_secrets(self):
+        base_env = {
+            "PATH": "bin",
+            "GITHUB_TOKEN": "github-secret",
+            "AWS_SECRET_ACCESS_KEY": "aws-secret",
+            "ANTHROPIC_API_KEY": "anthropic-secret",
+            "CLAUDE_CONFIG_DIR": "claude-config",
+        }
+
+        with ClaudeProvider().process_environment(
+            base_env,
+            "F:/tmp/eval-1/skill",
+            Path("F:/tmp/eval-1/artifacts"),
+        ) as env:
+            self.assertEqual(env["PATH"], "bin")
+            self.assertEqual(env["ANTHROPIC_API_KEY"], "anthropic-secret")
+            self.assertEqual(env["CLAUDE_CONFIG_DIR"], "claude-config")
+            self.assertNotIn("GITHUB_TOKEN", env)
+            self.assertNotIn("AWS_SECRET_ACCESS_KEY", env)
 
 
 class ClaudeProviderParseOutputTests(unittest.TestCase):
