@@ -50,11 +50,6 @@ class EvaluateSkillTests(unittest.TestCase):
             ) as fixture_preparer,
             mock.patch.object(
                 evaluate_skill,
-                "get_provider_skill_root_or_exit",
-                return_value=".codex",
-            ) as get_provider_skill_root_or_exit,
-            mock.patch.object(
-                evaluate_skill,
                 "run_skill_prepare_hook",
                 create=True,
             ) as run_skill_prepare_hook,
@@ -112,9 +107,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
         self.assertEqual(prepare_options.run_root, Path("F:/runs/sample-skill"))
         self.assertEqual(prepare_options.provider, "codex")
-        self.assertEqual(prepare_options.skill_root, ".codex")
         self.assertEqual(prepare_options.eval_ids, "1,2")
-        get_provider_skill_root_or_exit.assert_called_once_with("codex")
 
         runner_args = skill_eval_runner.call_args.args
         self.assertIs(runner_args[0], prepared_run)

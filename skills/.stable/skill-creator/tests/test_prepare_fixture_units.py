@@ -783,15 +783,34 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             },
         )
 
-    def test_prepare_options_receive_resolved_provider_skill_root(self):
-        options = prepare_fixture.PrepareFixtureOptions(
-            skill_path=Path("skill"),
-            run_root=Path("run"),
-            provider="new-provider",
-            skill_root=".new-provider",
-        )
+    def test_prepare_resolves_skill_root_from_provider_registry(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = self._write_skill(temp_path, self._minimal_evals())
 
-        self.assertEqual(options.skill_root, ".new-provider")
+            with mock.patch.object(
+                prepare_fixture,
+                "get_provider_skill_root_or_exit",
+                return_value=".new-provider",
+            ) as get_provider_skill_root_or_exit:
+                prepared_run = prepare_fixture.prepare(
+                    prepare_fixture.PrepareFixtureOptions(
+                        skill_path=skill_path,
+                        run_root=temp_path / "runs",
+                        provider="new-provider",
+                    )
+                )
+
+            get_provider_skill_root_or_exit.assert_called_once_with("new-provider")
+            self.assertTrue(
+                (
+                    prepared_run.evals[0].skill_run_path
+                    / ".new-provider"
+                    / "skills"
+                    / "demo-skill"
+                    / "SKILL.md"
+                ).exists()
+            )
 
     def test_prepare_run_type_copies_skill_files_and_eval_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -877,7 +896,6 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     skill_path=skill_path,
                     run_root=temp_path / "runs",
                     provider="claude",
-                    skill_root=".claude",
                 )
             )
 

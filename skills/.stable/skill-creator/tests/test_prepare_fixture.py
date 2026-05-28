@@ -4,7 +4,6 @@ import unittest
 from pathlib import Path
 
 from scripts.evaluate import prepare_fixture
-from scripts.evaluate.providers.registry import get_provider_skill_root_or_exit
 
 
 class PrepareFixtureContractTests(unittest.TestCase):
@@ -62,7 +61,6 @@ class PrepareFixtureContractTests(unittest.TestCase):
                 skill_path=skill_path,
                 run_root=run_root,
                 provider=provider,
-                skill_root=get_provider_skill_root_or_exit(provider),
                 eval_ids=eval_ids,
             )
         ).prepare()

@@ -59,6 +59,7 @@ from .run_layout import (
     skill_directory_path,
     skill_file_path,
 )
+from .providers.registry import get_provider_skill_root_or_exit
 
 GIT_COMMAND_TIMEOUT_SECONDS = 300
 
@@ -70,7 +71,6 @@ class PrepareFixtureOptions:
     skill_path: Path
     run_root: Path
     provider: str
-    skill_root: str
     eval_ids: str | None = None
 
 
@@ -156,7 +156,7 @@ class FixturePreparer:
         self.options = options
 
     def prepare(self) -> PreparedRun:
-        skill_root = self.options.skill_root
+        skill_root = get_provider_skill_root_or_exit(self.options.provider)
 
         skill_path = self.options.skill_path.expanduser().resolve()
         evals_data = load_skill_evals_data_or_exit(skill_path)
