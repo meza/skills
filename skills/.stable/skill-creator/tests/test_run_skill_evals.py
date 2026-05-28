@@ -1008,6 +1008,43 @@ class EvalLibTests(unittest.TestCase):
         self.assertTrue(result.timed_out)
         kill_process_tree.assert_called_once_with(123)
 
+    def test_run_with_timeout_cancels_delayed_force_kill_timer(self):
+        class SlowProcess:
+            pid = 123
+            returncode = 0
+
+            def communicate(self, input=None):
+                return "stdout", "stderr"
+
+        timers = []
+
+        class FakeTimer:
+            def __init__(self, interval, function, args=None):
+                self.interval = interval
+                self.function = function
+                self.args = args or []
+                self.daemon = False
+                self.cancel = mock.Mock()
+                timers.append(self)
+
+            def start(self):
+                if getattr(self.function, "__name__", "") == "kill_on_timeout":
+                    self.function()
+
+        with (
+            mock.patch.object(eval_job, "_IS_WINDOWS", True),
+            mock.patch.object(eval_job.subprocess, "Popen", return_value=SlowProcess()),
+            mock.patch.object(eval_job.threading, "Timer", side_effect=FakeTimer),
+            mock.patch.object(eval_job, "_kill_process_tree"),
+            mock.patch.object(eval_job, "_force_kill_process_tree"),
+        ):
+            result = run_with_timeout(["fake"], "prompt", "F:/tmp", 5)
+
+        self.assertTrue(result.timed_out)
+        self.assertEqual([timer.interval for timer in timers], [5.0, 5.0])
+        for timer in timers:
+            timer.cancel.assert_called_once_with()
+
     def test_eval_job_skips_when_deadline_already_passed(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             job = self._job(Path(temp_dir), deadline=time.time() - 1)

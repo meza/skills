@@ -276,9 +276,10 @@ def run_with_timeout(
         registry.register(process.pid)
 
         timed_out = False
+        force_timer = None
 
         def kill_on_timeout():
-            nonlocal timed_out
+            nonlocal timed_out, force_timer
             timed_out = True
             _kill_process_tree(process.pid)
             force_timer = threading.Timer(
@@ -314,6 +315,8 @@ def run_with_timeout(
             )
         finally:
             timer.cancel()
+            if force_timer:
+                force_timer.cancel()
             registry.unregister(process.pid)
 
         duration_ms = int((time.monotonic() - start) * 1000)
