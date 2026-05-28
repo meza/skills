@@ -110,10 +110,10 @@ def selected_run_types(skip_baseline: bool) -> list[str]:
 def load_evals_data_or_exit(evals_json_path: Path) -> dict:
     """Load and validate an eval definitions JSON file.
 
-    The file must be a JSON object with the supported top-level
-    schema_version and at least one eval definition. Invalid shapes,
-    unsupported schema versions, empty eval suites, and invalid eval entries
-    are reported to stderr before exiting.
+    The file must be a JSON object with at least one eval definition. A
+    missing schema_version is treated as legacy schema v1; unsupported explicit
+    schema versions, empty eval suites, and invalid eval entries are reported
+    to stderr before exiting.
     """
     if not evals_json_path.exists():
         print(f"Error: {evals_json_path} not found", file=sys.stderr)
@@ -157,8 +157,7 @@ def validate_schema_version_or_exit(evals_data: object) -> None:
 
     schema_version = evals_data.get("schema_version")
     if schema_version is None:
-        print("Error: evals.json must include schema_version", file=sys.stderr)
-        sys.exit(1)
+        return
     if (
         isinstance(schema_version, bool)
         or not isinstance(schema_version, int)

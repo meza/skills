@@ -1544,9 +1544,20 @@ class EvalLibTests(unittest.TestCase):
                 stderr.getvalue(),
             )
 
+        with tempfile.TemporaryDirectory() as temp_dir:
+            evals_json = Path(temp_dir) / "evals.json"
+            evals_json.write_text(
+                json.dumps({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                eval_definitions.load_evals_data_or_exit(evals_json),
+                {"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]},
+            )
+
         for version_payload, expected_error in (
             ([], "evals.json must contain an object"),
-            ({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}, "schema_version"),
             (
                 {
                     "schema_version": 1,
