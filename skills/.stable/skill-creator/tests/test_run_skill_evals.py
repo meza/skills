@@ -1508,6 +1508,7 @@ class EvalLibTests(unittest.TestCase):
             )
 
         for version_payload, expected_error in (
+            ([], "evals.json must contain an object"),
             ({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}, "schema_version"),
             (
                 {
