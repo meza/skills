@@ -15,7 +15,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from .eval_definitions import EvalDefinition
+from .eval_definitions import (
+    EvalDefinition,
+    FixturePlacement,
+    fixture_placement_for_eval,
+)
 from .providers import Provider
 from .telemetry import redact_sensitive_telemetry
 
@@ -45,7 +49,10 @@ def build_prompt(
 
 
 def _should_prefix_fixture_path(eval_def: dict, fixture_path: str | None) -> bool:
-    if not fixture_path or not eval_def.get("fixture_in_workdir", True):
+    if (
+        not fixture_path
+        or fixture_placement_for_eval(eval_def) is not FixturePlacement.WORKDIR
+    ):
         return False
     return not any(
         "{{FIXTURE_PATH}}" in turn.get("prompt", "")

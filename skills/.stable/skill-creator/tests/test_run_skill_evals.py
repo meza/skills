@@ -1413,8 +1413,16 @@ class EvalLibTests(unittest.TestCase):
         self.assertEqual(eval_definition.turns, [{"prompt": "Do it"}])
         self.assertEqual(eval_definition.timeout_or_default(30), 45)
         self.assertEqual(
+            eval_definition.fixture_placement,
+            eval_definitions.FixturePlacement.WORKDIR,
+        )
+        self.assertEqual(
             eval_definitions.EvalDefinition({"id": 8}).eval_name,
             "eval-8",
+        )
+        self.assertEqual(
+            eval_definitions.fixture_placement_for_eval({"fixture_in_workdir": False}),
+            eval_definitions.FixturePlacement.EXTERNAL,
         )
 
         self.assertEqual(

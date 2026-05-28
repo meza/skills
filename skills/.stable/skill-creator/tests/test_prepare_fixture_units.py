@@ -20,6 +20,14 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             list(inspect.signature(prepare_fixture.prepare_run_type).parameters),
             ["preparation"],
         )
+        self.assertIn(
+            "fixture_placement",
+            inspect.signature(prepare_fixture.FixtureCopy).parameters,
+        )
+        self.assertNotIn(
+            "fixture_in_workdir",
+            inspect.signature(prepare_fixture.FixtureCopy).parameters,
+        )
 
     def _write_skill(self, root: Path, evals_data: dict) -> Path:
         evals_data = {"schema_version": 1, **evals_data}
@@ -582,7 +590,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     run_dir=run_dir,
                     run_type="skill",
                     fixture_name="sample-project",
-                    fixture_in_workdir=True,
+                    fixture_placement=prepare_fixture.FixturePlacement.WORKDIR,
                     eval_id="1",
                 )
             )
@@ -608,7 +616,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     run_dir=run_dir,
                     run_type="skill",
                     fixture_name="sample-project",
-                    fixture_in_workdir=False,
+                    fixture_placement=prepare_fixture.FixturePlacement.EXTERNAL,
                     eval_id="1",
                 )
             )
@@ -640,7 +648,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                         run_dir=run_dir,
                         run_type="skill",
                         fixture_name="missing-project",
-                        fixture_in_workdir=True,
+                        fixture_placement=prepare_fixture.FixturePlacement.WORKDIR,
                         eval_id="1",
                     )
                 )
@@ -669,7 +677,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                         run_dir=run_dir,
                         run_type="skill",
                         fixture_name="../outside-project",
-                        fixture_in_workdir=True,
+                        fixture_placement=prepare_fixture.FixturePlacement.WORKDIR,
                         eval_id="1",
                     )
                 )
@@ -696,7 +704,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                         run_dir=run_dir,
                         run_type="skill",
                         fixture_name=str((temp_path / "absolute-project").resolve()),
-                        fixture_in_workdir=False,
+                        fixture_placement=prepare_fixture.FixturePlacement.EXTERNAL,
                         eval_id="1",
                     )
                 )

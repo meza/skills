@@ -51,6 +51,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .eval_definitions import (
+    FixturePlacement,
+    fixture_placement_for_eval,
     load_evals_json_or_exit,
     select_evals_or_exit,
     validate_evals_data_or_exit,
@@ -153,7 +155,7 @@ class FixtureCopy:
     run_dir: Path
     run_type: str
     fixture_name: str
-    fixture_in_workdir: bool
+    fixture_placement: FixturePlacement
     eval_id: str
 
 
@@ -578,7 +580,7 @@ def copy_fixture_or_exit(fixture: FixtureCopy) -> Path:
         )
         sys.exit(1)
 
-    if fixture.fixture_in_workdir:
+    if fixture.fixture_placement is FixturePlacement.WORKDIR:
         dest = require_fixture_path_inside_root_or_exit(
             fixture.run_dir / relative_path,
             fixture.run_dir,
@@ -621,7 +623,7 @@ def prepare_run_type(preparation: RunTypePreparation) -> PreparedRunTypeEntry:
                 run_dir=run_dir,
                 run_type=preparation.run_type,
                 fixture_name=fixture_name,
-                fixture_in_workdir=preparation.eval_def.get("fixture_in_workdir", True),
+                fixture_placement=fixture_placement_for_eval(preparation.eval_def),
                 eval_id=eval_id,
             )
         )

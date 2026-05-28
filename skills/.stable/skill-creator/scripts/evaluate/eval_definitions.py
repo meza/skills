@@ -3,11 +3,17 @@
 import json
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from .run_layout import RUN_TYPES, SKILL_RUN_TYPE
 
 SUPPORTED_EVAL_SCHEMA_VERSION = 1
+
+
+class FixturePlacement(Enum):
+    WORKDIR = "workdir"
+    EXTERNAL = "external"
 
 
 @dataclass(frozen=True)
@@ -28,8 +34,18 @@ class EvalDefinition:
     def turns(self) -> list[dict]:
         return self.data.get("turns", [])
 
+    @property
+    def fixture_placement(self) -> FixturePlacement:
+        return fixture_placement_for_eval(self.data)
+
     def timeout_or_default(self, default_timeout: int) -> int:
         return self.data.get("timeout", default_timeout)
+
+
+def fixture_placement_for_eval(eval_def: dict) -> FixturePlacement:
+    if eval_def.get("fixture_in_workdir", True):
+        return FixturePlacement.WORKDIR
+    return FixturePlacement.EXTERNAL
 
 
 def selected_run_types(skip_baseline: bool) -> list[str]:
