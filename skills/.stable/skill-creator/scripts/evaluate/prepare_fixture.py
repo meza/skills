@@ -60,6 +60,8 @@ from .run_layout import (
     skill_file_path,
 )
 
+GIT_COMMAND_TIMEOUT_SECONDS = 300
+
 GITIGNORE_AUTH_ENTRY = "auth.json"
 
 
@@ -189,7 +191,20 @@ def _optional_path_to_string(path: Path | None) -> str | None:
 
 def run_git_or_exit(cmd: list[str], error_prefix: str) -> str:
     """Run a git command and return stdout, exiting with context on failure."""
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            f"{error_prefix}: git command timed out after "
+            f"{GIT_COMMAND_TIMEOUT_SECONDS}s",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if result.returncode != 0:
         print(
             f"{error_prefix}:\n{result.stderr}",
@@ -241,22 +256,30 @@ def ref_candidates(ref: str) -> list[str]:
 
 def first_resolved_ref(dest: Path, candidates: list[str]) -> str | None:
     for candidate in candidates:
-        result = subprocess.run(
-            ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(dest), "rev-parse", "--verify", candidate],
+                capture_output=True,
+                text=True,
+                timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            continue
         if result.returncode == 0:
             return result.stdout.strip()
     return None
 
 
 def fetch_ref(dest: Path, ref: str) -> bool:
-    result = subprocess.run(
-        ["git", "-C", str(dest), "fetch", "origin", ref],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(dest), "fetch", "origin", ref],
+            capture_output=True,
+            text=True,
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
@@ -275,11 +298,19 @@ def git_clone_or_pull(repo_url: str, dest: Path, ref: str | None = None) -> None
         )
     else:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        clone_result = subprocess.run(
-            ["git", "clone", repo_url, str(dest)],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            clone_result = subprocess.run(
+                ["git", "clone", repo_url, str(dest)],
+                capture_output=True,
+                text=True,
+                timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            print(
+                f"Error: git clone timed out after {GIT_COMMAND_TIMEOUT_SECONDS}s",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         if clone_result.returncode != 0:
             print(f"Error: git clone failed:\n{clone_result.stderr}", file=sys.stderr)
             sys.exit(1)

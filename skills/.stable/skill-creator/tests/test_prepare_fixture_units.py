@@ -81,7 +81,12 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             result = prepare_fixture.run_git_or_exit(["git", "status"], "failed")
 
         self.assertEqual(result, "abc123")
-        run.assert_called_once_with(["git", "status"], capture_output=True, text=True)
+        run.assert_called_once_with(
+            ["git", "status"],
+            capture_output=True,
+            text=True,
+            timeout=prepare_fixture.GIT_COMMAND_TIMEOUT_SECONDS,
+        )
 
     def test_run_git_exits_with_error_context_on_failure(self):
         with (
@@ -99,6 +104,24 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
         self.assertIn("failed", stderr.getvalue())
         self.assertIn("fatal error", stderr.getvalue())
+
+    def test_run_git_exits_with_timeout_context(self):
+        with (
+            mock.patch.object(
+                prepare_fixture.subprocess,
+                "run",
+                side_effect=prepare_fixture.subprocess.TimeoutExpired(
+                    ["git", "status"],
+                    timeout=1,
+                ),
+            ),
+            self.assertRaises(SystemExit),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            prepare_fixture.run_git_or_exit(["git", "status"], "failed")
+
+        self.assertIn("failed", stderr.getvalue())
+        self.assertIn("timed out", stderr.getvalue())
 
     def test_resolve_ref_uses_origin_head_when_ref_is_missing(self):
         with mock.patch.object(
@@ -132,6 +155,10 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run.call_args_list[1].args[0],
             ["git", "-C", "repo", "rev-parse", "--verify", "v1^{commit}"],
         )
+        self.assertEqual(
+            run.call_args_list[0].kwargs["timeout"],
+            prepare_fixture.GIT_COMMAND_TIMEOUT_SECONDS,
+        )
 
     def test_resolve_ref_fetches_ref_when_initial_candidates_fail(self):
         failed_candidates = [self._completed_process(returncode=1) for _ in range(6)]
@@ -149,6 +176,10 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         self.assertEqual(
             run.call_args_list[6].args[0],
             ["git", "-C", "repo", "fetch", "origin", "feature"],
+        )
+        self.assertEqual(
+            run.call_args_list[6].kwargs["timeout"],
+            prepare_fixture.GIT_COMMAND_TIMEOUT_SECONDS,
         )
         self.assertEqual(
             run.call_args_list[7].args[0],
@@ -197,6 +228,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 ["git", "clone", "https://example.invalid/repo.git", str(dest)],
                 capture_output=True,
                 text=True,
+                timeout=prepare_fixture.GIT_COMMAND_TIMEOUT_SECONDS,
             )
             resolve_ref_or_exit.assert_called_once_with(dest, "main")
             self.assertEqual(
