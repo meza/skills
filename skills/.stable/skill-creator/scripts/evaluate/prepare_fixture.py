@@ -572,7 +572,7 @@ def prepare_run_type(
     fixture_staging: Path | None,
     skill_name: str,
     skill_root: str,
-) -> dict:
+) -> PreparedRunTypeEntry:
     """Prepare one eval run-type working directory."""
     eval_id = str(eval_def["id"])
     eval_dir = run_root / f"eval-{eval_id}"
@@ -603,10 +603,13 @@ def prepare_run_type(
     skill_file = None
     if run_type == SKILL_RUN_TYPE:
         skill_file = skill_file_path(run_dir, skill_root, skill_name)
-    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file).to_dict()
+    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file)
 
 
-def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedEval:
+def build_prepared_eval(
+    eval_def: dict,
+    run_paths: dict[str, PreparedRunTypeEntry],
+) -> PreparedEval:
     """Build the prepared run entry for one eval."""
     eval_id = str(eval_def["id"])
     skill_entry = run_paths[SKILL_RUN_TYPE]
@@ -614,13 +617,11 @@ def build_prepared_eval(eval_def: dict, run_paths: dict[str, dict]) -> PreparedE
     return PreparedEval(
         eval_id=eval_def["id"],
         eval_name=eval_def.get("eval_name", f"eval-{eval_id}"),
-        skill_run_path=Path(skill_entry["path"]),
-        baseline_run_path=Path(baseline_entry["path"]),
-        skill_file=Path(skill_entry["skill_file"]),
-        skill_fixture_path=_optional_string_to_path(skill_entry.get("fixture_path")),
-        baseline_fixture_path=_optional_string_to_path(
-            baseline_entry.get("fixture_path")
-        ),
+        skill_run_path=skill_entry.run_dir,
+        baseline_run_path=baseline_entry.run_dir,
+        skill_file=skill_entry.require_skill_file(),
+        skill_fixture_path=skill_entry.fixture_path,
+        baseline_fixture_path=baseline_entry.fixture_path,
     )
 
 

@@ -14,6 +14,11 @@ class PreparedRunTypeEntry:
     fixture_path: Path | None = None
     skill_file: Path | None = None
 
+    def require_skill_file(self) -> Path:
+        if not self.skill_file:
+            raise ValueError("Prepared run type entry is missing skill_file")
+        return self.skill_file
+
     def to_dict(self) -> dict:
         entry = {"path": str(self.run_dir)}
         if self.fixture_path:

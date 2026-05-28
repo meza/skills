@@ -1150,18 +1150,26 @@ class EvalLibTests(unittest.TestCase):
         )
 
     def test_run_layout_owns_prepared_run_type_entry_shape(self):
+        skill_file = Path("run/eval-1/skill/.codex/skills/demo/SKILL.md")
+        entry = run_layout.PreparedRunTypeEntry(
+            run_dir=Path("run/eval-1/skill"),
+            fixture_path=Path("run/eval-1/skill/project"),
+            skill_file=skill_file,
+        )
+
+        self.assertEqual(entry.require_skill_file(), skill_file)
         self.assertEqual(
-            run_layout.PreparedRunTypeEntry(
-                run_dir=Path("run/eval-1/skill"),
-                fixture_path=Path("run/eval-1/skill/project"),
-                skill_file=Path("run/eval-1/skill/.codex/skills/demo/SKILL.md"),
-            ).to_dict(),
+            entry.to_dict(),
             {
                 "path": str(Path("run/eval-1/skill")),
                 "fixture_path": str(Path("run/eval-1/skill/project")),
                 "skill_file": str(Path("run/eval-1/skill/.codex/skills/demo/SKILL.md")),
             },
         )
+        with self.assertRaises(ValueError):
+            run_layout.PreparedRunTypeEntry(
+                run_dir=Path("run/eval-1/baseline")
+            ).require_skill_file()
         self.assertEqual(
             run_layout.PreparedRunTypeEntry(
                 run_dir=Path("run/eval-1/baseline")
@@ -1198,13 +1206,17 @@ class EvalLibTests(unittest.TestCase):
                 "fake-skill",
             )
 
+            self.assertIsInstance(
+                paths["1"]["baseline"], run_layout.PreparedRunTypeEntry
+            )
+            self.assertIsInstance(paths["1"]["skill"], run_layout.PreparedRunTypeEntry)
             self.assertEqual(
-                paths["1"]["baseline"]["fixture_path"],
-                str(eval_dir / "baseline_fixtures" / "fixture"),
+                paths["1"]["baseline"].fixture_path,
+                eval_dir / "baseline_fixtures" / "fixture",
             )
             self.assertEqual(
-                paths["1"]["skill"]["skill_file"],
-                str(skill_dir / "SKILL.md"),
+                paths["1"]["skill"].skill_file,
+                skill_dir / "SKILL.md",
             )
 
     def test_eval_run_paths_exits_for_missing_paths(self):

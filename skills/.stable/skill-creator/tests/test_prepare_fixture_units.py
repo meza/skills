@@ -74,13 +74,13 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
     def test_build_prepared_eval_uses_shared_run_type_names(self):
         run_paths = {
-            "custom-skill": {
-                "path": "runs/eval-1/custom-skill",
-                "skill_file": "runs/eval-1/custom-skill/SKILL.md",
-            },
-            "custom-baseline": {
-                "path": "runs/eval-1/custom-baseline",
-            },
+            "custom-skill": prepare_fixture.PreparedRunTypeEntry(
+                run_dir=Path("runs/eval-1/custom-skill"),
+                skill_file=Path("runs/eval-1/custom-skill/SKILL.md"),
+            ),
+            "custom-baseline": prepare_fixture.PreparedRunTypeEntry(
+                run_dir=Path("runs/eval-1/custom-baseline"),
+            ),
         }
 
         with (
@@ -666,15 +666,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
         entry = prepare_fixture.build_prepared_eval(
             {"id": 7, "eval_name": "named-eval"},
             {
-                "skill": {
-                    "path": "runs/eval-7/skill",
-                    "skill_file": "runs/eval-7/skill/.claude/skills/demo/SKILL.md",
-                    "fixture_path": "runs/eval-7/skill/project",
-                },
-                "baseline": {
-                    "path": "runs/eval-7/baseline",
-                    "fixture_path": "runs/eval-7/baseline/project",
-                },
+                "skill": prepare_fixture.PreparedRunTypeEntry(
+                    run_dir=Path("runs/eval-7/skill"),
+                    fixture_path=Path("runs/eval-7/skill/project"),
+                    skill_file=Path("runs/eval-7/skill/.claude/skills/demo/SKILL.md"),
+                ),
+                "baseline": prepare_fixture.PreparedRunTypeEntry(
+                    run_dir=Path("runs/eval-7/baseline"),
+                    fixture_path=Path("runs/eval-7/baseline/project"),
+                ),
             },
         )
 
@@ -787,7 +787,8 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 skill_root=".claude",
             )
 
-            run_dir = Path(entry["path"])
+            self.assertIsInstance(entry, prepare_fixture.PreparedRunTypeEntry)
+            run_dir = entry.run_dir
             self.assertTrue(
                 (run_dir / ".claude" / "skills" / "demo-skill" / "SKILL.md").exists()
             )
@@ -796,7 +797,7 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 "sample",
             )
             self.assertEqual(
-                Path(entry["skill_file"]),
+                entry.skill_file,
                 run_dir / ".claude" / "skills" / "demo-skill" / "SKILL.md",
             )
             self.assertIn(
@@ -826,8 +827,10 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 skill_root=".claude",
             )
 
-            fixture_path = Path(entry["fixture_path"])
-            self.assertTrue(fixture_path.is_relative_to(Path(entry["path"])))
+            self.assertIsInstance(entry, prepare_fixture.PreparedRunTypeEntry)
+            fixture_path = entry.fixture_path
+            self.assertIsNotNone(fixture_path)
+            self.assertTrue(fixture_path.is_relative_to(entry.run_dir))
             self.assertEqual(
                 (fixture_path / "README.md").read_text(encoding="utf-8"), "fixture"
             )

@@ -41,7 +41,7 @@ def _build_run_type_entry(
     skill_name: str,
     fixture_name: str | None,
     fixture_in_workdir: bool,
-) -> dict:
+) -> PreparedRunTypeEntry:
     run_dir = eval_dir / run_type
     _require_existing_path(
         run_dir,
@@ -75,7 +75,7 @@ def _build_run_type_entry(
             "Run prepare_fixture.py first or use the matching provider.",
         )
 
-    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file).to_dict()
+    return PreparedRunTypeEntry(run_dir, fixture_path, skill_file)
 
 
 def _build_eval_paths(
@@ -83,7 +83,7 @@ def _build_eval_paths(
     provider: Provider,
     eval_def: dict,
     skill_name: str,
-) -> dict:
+) -> dict[str, PreparedRunTypeEntry]:
     eval_id = str(eval_def["id"])
     eval_dir = run_root / f"eval-{eval_id}"
     _require_existing_path(
@@ -113,7 +113,7 @@ def build_run_paths_or_exit(
     provider: Provider,
     evals_list: list[dict],
     skill_name: str,
-) -> dict:
+) -> dict[str, dict[str, PreparedRunTypeEntry]]:
     """Resolve run directories from a prepared run root."""
     run_root = run_root.expanduser().resolve()
     if not run_root.exists():
