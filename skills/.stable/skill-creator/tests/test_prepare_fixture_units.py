@@ -300,6 +300,22 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertIn("evals.json not found", stderr.getvalue())
 
+    def test_load_evals_data_exits_when_fixture_name_is_unsafe(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = self._write_skill(
+                temp_path,
+                self._minimal_evals({"fixture": "../outside-project"}),
+            )
+
+            with (
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path)
+
+            self.assertIn("escapes the fixture source root", stderr.getvalue())
+
     def test_resolve_fixture_staging_returns_none_when_no_eval_uses_fixture(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             staging = prepare_fixture.resolve_fixture_staging_or_exit(

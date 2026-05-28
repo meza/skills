@@ -386,7 +386,17 @@ def load_skill_evals_data_or_exit(skill_path: Path) -> dict:
         sys.exit(1)
 
     with open(evals_json_path, encoding="utf-8") as f:
-        return json.load(f)
+        evals_data = json.load(f)
+
+    validate_eval_fixture_names_or_exit(evals_data)
+    return evals_data
+
+
+def validate_eval_fixture_names_or_exit(evals_data: dict) -> None:
+    for eval_def in evals_data.get("evals", []):
+        fixture_name = eval_def.get("fixture")
+        if fixture_name:
+            fixture_relative_path_or_exit(fixture_name, str(eval_def["id"]))
 
 
 def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None:
@@ -423,6 +433,13 @@ def fixture_relative_path_or_exit(fixture_name: str, eval_id: str) -> Path:
         print(
             f"Error: fixture '{fixture_name}' must be a relative fixture directory "
             f"name (referenced by eval id={eval_id})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if ".." in relative_path.parts:
+        print(
+            f"Error: fixture '{fixture_name}' escapes the fixture source root "
+            f"(referenced by eval id={eval_id})",
             file=sys.stderr,
         )
         sys.exit(1)
