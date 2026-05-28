@@ -449,6 +449,60 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertIn("fixture 'missing-project' not found", stderr.getvalue())
 
+    def test_copy_fixture_exits_when_fixture_name_escapes_source_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fixtures = self._write_fixture_base(temp_path)
+            outside = temp_path / "outside-project"
+            outside.mkdir()
+            (outside / "README.md").write_text("outside", encoding="utf-8")
+            eval_dir = temp_path / "eval-1"
+            run_dir = eval_dir / "skill"
+            run_dir.mkdir(parents=True)
+
+            with (
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.copy_fixture_or_exit(
+                    fixture_staging=fixtures,
+                    eval_dir=eval_dir,
+                    run_dir=run_dir,
+                    run_type="skill",
+                    fixture_name="../outside-project",
+                    fixture_in_workdir=True,
+                    eval_id="1",
+                )
+
+            self.assertIn("escapes the fixture source root", stderr.getvalue())
+            self.assertFalse((eval_dir / "outside-project").exists())
+
+    def test_copy_fixture_exits_when_fixture_name_is_absolute(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fixtures = self._write_fixture_base(temp_path)
+            eval_dir = temp_path / "eval-1"
+            run_dir = eval_dir / "skill"
+            run_dir.mkdir(parents=True)
+
+            with (
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.copy_fixture_or_exit(
+                    fixture_staging=fixtures,
+                    eval_dir=eval_dir,
+                    run_dir=run_dir,
+                    run_type="skill",
+                    fixture_name=str((temp_path / "absolute-project").resolve()),
+                    fixture_in_workdir=False,
+                    eval_id="1",
+                )
+
+            self.assertIn(
+                "must be a relative fixture directory name", stderr.getvalue()
+            )
+
     def test_copy_eval_files_exits_when_file_is_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

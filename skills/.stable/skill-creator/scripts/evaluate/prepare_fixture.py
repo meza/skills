@@ -417,6 +417,39 @@ def resolve_fixture_staging_or_exit(evals_data: dict, base: Path) -> Path | None
     return fixture_staging
 
 
+def fixture_relative_path_or_exit(fixture_name: str, eval_id: str) -> Path:
+    relative_path = Path(fixture_name)
+    if relative_path.is_absolute():
+        print(
+            f"Error: fixture '{fixture_name}' must be a relative fixture directory "
+            f"name (referenced by eval id={eval_id})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return relative_path
+
+
+def require_fixture_path_inside_root_or_exit(
+    path: Path,
+    root: Path,
+    fixture_name: str,
+    eval_id: str,
+    root_description: str,
+) -> Path:
+    resolved_path = path.resolve()
+    resolved_root = root.resolve()
+    try:
+        resolved_path.relative_to(resolved_root)
+    except ValueError:
+        print(
+            f"Error: fixture '{fixture_name}' escapes the {root_description} "
+            f"(referenced by eval id={eval_id})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return resolved_path
+
+
 def copy_fixture_or_exit(
     fixture_staging: Path,
     eval_dir: Path,
@@ -427,7 +460,14 @@ def copy_fixture_or_exit(
     eval_id: str,
 ) -> Path:
     """Copy one eval fixture for a single run type."""
-    source = fixture_staging / fixture_name
+    relative_path = fixture_relative_path_or_exit(fixture_name, eval_id)
+    source = require_fixture_path_inside_root_or_exit(
+        fixture_staging / relative_path,
+        fixture_staging,
+        fixture_name,
+        eval_id,
+        "fixture source root",
+    )
     if not source.exists():
         print(
             f"Error: fixture '{fixture_name}' not found at {source} "
@@ -437,13 +477,25 @@ def copy_fixture_or_exit(
         sys.exit(1)
 
     if fixture_in_workdir:
-        dest = run_dir / fixture_name
+        dest = require_fixture_path_inside_root_or_exit(
+            run_dir / relative_path,
+            run_dir,
+            fixture_name,
+            eval_id,
+            "prepared run directory",
+        )
         shutil.copytree(source, dest)
         return dest
 
     external_dir = eval_dir / f"{run_type}_fixtures"
     external_dir.mkdir(parents=True, exist_ok=True)
-    dest = external_dir / fixture_name
+    dest = require_fixture_path_inside_root_or_exit(
+        external_dir / relative_path,
+        external_dir,
+        fixture_name,
+        eval_id,
+        "prepared fixture directory",
+    )
     if not dest.exists():
         shutil.copytree(source, dest)
     return dest
