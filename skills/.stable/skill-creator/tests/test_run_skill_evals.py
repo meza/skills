@@ -11,7 +11,6 @@ from unittest import mock
 from scripts.evaluate import (
     eval_definitions,
     eval_job,
-    eval_run_paths,
     eval_runner,
     run_layout,
 )
@@ -196,7 +195,6 @@ class RunSkillEvalsContractTests(unittest.TestCase):
     def test_process_exiting_eval_helpers_have_explicit_names(self):
         self.assertTrue(hasattr(eval_definitions, "load_evals_data_or_exit"))
         self.assertTrue(hasattr(eval_definitions, "select_evals_or_exit"))
-        self.assertTrue(hasattr(eval_run_paths, "build_run_paths_or_exit"))
 
     def _execute_with_fake_provider(
         self,
@@ -1241,136 +1239,8 @@ class EvalLibTests(unittest.TestCase):
             {"path": str(Path("run/eval-1/baseline"))},
         )
 
-    def test_eval_run_paths_resolves_external_fixtures(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            eval_dir = temp_path / "eval-1"
-            provider = FakeProvider()
-            for config in eval_run_paths.RUN_TYPES:
-                (eval_dir / config).mkdir(parents=True)
-                (eval_dir / f"{config}_fixtures").mkdir()
-                (eval_dir / f"{config}_fixtures" / "fixture").mkdir()
-
-            skill_dir = (
-                eval_dir / "skill" / provider.skill_root / "skills" / "fake-skill"
-            )
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
-
-            paths = eval_run_paths.build_run_paths_or_exit(
-                temp_path,
-                provider,
-                [
-                    {
-                        "id": 1,
-                        "fixture": "fixture",
-                        "fixture_in_workdir": False,
-                    }
-                ],
-                "fake-skill",
-            )
-
-            self.assertIsInstance(
-                paths["1"]["baseline"], run_layout.PreparedRunTypeEntry
-            )
-            self.assertIsInstance(paths["1"]["skill"], run_layout.PreparedRunTypeEntry)
-            self.assertEqual(
-                paths["1"]["baseline"].fixture_path,
-                eval_dir / "baseline_fixtures" / "fixture",
-            )
-            self.assertEqual(
-                paths["1"]["skill"].skill_file,
-                skill_dir / "SKILL.md",
-            )
-
-    def test_eval_run_paths_exits_for_missing_paths(self):
-        provider = FakeProvider()
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            missing_root = Path(temp_dir) / "missing"
-            with (
-                contextlib.redirect_stderr(io.StringIO()) as stderr,
-                self.assertRaises(SystemExit) as raised,
-            ):
-                eval_run_paths.build_run_paths_or_exit(
-                    missing_root, provider, [], "fake-skill"
-                )
-
-            self.assertEqual(raised.exception.code, 1)
-            self.assertIn("prepared run root", stderr.getvalue())
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with (
-                contextlib.redirect_stderr(io.StringIO()) as stderr,
-                self.assertRaises(SystemExit) as raised,
-            ):
-                eval_run_paths.build_run_paths_or_exit(
-                    Path(temp_dir),
-                    provider,
-                    [{"id": 1}],
-                    "fake-skill",
-                )
-
-            self.assertEqual(raised.exception.code, 1)
-            self.assertIn("prepared eval directory", stderr.getvalue())
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            (temp_path / "eval-1").mkdir()
-
-            with (
-                contextlib.redirect_stderr(io.StringIO()) as stderr,
-                self.assertRaises(SystemExit) as raised,
-            ):
-                eval_run_paths.build_run_paths_or_exit(
-                    temp_path,
-                    provider,
-                    [{"id": 1}],
-                    "fake-skill",
-                )
-
-            self.assertEqual(raised.exception.code, 1)
-            self.assertIn("prepared run directory", stderr.getvalue())
-
-    def test_eval_run_paths_exits_for_missing_fixture_and_skill_file(self):
-        provider = FakeProvider()
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            eval_dir = temp_path / "eval-1"
-            for config in eval_run_paths.RUN_TYPES:
-                (eval_dir / config).mkdir(parents=True)
-
-            with (
-                contextlib.redirect_stderr(io.StringIO()) as stderr,
-                self.assertRaises(SystemExit) as raised,
-            ):
-                eval_run_paths.build_run_paths_or_exit(
-                    temp_path,
-                    provider,
-                    [{"id": 1, "fixture": "fixture"}],
-                    "fake-skill",
-                )
-
-            self.assertEqual(raised.exception.code, 1)
-            self.assertIn("fixture 'fixture'", stderr.getvalue())
-
-            for config in eval_run_paths.RUN_TYPES:
-                (eval_dir / config / "fixture").mkdir()
-
-            with (
-                contextlib.redirect_stderr(io.StringIO()) as stderr,
-                self.assertRaises(SystemExit) as raised,
-            ):
-                eval_run_paths.build_run_paths_or_exit(
-                    temp_path,
-                    provider,
-                    [{"id": 1, "fixture": "fixture"}],
-                    "fake-skill",
-                )
-
-            self.assertEqual(raised.exception.code, 1)
-            self.assertIn("skill file not found", stderr.getvalue())
+    def test_obsolete_eval_run_paths_module_is_removed(self):
+        self.assertFalse((PROJECT_ROOT / "scripts/evaluate/eval_run_paths.py").exists())
 
     def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(
         self,
