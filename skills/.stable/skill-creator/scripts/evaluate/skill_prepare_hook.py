@@ -1,6 +1,7 @@
 """Run a skill-local preparation hook after generic fixture preparation."""
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from .eval_job import ActiveProcessRegistry, run_with_timeout
@@ -12,21 +13,53 @@ class SkillPrepareHookError(RuntimeError):
     """Raised when a skill-local preparation hook fails."""
 
 
+@dataclass(frozen=True)
+class SkillPrepareHookFailure:
+    eval_id: int
+    message: str
+
+
+@dataclass(frozen=True)
+class SkillPrepareHookResult:
+    failures: list[SkillPrepareHookFailure]
+
+    @property
+    def failed_eval_ids(self) -> set[int]:
+        return {failure.eval_id for failure in self.failures}
+
+    @property
+    def has_failures(self) -> bool:
+        return bool(self.failures)
+
+
 def run_skill_prepare_hook(
     skill_path: Path,
     prepared_run: PreparedRun,
     eval_ids: str | None,
     timeout: int = 600,
     process_registry: ActiveProcessRegistry | None = None,
-) -> None:
+) -> SkillPrepareHookResult:
     """Run optional skill-local preparation for selected prepared evals."""
     hook_path = skill_path / "scripts" / "prepare.py"
     if not hook_path.exists():
-        return
+        return SkillPrepareHookResult([])
 
     registry = process_registry or ActiveProcessRegistry()
+    failures = []
     for eval_entry in _selected_prepared_evals(prepared_run.evals, eval_ids):
-        _run_prepare_hook_for_eval(skill_path, hook_path, eval_entry, timeout, registry)
+        try:
+            _run_prepare_hook_for_eval(
+                skill_path, hook_path, eval_entry, timeout, registry
+            )
+        except SkillPrepareHookError as error:
+            failures.append(
+                SkillPrepareHookFailure(
+                    eval_id=eval_entry.eval_id,
+                    message=str(error),
+                )
+            )
+            print(str(error), file=sys.stderr)
+    return SkillPrepareHookResult(failures)
 
 
 def _selected_prepared_evals(

@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from scripts import evaluate_skill
-from scripts.evaluate.prepare_fixture import PreparedRun
+from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
 
 
 class EvaluateSkillTests(unittest.TestCase):
@@ -178,6 +178,80 @@ class EvaluateSkillTests(unittest.TestCase):
 
         process_registry.kill_all.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
+
+    def test_execute_runs_unaffected_evals_after_prepare_hook_failures(self):
+        first_eval = PreparedEval(
+            eval_id=1,
+            eval_name="first",
+            skill_run_path=Path("F:/runs/prepared/eval-1/skill"),
+            baseline_run_path=Path("F:/runs/prepared/eval-1/baseline"),
+            skill_file=Path("F:/runs/prepared/eval-1/skill/SKILL.md"),
+            skill_fixture_path=None,
+            baseline_fixture_path=None,
+        )
+        second_eval = PreparedEval(
+            eval_id=2,
+            eval_name="second",
+            skill_run_path=Path("F:/runs/prepared/eval-2/skill"),
+            baseline_run_path=Path("F:/runs/prepared/eval-2/baseline"),
+            skill_file=Path("F:/runs/prepared/eval-2/skill/SKILL.md"),
+            skill_fixture_path=None,
+            baseline_fixture_path=None,
+        )
+        prepared_run = PreparedRun(
+            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
+            run_root=Path("F:/runs/prepared"),
+            provider="codex",
+            skill_name="sample-skill",
+            evals=[first_eval, second_eval],
+        )
+        run_manifest = {
+            "skill_name": "sample-skill",
+            "provider": "codex",
+            "model": "default",
+            "effort": "default",
+            "iteration": 1,
+            "runs": [],
+        }
+        process_registry = mock.Mock()
+
+        with (
+            mock.patch.object(
+                evaluate_skill,
+                "ActiveProcessRegistry",
+                return_value=process_registry,
+            ),
+            mock.patch.object(evaluate_skill, "FixturePreparer") as fixture_preparer,
+            mock.patch.object(
+                evaluate_skill,
+                "run_skill_prepare_hook",
+                return_value=mock.Mock(failed_eval_ids={1}),
+            ),
+            mock.patch.object(evaluate_skill, "SkillEvalRunner") as skill_eval_runner,
+            mock.patch.object(evaluate_skill, "GradingResultAggregator") as aggregator,
+            mock.patch.object(evaluate_skill, "stop_git_fsmonitor_daemons"),
+        ):
+            fixture_preparer.return_value.prepare.return_value = prepared_run
+            skill_eval_runner.return_value.run.return_value = run_manifest
+            aggregator.return_value.aggregate.return_value = {}
+
+            evaluate_skill.execute(
+                argparse.Namespace(
+                    skill_path=Path("F:/skills/sample-skill"),
+                    run_root=Path("F:/runs"),
+                    provider="codex",
+                    model=None,
+                    effort=None,
+                    eval_ids=None,
+                    skip_baseline=False,
+                    max_parallel=12,
+                    timeout=900,
+                )
+            )
+
+        runnable_run = skill_eval_runner.call_args.args[0]
+        self.assertEqual([entry.eval_id for entry in runnable_run.evals], [2])
+        process_registry.kill_all.assert_called_once_with()
 
     def test_execute_kills_active_processes_when_skill_prepare_hook_fails(self):
         prepared_run = PreparedRun(

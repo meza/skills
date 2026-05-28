@@ -153,29 +153,24 @@ class SkillPrepareHookTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with (
-                mock.patch.object(
-                    skill_prepare_hook,
-                    "run_with_timeout",
-                    return_value=timed_process_result(
-                        stdout="stdout details",
-                        stderr="stderr details",
-                        returncode=1,
-                    ),
+            with mock.patch.object(
+                skill_prepare_hook,
+                "run_with_timeout",
+                return_value=timed_process_result(
+                    stdout="stdout details",
+                    stderr="stderr details",
+                    returncode=1,
                 ),
-                self.assertRaisesRegex(
-                    skill_prepare_hook.SkillPrepareHookError,
-                    "skill-local prepare hook failed for eval id 1",
-                ) as raised,
             ):
-                skill_prepare_hook.run_skill_prepare_hook(
+                result = skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
                     prepared_run=self._prepared_run(temp_path / "runs"),
                     eval_ids="1",
                 )
 
-        self.assertIn("stderr details", str(raised.exception))
-        self.assertIn("stdout details", str(raised.exception))
+        self.assertEqual(result.failed_eval_ids, {1})
+        self.assertIn("stderr details", result.failures[0].message)
+        self.assertIn("stdout details", result.failures[0].message)
 
     def test_skill_prepare_script_failure_redacts_sensitive_streams(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -187,25 +182,22 @@ class SkillPrepareHookTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with (
-                mock.patch.object(
-                    skill_prepare_hook,
-                    "run_with_timeout",
-                    return_value=timed_process_result(
-                        stdout="API_KEY=sk-live-stdout safe detail",
-                        stderr="Authorization: Bearer stderr-token",
-                        returncode=1,
-                    ),
+            with mock.patch.object(
+                skill_prepare_hook,
+                "run_with_timeout",
+                return_value=timed_process_result(
+                    stdout="API_KEY=sk-live-stdout safe detail",
+                    stderr="Authorization: Bearer stderr-token",
+                    returncode=1,
                 ),
-                self.assertRaises(skill_prepare_hook.SkillPrepareHookError) as raised,
             ):
-                skill_prepare_hook.run_skill_prepare_hook(
+                result = skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
                     prepared_run=self._prepared_run(temp_path / "runs"),
                     eval_ids="1",
                 )
 
-        message = str(raised.exception)
+        message = result.failures[0].message
         self.assertIn("safe detail", message)
         self.assertIn("API_KEY=[REDACTED]", message)
         self.assertIn("Authorization: Bearer [REDACTED]", message)
@@ -222,30 +214,56 @@ class SkillPrepareHookTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with (
-                mock.patch.object(
-                    skill_prepare_hook,
-                    "run_with_timeout",
-                    return_value=timed_process_result(
-                        stdout="stdout details",
-                        stderr="stderr details",
-                        timed_out=True,
-                    ),
+            with mock.patch.object(
+                skill_prepare_hook,
+                "run_with_timeout",
+                return_value=timed_process_result(
+                    stdout="stdout details",
+                    stderr="stderr details",
+                    timed_out=True,
                 ),
-                self.assertRaisesRegex(
-                    skill_prepare_hook.SkillPrepareHookError,
-                    "skill-local prepare hook timed out for eval id 1 after 5s",
-                ) as raised,
             ):
-                skill_prepare_hook.run_skill_prepare_hook(
+                result = skill_prepare_hook.run_skill_prepare_hook(
                     skill_path=skill_path,
                     prepared_run=self._prepared_run(temp_path / "runs"),
                     eval_ids="1",
                     timeout=5,
                 )
 
-        self.assertIn("stderr details", str(raised.exception))
-        self.assertIn("stdout details", str(raised.exception))
+        self.assertIn(
+            "skill-local prepare hook timed out for eval id 1 after 5s",
+            result.failures[0].message,
+        )
+        self.assertIn("stderr details", result.failures[0].message)
+        self.assertIn("stdout details", result.failures[0].message)
+
+    def test_skill_prepare_script_continues_after_one_eval_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            skill_path = temp_path / "skill"
+            (skill_path / "scripts").mkdir(parents=True)
+            (skill_path / "scripts" / "prepare.py").write_text(
+                "print('prepare')\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(
+                skill_prepare_hook,
+                "run_with_timeout",
+                side_effect=[
+                    timed_process_result(returncode=1, stderr="failed first"),
+                    timed_process_result(),
+                ],
+            ) as run:
+                result = skill_prepare_hook.run_skill_prepare_hook(
+                    skill_path=skill_path,
+                    prepared_run=self._prepared_run(temp_path / "runs"),
+                    eval_ids=None,
+                )
+
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(result.failed_eval_ids, {1})
+        self.assertTrue(result.has_failures)
 
     def test_skill_prepare_script_runs_as_real_integration_hook(self):
         with tempfile.TemporaryDirectory() as temp_dir:

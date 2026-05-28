@@ -7,6 +7,7 @@ import json
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 
 if __package__:
@@ -103,16 +104,23 @@ def execute(args: argparse.Namespace) -> dict:
     ).prepare()
 
     try:
-        run_skill_prepare_hook(
+        prepare_hook_result = run_skill_prepare_hook(
             skill_path=args.skill_path,
             prepared_run=prepared_run,
             eval_ids=args.eval_ids,
             timeout=args.timeout,
             process_registry=process_registry,
         )
+        failed_prepare_eval_ids = getattr(prepare_hook_result, "failed_eval_ids", set())
+        if not isinstance(failed_prepare_eval_ids, set):
+            failed_prepare_eval_ids = set()
+        runnable_prepared_run = prepared_run_without_failed_prepare_hooks(
+            prepared_run,
+            failed_prepare_eval_ids,
+        )
 
         run_manifest = SkillEvalRunner(
-            prepared_run,
+            runnable_prepared_run,
             SkillEvalRunOptions(
                 eval_ids=args.eval_ids,
                 skip_baseline=args.skip_baseline,
@@ -143,6 +151,19 @@ def execute(args: argparse.Namespace) -> dict:
         "run": run_manifest,
         "aggregation": aggregation,
     }
+
+
+def prepared_run_without_failed_prepare_hooks(prepared_run, failed_eval_ids: set[int]):
+    if not failed_eval_ids:
+        return prepared_run
+    return replace(
+        prepared_run,
+        evals=[
+            eval_entry
+            for eval_entry in prepared_run.evals
+            if eval_entry.eval_id not in failed_eval_ids
+        ],
+    )
 
 
 def main() -> None:
