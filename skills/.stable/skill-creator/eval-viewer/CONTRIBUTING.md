@@ -117,3 +117,8 @@ verification commands above.
 Keep server behaviour covered through API and file-contract tests. Keep frontend
 behaviour covered through component tests and Playwright tests that exercise the
 rendered application against representative evaluation artifacts.
+
+## Critical
+
+- Always run the package.json scripts for their respective tasks. Do not invent or run custom scripts and commands to accomplish the same thing.
+- Some targets might take a long time to run. That is not a sign of a problem. Wait longer.
