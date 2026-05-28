@@ -95,3 +95,27 @@ it('records feedback through the draft updater', async () => {
 
   expect(updateDraft).toHaveBeenCalled();
 });
+
+it('opens feedback by default when the expectation already has feedback', () => {
+  render(
+    <ExpectationCard
+      allowFeedback
+      comparisonExpectation={undefined}
+      comparisonLabel="Baseline"
+      draft={{
+        ...draft,
+        turns: [{ expectations: [{ comment: 'Existing note.', expectation_id: expectation.id }], turn: 1 }]
+      }}
+      expectation={expectation}
+      expectations={[expectation]}
+      index={0}
+      resultLabel="Run"
+      updateDraft={() => undefined}
+    />
+  );
+
+  const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+
+  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(feedback).toHaveValue('Existing note.');
+});

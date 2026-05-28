@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { ExpectationSection } from '../../src/client/components/ExpectationSection.js';
 import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
 
@@ -34,10 +34,11 @@ it('renders the prototype-style section heading with pass counts', () => {
       allowFeedback
       comparisonExpectations={[]}
       comparisonLabel="Baseline"
-      defaultOpen
       draft={draft}
       expectations={[passingExpectation]}
+      isOpen
       label="Turn 1"
+      onToggle={() => undefined}
       resultLabel="Run"
       updateDraft={() => undefined}
       variant="turn"
@@ -52,17 +53,19 @@ it('renders the prototype-style section heading with pass counts', () => {
   expect(screen.getByText('The response keeps the answer concise.')).toBeInTheDocument();
 });
 
-it('collapses and expands expectation groups from the heading', async () => {
+it('requests a section toggle from the heading', async () => {
   const user = userEvent.setup();
+  const onToggle = vi.fn();
   render(
     <ExpectationSection
       allowFeedback
       comparisonExpectations={[]}
       comparisonLabel="Baseline"
-      defaultOpen={false}
       draft={draft}
       expectations={[passingExpectation]}
+      isOpen={false}
       label="Turn 2"
+      onToggle={onToggle}
       resultLabel="Run"
       updateDraft={() => undefined}
       variant="turn"
@@ -78,9 +81,7 @@ it('collapses and expands expectation groups from the heading', async () => {
 
   await user.click(heading);
 
-  expect(heading).toHaveAttribute('aria-expanded', 'true');
-  expect(body).not.toHaveAttribute('hidden');
-  expect(screen.getByText('The response keeps the answer concise.')).toBeInTheDocument();
+  expect(onToggle).toHaveBeenCalledOnce();
 });
 
 it('marks a section as failing unless every expectation passes', () => {
@@ -89,7 +90,6 @@ it('marks a section as failing unless every expectation passes', () => {
       allowFeedback
       comparisonExpectations={[]}
       comparisonLabel="Baseline"
-      defaultOpen={false}
       draft={{
         comments: '',
         overall: [],
@@ -104,7 +104,9 @@ it('marks a section as failing unless every expectation passes', () => {
         ]
       }}
       expectations={[passingExpectation, failingExpectation]}
+      isOpen={false}
       label="Turn 3"
+      onToggle={() => undefined}
       resultLabel="Run"
       updateDraft={() => undefined}
       variant="turn"

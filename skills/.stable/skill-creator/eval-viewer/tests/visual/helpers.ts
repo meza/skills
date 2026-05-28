@@ -160,6 +160,14 @@ export async function scrollContentToTop(page: Page) {
 }
 
 export async function openExpectationFeedback(feedback: Locator) {
+  const sectionHeading = feedback.locator(
+    'xpath=ancestor::section[contains(concat(" ", normalize-space(@class), " "), " expectation-section ")]/button[contains(concat(" ", normalize-space(@class), " "), " expectation-section-heading ")]'
+  );
+  if ((await sectionHeading.getAttribute('aria-expanded')) === 'false') {
+    await sectionHeading.click();
+    await expect(sectionHeading).toHaveAttribute('aria-expanded', 'true');
+  }
+
   const isOpen = await feedback.evaluate((element) => element.closest('.inline-feedback')?.getAttribute('aria-hidden'));
   if (isOpen !== 'false') {
     await feedback

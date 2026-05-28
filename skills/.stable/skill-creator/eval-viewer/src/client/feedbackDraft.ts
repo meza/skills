@@ -39,8 +39,8 @@ export function expectationComment(
     return draft.overall[index]!.comment;
   }
   const turn = expectation.turn as number;
-  const feedbackTurn = draft.turns.find((candidate) => candidate.turn === turn) as FeedbackTurnView;
-  return feedbackTurn.expectations[turnExpectationIndex(expectations, expectation, index)]!.comment;
+  const feedbackTurn = draft.turns.find((candidate) => candidate.turn === turn) as FeedbackTurnView | undefined;
+  return feedbackTurn?.expectations[turnExpectationIndex(expectations, expectation, index)]?.comment ?? '';
 }
 
 export function updateExpectationComment(

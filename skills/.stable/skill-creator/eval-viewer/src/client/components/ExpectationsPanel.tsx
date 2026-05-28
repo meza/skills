@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
 import { ExpectationSection } from './ExpectationSection.js';
 
 type ExpectationResultMode = 'skill' | 'baseline';
+interface SectionOpenState extends Record<string, boolean> {
+  overall: boolean;
+}
 
 export function ExpectationsPanel({
   draft,
@@ -15,6 +18,9 @@ export function ExpectationsPanel({
   updateDraft: FeedbackDraftUpdater;
 }) {
   const [requestedResultMode, setRequestedResultMode] = useState<ExpectationResultMode>('skill');
+  const [sectionOpenState, setSectionOpenState] = useState<SectionOpenState>(() =>
+    defaultSectionOpenState(run.expectations, draft)
+  );
   const baselineExpectations = run.comparisons.baseline?.expectations ?? [];
   const canShowBaseline = baselineExpectations.length > 0;
   const resultMode = requestedResultMode === 'baseline' && canShowBaseline ? 'baseline' : 'skill';
@@ -26,6 +32,7 @@ export function ExpectationsPanel({
 
   useEffect(() => {
     setRequestedResultMode('skill');
+    setSectionOpenState(defaultSectionOpenState(run.expectations, draft));
   }, [run.evalId]);
 
   return (
@@ -57,24 +64,26 @@ export function ExpectationsPanel({
         allowFeedback={resultMode === 'skill'}
         comparisonExpectations={comparisonExpectations}
         comparisonLabel={resultMode === 'baseline' ? 'Skill' : 'Baseline'}
-        defaultOpen
         draft={draft}
         expectations={overall}
+        isOpen={sectionOpenState.overall}
         label="Overall Expectations"
+        onToggle={() => toggleSectionOpenState(setSectionOpenState, 'overall')}
         resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
         variant="overall"
         updateDraft={updateDraft}
       />
-      {turns.map((turn, index) => (
+      {turns.map((turn) => (
         <ExpectationSection
           allowFeedback={resultMode === 'skill'}
           comparisonExpectations={comparisonExpectations}
           comparisonLabel={resultMode === 'baseline' ? 'Skill' : 'Baseline'}
-          defaultOpen={index === 0}
           draft={draft}
           expectations={turn.expectations}
+          isOpen={sectionOpenState[turnSectionKey(turn.turn)] === true}
           key={turn.turn}
           label={`Turn ${turn.turn}`}
+          onToggle={() => toggleSectionOpenState(setSectionOpenState, turnSectionKey(turn.turn))}
           resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
           updateDraft={updateDraft}
           variant="turn"
@@ -82,6 +91,13 @@ export function ExpectationsPanel({
       ))}
     </section>
   );
+}
+
+function toggleSectionOpenState(
+  setSectionOpenState: Dispatch<SetStateAction<SectionOpenState>>,
+  sectionKey: string
+): void {
+  setSectionOpenState((current) => ({ ...current, [sectionKey]: !current[sectionKey] }));
 }
 
 function turnExpectationGroups(
@@ -95,4 +111,24 @@ function turnExpectationGroups(
     turns.set(expectation.turn, [...(turns.get(expectation.turn) ?? []), expectation]);
   }
   return [...turns.entries()].map(([turn, turnExpectations]) => ({ expectations: turnExpectations, turn }));
+}
+
+function defaultSectionOpenState(expectations: ExpectationView[], draft: RunFeedbackView): SectionOpenState {
+  const state: SectionOpenState = { overall: true };
+  for (const group of turnExpectationGroups(expectations)) {
+    state[turnSectionKey(group.turn)] =
+      group.expectations.some((expectation) => !expectation.passed) || turnHasFeedback(draft, group.turn);
+  }
+  return state;
+}
+
+function turnSectionKey(turn: number): string {
+  return `turn:${turn}`;
+}
+
+function turnHasFeedback(draft: RunFeedbackView, turn: number): boolean {
+  return draft.turns.some(
+    (candidate) =>
+      candidate.turn === turn && candidate.expectations.some((expectation) => expectation.comment.trim().length > 0)
+  );
 }

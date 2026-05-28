@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
 import { ExpectationCard } from './ExpectationCard.js';
@@ -7,10 +6,11 @@ export function ExpectationSection({
   allowFeedback,
   comparisonExpectations,
   comparisonLabel,
-  defaultOpen,
   draft,
   expectations,
+  isOpen,
   label,
+  onToggle,
   resultLabel,
   updateDraft,
   variant
@@ -18,15 +18,15 @@ export function ExpectationSection({
   allowFeedback: boolean;
   comparisonExpectations: ExpectationView[];
   comparisonLabel: string;
-  defaultOpen: boolean;
   draft: RunFeedbackView;
   expectations: ExpectationView[];
+  isOpen: boolean;
   label: string;
+  onToggle: () => void;
   resultLabel: string;
   updateDraft: FeedbackDraftUpdater;
   variant: 'overall' | 'turn';
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
   const passed = expectations.filter((expectation) => expectation.passed).length;
   const total = expectations.length;
   const status = passed === total ? 'pass' : 'fail';
@@ -43,7 +43,7 @@ export function ExpectationSection({
         aria-controls={headingId}
         aria-expanded={isOpen}
         className="expectation-section-heading"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={onToggle}
         type="button">
         <span aria-hidden="true" className="material-symbols-outlined">
           {isOpen ? 'expand_more' : 'chevron_right'}

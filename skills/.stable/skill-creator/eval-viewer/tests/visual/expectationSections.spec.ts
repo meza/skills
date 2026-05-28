@@ -49,6 +49,7 @@ test('passing turn section heading renders the open state', async ({ page }) => 
 
   const heading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
   await expect(heading).toBeVisible();
+  await heading.click();
   await expect(heading).toHaveAttribute('aria-expanded', 'true');
 
   await expect(heading).toHaveScreenshot('viewer-passing-turn-section-heading-open-state.png');
@@ -121,5 +122,68 @@ test('collapsed turn section heading keeps expectations hidden', async ({ page }
 
   await expect(page.locator('.expectation-section').filter({ has: heading })).toHaveScreenshot(
     'viewer-collapsed-turn-section-state.png'
+  );
+});
+
+test('turn section state persists when switching between skill and baseline', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  const skillHeading = page.getByRole('button', { name: /Turn 1 2\/3 expectations passed/i });
+  await expect(skillHeading).toHaveAttribute('aria-expanded', 'true');
+  await skillHeading.click();
+  await expect(skillHeading).toHaveAttribute('aria-expanded', 'false');
+
+  await page.getByRole('button', { name: 'baseline' }).click();
+
+  const baselineHeading = page.getByRole('button', { name: /Turn 1 0\/3 expectations passed/i });
+  await expect(baselineHeading).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.expectation-section').filter({ has: baselineHeading })).toHaveScreenshot(
+    'viewer-baseline-section-preserved-closed-state.png'
+  );
+});
+
+test('turn section state resets when moving between evals', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+
+  const failingEvalHeading = page.getByRole('button', { name: /Turn 1 2\/3 expectations passed/i });
+  await expect(failingEvalHeading).toHaveAttribute('aria-expanded', 'true');
+  await failingEvalHeading.click();
+  await expect(failingEvalHeading).toHaveAttribute('aria-expanded', 'false');
+
+  await page.getByRole('button', { name: /internal-refactor-stays-refactor/i }).click();
+  await expect(page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i })).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  );
+
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await expect(page.getByRole('button', { name: /Turn 1 2\/3 expectations passed/i })).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  );
+});
+
+test('passing turn section opens by default when saved feedback exists', async ({ page }) => {
+  await page.goto('/');
+
+  const heading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
+  await heading.click();
+  await page
+    .getByRole('button', { name: /Toggle feedback for The message classifies internal-only restructuring/i })
+    .click();
+  await page.getByLabel('Feedback for turn 1 expectation 1').fill('Saved note for this passing turn.');
+  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
+  await expect(page.getByText('Saved')).toBeVisible();
+
+  await page.reload();
+
+  const reloadedHeading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
+  await expect(reloadedHeading).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toBeVisible();
+  await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue('Saved note for this passing turn.');
+  await expect(page.locator('.expectation-section').filter({ has: reloadedHeading })).toHaveScreenshot(
+    'viewer-feedback-opens-passing-section-state.png'
   );
 });

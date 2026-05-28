@@ -7,6 +7,7 @@ test.beforeEach(async () => {
 
 test('successful expectation hover state gives the status bar a neon glow', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
@@ -19,6 +20,7 @@ test('successful expectation hover state gives the status bar a neon glow', asyn
 
 test('passing expectation card starts with feedback collapsed', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
@@ -30,6 +32,7 @@ test('passing expectation card starts with feedback collapsed', async ({ page })
 
 test('passing expectation card shows feedback after toggling open', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
