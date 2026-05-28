@@ -128,6 +128,28 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 self.assertNotIn("CODEX_API_KEY", env)
                 self.assertNotIn("CODEX_ACCESS_TOKEN", env)
 
+    def test_process_environment_filters_non_codex_secrets(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_codex_home = temp_path / "source-codex-home"
+            source_codex_home.mkdir()
+
+            with CodexProvider().process_environment(
+                {
+                    "CODEX_HOME": str(source_codex_home),
+                    "PATH": "bin",
+                    "GITHUB_TOKEN": "github-secret",
+                    "AWS_SECRET_ACCESS_KEY": "aws-secret",
+                    "SAFE_SETTING": "kept",
+                },
+                str(temp_path / "run"),
+                temp_path / "artifacts",
+            ) as env:
+                self.assertEqual(env["PATH"], "bin")
+                self.assertEqual(env["SAFE_SETTING"], "kept")
+                self.assertNotIn("GITHUB_TOKEN", env)
+                self.assertNotIn("AWS_SECRET_ACCESS_KEY", env)
+
     def test_process_environment_reports_uncopyable_auth_without_secret_value(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

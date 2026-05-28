@@ -13,6 +13,27 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+SECRET_ENV_MARKERS = ("API_KEY", "PASSWORD", "SECRET", "TOKEN")
+
+
+def minimized_process_env(
+    env: dict[str, str],
+    allowed_secret_prefixes: tuple[str, ...] = (),
+) -> dict[str, str]:
+    """Return process environment data without unrelated secret-bearing values."""
+    return {
+        key: value
+        for key, value in env.items()
+        if _is_allowed_env_var(key, allowed_secret_prefixes)
+    }
+
+
+def _is_allowed_env_var(name: str, allowed_secret_prefixes: tuple[str, ...]) -> bool:
+    normalized = name.upper()
+    if normalized.startswith(allowed_secret_prefixes):
+        return True
+    return not any(marker in normalized for marker in SECRET_ENV_MARKERS)
+
 
 @dataclass
 class TurnResult:
@@ -108,7 +129,7 @@ class Provider(ABC):
         """
         del run_dir
         del artifact_dir
-        yield base_env
+        yield minimized_process_env(base_env)
 
     @property
     def requires_first_turn_session_id(self) -> bool:

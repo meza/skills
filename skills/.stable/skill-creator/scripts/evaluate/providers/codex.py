@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import Provider, TurnResult
+from . import Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
 
 AUTH_FILENAME = "auth.json"
@@ -211,7 +211,7 @@ def _source_codex_home(env: dict[str, str]) -> Path:
 
 
 def _base_process_env(env: dict[str, str]) -> dict[str, str]:
-    process_env = dict(env)
+    process_env = minimized_process_env(env)
     for auth_env_var in CODEX_AUTH_ENV_VARS:
         process_env.pop(auth_env_var, None)
     return process_env

@@ -9,7 +9,7 @@ import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from . import Provider, TurnResult
+from . import Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
 
 DEFAULT_EFFORT = "medium"
@@ -22,7 +22,6 @@ STREAM_JSON_ARGS = [
     CLAUDE_PERMISSION_MODE,
 ]
 CLAUDE_SECRET_ENV_PREFIXES = ("ANTHROPIC_", "CLAUDE_")
-SECRET_ENV_MARKERS = ("API_KEY", "PASSWORD", "SECRET", "TOKEN")
 
 
 class ClaudeProvider(Provider):
@@ -99,14 +98,9 @@ def _add_working_dir_boundary(cmd: list[str], working_dir: str | None) -> None:
 
 
 def _filtered_claude_env(env: dict[str, str]) -> dict[str, str]:
-    return {key: value for key, value in env.items() if _is_allowed_env_var(key)}
-
-
-def _is_allowed_env_var(name: str) -> bool:
-    normalized = name.upper()
-    if normalized.startswith(CLAUDE_SECRET_ENV_PREFIXES):
-        return True
-    return not any(marker in normalized for marker in SECRET_ENV_MARKERS)
+    return minimized_process_env(
+        env, allowed_secret_prefixes=CLAUDE_SECRET_ENV_PREFIXES
+    )
 
 
 def _session_args(
