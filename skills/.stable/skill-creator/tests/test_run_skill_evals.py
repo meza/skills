@@ -1412,6 +1412,13 @@ class EvalLibTests(unittest.TestCase):
             ({"evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}]}, "schema_version"),
             (
                 {
+                    "schema_version": True,
+                    "evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}],
+                },
+                "unsupported evals.json schema_version True",
+            ),
+            (
+                {
                     "schema_version": 2,
                     "evals": [{"id": 1, "turns": [{"prompt": "Do it"}]}],
                 },

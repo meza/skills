@@ -78,7 +78,11 @@ def validate_schema_version_or_exit(evals_data: object) -> None:
     if schema_version is None:
         print("Error: evals.json must include schema_version", file=sys.stderr)
         sys.exit(1)
-    if schema_version != SUPPORTED_EVAL_SCHEMA_VERSION:
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != SUPPORTED_EVAL_SCHEMA_VERSION
+    ):
         print(
             f"Error: unsupported evals.json schema_version {schema_version}; "
             f"expected {SUPPORTED_EVAL_SCHEMA_VERSION}",
