@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, resetFeedbackArtifact } from './helpers.js';
+import { expectNoHorizontalOverflow, readFeedbackArtifact, resetFeedbackArtifact } from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -173,9 +173,27 @@ test('passing turn section opens by default when saved feedback exists', async (
   await page
     .getByRole('button', { name: /Toggle feedback for The message classifies internal-only restructuring/i })
     .click();
+  const saveResponse = page.waitForResponse(
+    (response) => response.url().includes('/api/feedback/1') && response.request().method() === 'PUT'
+  );
   await page.getByLabel('Feedback for turn 1 expectation 1').fill('Saved note for this passing turn.');
-  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
-  await expect(page.getByText('Saved')).toBeVisible();
+  await expect((await saveResponse).ok()).toBe(true);
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => readFeedbackArtifact())
+    .toMatchObject({
+      reviews: [
+        {
+          eval_id: 1,
+          turns: [
+            {
+              expectations: [{ comment: 'Saved note for this passing turn.' }],
+              turn: 1
+            }
+          ]
+        }
+      ]
+    });
 
   await page.reload();
 

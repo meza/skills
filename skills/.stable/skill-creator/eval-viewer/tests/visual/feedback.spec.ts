@@ -29,12 +29,12 @@ test('feedback draft state shows unsaved reviewer input', async ({ page }) => {
 
   await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill('Expectation order needs a quick reviewer check.');
-  await page.getByLabel('Review comments').fill('Draft review notes before finalizing this run.');
+  await page.getByLabel('Review comments').fill('Draft review notes before moving to the next eval.');
 
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(
     'Expectation order needs a quick reviewer check.'
   );
-  await expect(page.getByLabel('Review comments')).toHaveValue('Draft review notes before finalizing this run.');
+  await expect(page.getByLabel('Review comments')).toHaveValue('Draft review notes before moving to the next eval.');
   await expect(page.getByText('Saved', { exact: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await page.locator('.feedback').scrollIntoViewIfNeeded();
@@ -52,7 +52,6 @@ test('feedback workflow has visual coverage and persists only filled values', as
   await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
   await page.getByLabel('Review comments').fill(comments);
-  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
 
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveValue(expectationComment);
@@ -94,7 +93,6 @@ test('past feedback state loads saved review content', async ({ page }) => {
   await openExpectationFeedback(page.getByLabel('Feedback for turn 1 expectation 1'));
   await page.getByLabel('Feedback for turn 1 expectation 1').fill(expectationComment);
   await page.getByLabel('Review comments').fill(comments);
-  await page.getByRole('button', { name: 'Submit Review & Finalize' }).click();
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
 
   await page.reload();

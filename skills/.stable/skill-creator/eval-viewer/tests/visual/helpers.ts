@@ -32,7 +32,7 @@ export async function expectPrototypeShell(page: Page) {
   await expect(page.locator('.filters .material-symbols-outlined')).toHaveText(['list', 'check_circle', 'error']);
   await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Feedback' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Submit Review & Finalize' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save & Next' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Execution History' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Metadata' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Artifact Issues' })).toHaveCount(0);

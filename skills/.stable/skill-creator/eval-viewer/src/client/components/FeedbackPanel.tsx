@@ -1,35 +1,23 @@
-import { useState } from 'react';
-import type { FeedbackInput, RunFeedbackView, RunView } from '../../shared/viewModel.js';
+import type { RunFeedbackView } from '../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
 
 export function FeedbackPanel({
   draft,
-  run,
-  saveFeedback,
+  hasPrevious,
+  onPrevious,
+  onPrimaryAction,
+  primaryActionLabel,
+  saveState,
   updateDraft
 }: {
   draft: RunFeedbackView;
-  run: RunView;
-  saveFeedback: (feedback: FeedbackInput) => Promise<unknown>;
+  hasPrevious: boolean;
+  onPrevious: () => void;
+  onPrimaryAction: () => void;
+  primaryActionLabel: string;
+  saveState: 'idle' | 'saving' | 'saved' | 'error';
   updateDraft: FeedbackDraftUpdater;
 }) {
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-  async function submitFeedback() {
-    setSaveState('saving');
-    try {
-      await saveFeedback({
-        comments: draft.comments,
-        evalId: run.evalId,
-        overall: draft.overall,
-        turns: draft.turns
-      });
-      setSaveState('saved');
-    } catch {
-      setSaveState('error');
-    }
-  }
-
   return (
     <>
       <section className="feedback">
@@ -39,21 +27,32 @@ export function FeedbackPanel({
             <h3>Feedback</h3>
           </div>
         </div>
-        <textarea
-          aria-label="Review comments"
-          onChange={(event) => {
-            const comments = event.currentTarget.value;
-            updateDraft((current) => ({ ...current, comments }));
-          }}
-          placeholder="Add qualitative observations to help tune the scoring engine..."
-          value={draft.comments}
-        />
+        <div className="feedback-input-frame">
+          <textarea
+            aria-label="Review comments"
+            onChange={(event) => {
+              const comments = event.currentTarget.value;
+              updateDraft((current) => ({ ...current, comments }));
+            }}
+            placeholder="Add qualitative observations to help tune the scoring engine..."
+            value={draft.comments}
+          />
+        </div>
         {saveState === 'saved' ? <p className="save-message">Saved</p> : null}
         {saveState === 'error' ? <p className="save-message error">Could not save feedback.</p> : null}
       </section>
-      <button className="finalize-button" disabled={saveState === 'saving'} onClick={submitFeedback} type="button">
-        Submit Review &amp; Finalize
-      </button>
+      <div className="review-actions">
+        <button
+          className="secondary-button"
+          disabled={!hasPrevious || saveState === 'saving'}
+          onClick={onPrevious}
+          type="button">
+          Previous
+        </button>
+        <button className="finalize-button" disabled={saveState === 'saving'} onClick={onPrimaryAction} type="button">
+          {primaryActionLabel}
+        </button>
+      </div>
     </>
   );
 }
