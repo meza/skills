@@ -45,6 +45,7 @@ def timed_process_result(
     returncode: int = 0,
     timed_out: bool = False,
     duration_ms: int = 100,
+    output_limit_exceeded: bool = False,
 ) -> eval_job.TimedProcessResult:
     return eval_job.TimedProcessResult(
         stdout=stdout,
@@ -52,6 +53,7 @@ def timed_process_result(
         returncode=returncode,
         timed_out=timed_out,
         duration_ms=duration_ms,
+        output_limit_exceeded=output_limit_exceeded,
     )
 
 
@@ -885,24 +887,49 @@ class EvalLibTests(unittest.TestCase):
             returncode = 0
 
             def communicate(self, input=None):
-                return "stdout", "stderr"
+                return None, None
 
         with (
             mock.patch.object(eval_job, "_IS_WINDOWS", False),
             mock.patch.object(
                 eval_job.subprocess, "Popen", return_value=CompletedProcess()
-            ),
+            ) as popen,
             mock.patch.object(eval_job.threading, "Timer") as timer,
         ):
             timer.return_value = mock.Mock()
             result = run_with_timeout(["fake"], "prompt", "F:/tmp", 5)
 
         self.assertIsInstance(result, eval_job.TimedProcessResult)
-        self.assertEqual(result.stdout, "stdout")
-        self.assertEqual(result.stderr, "stderr")
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
         self.assertEqual(result.returncode, 0)
         self.assertFalse(result.timed_out)
+        self.assertFalse(result.output_limit_exceeded)
         self.assertGreaterEqual(result.duration_ms, 0)
+        self.assertIsNot(popen.call_args.kwargs["stdout"], eval_job.subprocess.PIPE)
+        self.assertIsNot(popen.call_args.kwargs["stderr"], eval_job.subprocess.PIPE)
+
+    def test_run_with_timeout_reports_output_limit_without_reading_payload(self):
+        command = [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.write('abcdef'); sys.stderr.write('xyz')",
+        ]
+
+        result = run_with_timeout(
+            command,
+            "",
+            str(PROJECT_ROOT),
+            5,
+            max_output_bytes=4,
+        )
+
+        self.assertEqual(result.stdout, "")
+        self.assertIn("Provider output exceeded 4 bytes", result.stderr)
+        self.assertIn("stdout=6 bytes", result.stderr)
+        self.assertIn("stderr=3 bytes", result.stderr)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(result.output_limit_exceeded)
 
     def test_run_with_timeout_marks_timeout_when_timer_fires(self):
         class SlowProcess:
@@ -1059,6 +1086,28 @@ class EvalLibTests(unittest.TestCase):
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
+
+    def test_eval_job_records_output_limit_as_process_error(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            job = self._job(Path(temp_dir))
+
+            with mock.patch.object(
+                job,
+                "invoke_provider",
+                return_value=timed_process_result(
+                    stderr="Provider output exceeded 4 bytes",
+                    output_limit_exceeded=True,
+                    duration_ms=10,
+                ),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(
+                        job.run_turn(0, job.turns[0], 30, {}),
+                        eval_job.TurnFlow.STOP,
+                    )
+
+            self.assertEqual(job.status, "error")
+            self.assertEqual(job.error_message, "Provider output exceeded 4 bytes")
 
     def test_eval_job_records_unparseable_provider_output_as_error(self):
         class EmptyEventsProvider(FakeProvider):

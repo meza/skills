@@ -19,6 +19,7 @@ from .eval_definitions import EvalDefinition
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
+DEFAULT_PROVIDER_OUTPUT_LIMIT_BYTES = 20 * 1024 * 1024
 
 
 class TurnFlow(Enum):
@@ -238,6 +239,7 @@ class TimedProcessResult:
     returncode: int | None
     timed_out: bool
     duration_ms: int
+    output_limit_exceeded: bool = False
 
 
 def run_with_timeout(
@@ -247,60 +249,136 @@ def run_with_timeout(
     timeout,
     env=None,
     process_registry: ActiveProcessRegistry | None = None,
+    max_output_bytes: int = DEFAULT_PROVIDER_OUTPUT_LIMIT_BYTES,
 ) -> TimedProcessResult:
-    """Run a CLI command with timeout and full process tree cleanup."""
+    """Run a CLI command with timeout, bounded output capture, and tree cleanup."""
     registry = process_registry or ActiveProcessRegistry()
-    popen_kwargs = dict(
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        env=env,
-        text=True,
-        encoding="utf-8",
-    )
-    if _IS_WINDOWS:
-        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-    else:
-        popen_kwargs["start_new_session"] = True
+    with (
+        tempfile.TemporaryFile(mode="w+b") as stdout_file,
+        tempfile.TemporaryFile(mode="w+b") as stderr_file,
+    ):
+        popen_kwargs = dict(
+            stdin=subprocess.PIPE,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            cwd=cwd,
+            env=env,
+            text=True,
+            encoding="utf-8",
+        )
+        if _IS_WINDOWS:
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            popen_kwargs["start_new_session"] = True
 
-    process = subprocess.Popen(cmd, **popen_kwargs)
-    registry.register(process.pid)
+        process = subprocess.Popen(cmd, **popen_kwargs)
+        registry.register(process.pid)
 
-    timed_out = False
+        timed_out = False
 
-    def kill_on_timeout():
-        nonlocal timed_out
-        timed_out = True
-        _kill_process_tree(process.pid)
-        force_timer = threading.Timer(5.0, _force_kill_process_tree, args=[process.pid])
-        force_timer.daemon = True
-        force_timer.start()
+        def kill_on_timeout():
+            nonlocal timed_out
+            timed_out = True
+            _kill_process_tree(process.pid)
+            force_timer = threading.Timer(
+                5.0, _force_kill_process_tree, args=[process.pid]
+            )
+            force_timer.daemon = True
+            force_timer.start()
 
-    timer = threading.Timer(float(timeout), kill_on_timeout)
-    timer.daemon = True
-    timer.start()
+        timer = threading.Timer(float(timeout), kill_on_timeout)
+        timer.daemon = True
+        timer.start()
 
-    start = time.monotonic()
-    try:
-        stdout, stderr = process.communicate(input=prompt)
-    except Exception as error:
-        stdout = ""
-        stderr = f"Provider communication failed: {error}"
-        _kill_process_tree(process.pid)
-        process.wait()
-    finally:
-        timer.cancel()
-        registry.unregister(process.pid)
+        start = time.monotonic()
+        communication_stdout = None
+        communication_stderr = None
+        try:
+            communication_stdout, communication_stderr = process.communicate(
+                input=prompt
+            )
+        except Exception as error:
+            stdout = ""
+            stderr = f"Provider communication failed: {error}"
+            output_limit_exceeded = False
+            _kill_process_tree(process.pid)
+            process.wait()
+        else:
+            stdout, stderr, output_limit_exceeded = _read_captured_process_output(
+                stdout_file=stdout_file,
+                stderr_file=stderr_file,
+                fallback_stdout=communication_stdout,
+                fallback_stderr=communication_stderr,
+                max_output_bytes=max_output_bytes,
+            )
+        finally:
+            timer.cancel()
+            registry.unregister(process.pid)
 
-    duration_ms = int((time.monotonic() - start) * 1000)
-    return TimedProcessResult(
-        stdout=stdout,
-        stderr=stderr,
-        returncode=process.returncode,
-        timed_out=timed_out,
-        duration_ms=duration_ms,
-    )
+        duration_ms = int((time.monotonic() - start) * 1000)
+        return TimedProcessResult(
+            stdout=stdout,
+            stderr=stderr,
+            returncode=process.returncode,
+            timed_out=timed_out,
+            duration_ms=duration_ms,
+            output_limit_exceeded=output_limit_exceeded,
+        )
+
+
+def _read_captured_process_output(
+    stdout_file,
+    stderr_file,
+    fallback_stdout: str | None,
+    fallback_stderr: str | None,
+    max_output_bytes: int,
+) -> tuple[str, str, bool]:
+    """Read provider output only when it stays within the configured cap."""
+    fallback_stdout = fallback_stdout or ""
+    fallback_stderr = fallback_stderr or ""
+    stdout_size = _captured_output_size(stdout_file, fallback_stdout)
+    stderr_size = _captured_output_size(stderr_file, fallback_stderr)
+
+    if stdout_size + stderr_size > max_output_bytes:
+        return (
+            "",
+            (
+                f"Provider output exceeded {max_output_bytes} bytes "
+                f"(stdout={stdout_size} bytes, stderr={stderr_size} bytes)"
+            ),
+            True,
+        )
+
+    stdout = _captured_output_text(stdout_file, fallback_stdout)
+    stderr = _captured_output_text(stderr_file, fallback_stderr)
+    return stdout, stderr, False
+
+
+def _captured_output_size(file_obj, fallback: str) -> int:
+    file_size = _file_size(file_obj)
+    if file_size:
+        return file_size
+    return len(fallback.encode("utf-8"))
+
+
+def _captured_output_text(file_obj, fallback: str) -> str:
+    if fallback:
+        return fallback
+    return _read_text_file(file_obj)
+
+
+def _file_size(file_obj) -> int:
+    file_obj.flush()
+    current_position = file_obj.tell()
+    file_obj.seek(0, os.SEEK_END)
+    size = file_obj.tell()
+    file_obj.seek(current_position)
+    return size
+
+
+def _read_text_file(file_obj) -> str:
+    file_obj.seek(0)
+    return file_obj.read().decode("utf-8", errors="replace")
 
 
 @dataclass(frozen=True)
@@ -318,11 +396,17 @@ class RunArtifactWriter:
             json.dumps(self.timing, indent=2),
             encoding="utf-8",
         )
-        raw_lines = [json.dumps(event) for event in self.events]
-        (self.run_type_dir / "raw_output.jsonl").write_text(
-            "\n".join(raw_lines),
+        self.write_raw_output()
+
+    def write_raw_output(self) -> None:
+        with (self.run_type_dir / "raw_output.jsonl").open(
+            "w",
             encoding="utf-8",
-        )
+        ) as output_file:
+            for index, event in enumerate(self.events):
+                if index:
+                    output_file.write("\n")
+                output_file.write(json.dumps(event))
 
     def run_transcript(self) -> str:
         transcript_parts = []
@@ -489,7 +573,9 @@ class EvalJob:
         )
 
     def process_failed(self, process_result: TimedProcessResult) -> bool:
-        return process_result.returncode != 0 and not process_result.timed_out
+        return process_result.output_limit_exceeded or (
+            process_result.returncode != 0 and not process_result.timed_out
+        )
 
     def parse_turn_result(self, process_result: TimedProcessResult, prompt: str):
         turn_result = self.provider.parse_output(process_result.stdout, prompt)
