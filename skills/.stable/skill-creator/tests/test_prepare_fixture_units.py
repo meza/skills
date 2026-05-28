@@ -11,6 +11,16 @@ from scripts.evaluate import prepare_fixture
 
 
 class PrepareFixtureUnitTests(unittest.TestCase):
+    def test_fixture_helpers_accept_cohesive_specs(self):
+        self.assertEqual(
+            list(inspect.signature(prepare_fixture.copy_fixture_or_exit).parameters),
+            ["fixture"],
+        )
+        self.assertEqual(
+            list(inspect.signature(prepare_fixture.prepare_run_type).parameters),
+            ["preparation"],
+        )
+
     def _write_skill(self, root: Path, evals_data: dict) -> Path:
         evals_data = {"schema_version": 1, **evals_data}
         skill_path = root / "demo-skill"
@@ -501,13 +511,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run_dir.mkdir(parents=True)
 
             copied = prepare_fixture.copy_fixture_or_exit(
-                fixture_staging=fixtures,
-                eval_dir=eval_dir,
-                run_dir=run_dir,
-                run_type="skill",
-                fixture_name="sample-project",
-                fixture_in_workdir=True,
-                eval_id="1",
+                prepare_fixture.FixtureCopy(
+                    fixture_staging=fixtures,
+                    eval_dir=eval_dir,
+                    run_dir=run_dir,
+                    run_type="skill",
+                    fixture_name="sample-project",
+                    fixture_in_workdir=True,
+                    eval_id="1",
+                )
             )
 
             copied_path = Path(copied)
@@ -525,13 +537,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             run_dir.mkdir(parents=True)
 
             copied = prepare_fixture.copy_fixture_or_exit(
-                fixture_staging=fixtures,
-                eval_dir=eval_dir,
-                run_dir=run_dir,
-                run_type="skill",
-                fixture_name="sample-project",
-                fixture_in_workdir=False,
-                eval_id="1",
+                prepare_fixture.FixtureCopy(
+                    fixture_staging=fixtures,
+                    eval_dir=eval_dir,
+                    run_dir=run_dir,
+                    run_type="skill",
+                    fixture_name="sample-project",
+                    fixture_in_workdir=False,
+                    eval_id="1",
+                )
             )
 
             copied_path = Path(copied)
@@ -555,13 +569,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
                 prepare_fixture.copy_fixture_or_exit(
-                    fixture_staging=fixtures,
-                    eval_dir=eval_dir,
-                    run_dir=run_dir,
-                    run_type="skill",
-                    fixture_name="missing-project",
-                    fixture_in_workdir=True,
-                    eval_id="1",
+                    prepare_fixture.FixtureCopy(
+                        fixture_staging=fixtures,
+                        eval_dir=eval_dir,
+                        run_dir=run_dir,
+                        run_type="skill",
+                        fixture_name="missing-project",
+                        fixture_in_workdir=True,
+                        eval_id="1",
+                    )
                 )
 
             self.assertIn("fixture 'missing-project' not found", stderr.getvalue())
@@ -582,13 +598,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
                 prepare_fixture.copy_fixture_or_exit(
-                    fixture_staging=fixtures,
-                    eval_dir=eval_dir,
-                    run_dir=run_dir,
-                    run_type="skill",
-                    fixture_name="../outside-project",
-                    fixture_in_workdir=True,
-                    eval_id="1",
+                    prepare_fixture.FixtureCopy(
+                        fixture_staging=fixtures,
+                        eval_dir=eval_dir,
+                        run_dir=run_dir,
+                        run_type="skill",
+                        fixture_name="../outside-project",
+                        fixture_in_workdir=True,
+                        eval_id="1",
+                    )
                 )
 
             self.assertIn("escapes the fixture source root", stderr.getvalue())
@@ -607,13 +625,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()) as stderr,
             ):
                 prepare_fixture.copy_fixture_or_exit(
-                    fixture_staging=fixtures,
-                    eval_dir=eval_dir,
-                    run_dir=run_dir,
-                    run_type="skill",
-                    fixture_name=str((temp_path / "absolute-project").resolve()),
-                    fixture_in_workdir=False,
-                    eval_id="1",
+                    prepare_fixture.FixtureCopy(
+                        fixture_staging=fixtures,
+                        eval_dir=eval_dir,
+                        run_dir=run_dir,
+                        run_type="skill",
+                        fixture_name=str((temp_path / "absolute-project").resolve()),
+                        fixture_in_workdir=False,
+                        eval_id="1",
+                    )
                 )
 
             self.assertIn(
@@ -830,14 +850,16 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             input_file.write_text("sample", encoding="utf-8")
 
             entry = prepare_fixture.prepare_run_type(
-                skill_path=skill_path,
-                run_root=temp_path / "prepared",
-                eval_def=self._minimal_evals()["evals"][0]
-                | {"files": ["evals/files/input.txt"]},
-                run_type="skill",
-                fixture_staging=None,
-                skill_name="demo-skill",
-                skill_root=".claude",
+                prepare_fixture.RunTypePreparation(
+                    skill_path=skill_path,
+                    run_root=temp_path / "prepared",
+                    eval_def=self._minimal_evals()["evals"][0]
+                    | {"files": ["evals/files/input.txt"]},
+                    run_type="skill",
+                    fixture_staging=None,
+                    skill_name="demo-skill",
+                    skill_root=".claude",
+                )
             )
 
             self.assertIsInstance(entry, prepare_fixture.PreparedRunTypeEntry)
@@ -871,13 +893,15 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             )["evals"][0]
 
             entry = prepare_fixture.prepare_run_type(
-                skill_path=skill_path,
-                run_root=temp_path / "prepared",
-                eval_def=eval_def,
-                run_type="baseline",
-                fixture_staging=fixtures,
-                skill_name="demo-skill",
-                skill_root=".claude",
+                prepare_fixture.RunTypePreparation(
+                    skill_path=skill_path,
+                    run_root=temp_path / "prepared",
+                    eval_def=eval_def,
+                    run_type="baseline",
+                    fixture_staging=fixtures,
+                    skill_name="demo-skill",
+                    skill_root=".claude",
+                )
             )
 
             self.assertIsInstance(entry, prepare_fixture.PreparedRunTypeEntry)

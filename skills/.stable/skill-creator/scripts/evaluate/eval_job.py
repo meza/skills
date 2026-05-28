@@ -802,34 +802,37 @@ class EvalJob:
         ).to_dict()
 
 
-def run_single_job(
-    eval_def: dict,
-    run_type: str,
-    run_dir: str,
-    fixture_path: str | None,
-    iteration_dir: Path,
-    provider: Provider,
-    model: str | None,
-    effort: str | None,
-    timeout: int,
-    deadline: float | None = None,
-    grading_job_factory: Callable[["EvalJob"], object] | None = None,
-    process_registry: ActiveProcessRegistry | None = None,
-) -> dict:
+@dataclass(frozen=True)
+class EvalJobRun:
+    eval_def: dict
+    run_type: str
+    run_dir: str
+    fixture_path: str | None
+    iteration_dir: Path
+    provider: Provider
+    model: str | None
+    effort: str | None
+    timeout: int
+    deadline: float | None = None
+    grading_job_factory: Callable[["EvalJob"], object] | None = None
+    process_registry: ActiveProcessRegistry | None = None
+
+
+def run_single_job(job: EvalJobRun) -> dict:
     """Run all turns of one eval and run-type combination."""
     return EvalJob(
-        eval_def=eval_def,
-        run_type=run_type,
-        run_dir=run_dir,
-        fixture_path=fixture_path,
-        iteration_dir=iteration_dir,
-        provider=provider,
-        model=model,
-        effort=effort,
-        timeout=timeout,
-        deadline=deadline,
-        grading_job_factory=grading_job_factory,
-        process_registry=process_registry or ActiveProcessRegistry(),
+        eval_def=job.eval_def,
+        run_type=job.run_type,
+        run_dir=job.run_dir,
+        fixture_path=job.fixture_path,
+        iteration_dir=job.iteration_dir,
+        provider=job.provider,
+        model=job.model,
+        effort=job.effort,
+        timeout=job.timeout,
+        deadline=job.deadline,
+        grading_job_factory=job.grading_job_factory,
+        process_registry=job.process_registry or ActiveProcessRegistry(),
     ).run()
 
 

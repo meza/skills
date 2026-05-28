@@ -142,6 +142,28 @@ class PreparedRun:
         }
 
 
+@dataclass(frozen=True)
+class FixtureCopy:
+    fixture_staging: Path
+    eval_dir: Path
+    run_dir: Path
+    run_type: str
+    fixture_name: str
+    fixture_in_workdir: bool
+    eval_id: str
+
+
+@dataclass(frozen=True)
+class RunTypePreparation:
+    skill_path: Path
+    run_root: Path
+    eval_def: dict
+    run_type: str
+    fixture_staging: Path | None
+    skill_name: str
+    skill_root: str
+
+
 class FixturePreparer:
     """Prepare isolated eval working directories for one skill evaluation run.
 
@@ -518,50 +540,42 @@ def require_fixture_path_inside_root_or_exit(
     return resolved_path
 
 
-def copy_fixture_or_exit(
-    fixture_staging: Path,
-    eval_dir: Path,
-    run_dir: Path,
-    run_type: str,
-    fixture_name: str,
-    fixture_in_workdir: bool,
-    eval_id: str,
-) -> Path:
+def copy_fixture_or_exit(fixture: FixtureCopy) -> Path:
     """Copy one eval fixture for a single run type."""
-    relative_path = fixture_relative_path_or_exit(fixture_name, eval_id)
+    relative_path = fixture_relative_path_or_exit(fixture.fixture_name, fixture.eval_id)
     source = require_fixture_path_inside_root_or_exit(
-        fixture_staging / relative_path,
-        fixture_staging,
-        fixture_name,
-        eval_id,
+        fixture.fixture_staging / relative_path,
+        fixture.fixture_staging,
+        fixture.fixture_name,
+        fixture.eval_id,
         "fixture source root",
     )
     if not source.exists():
         print(
-            f"Error: fixture '{fixture_name}' not found at {source} "
-            f"(referenced by eval id={eval_id})",
+            f"Error: fixture '{fixture.fixture_name}' not found at {source} "
+            f"(referenced by eval id={fixture.eval_id})",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    if fixture_in_workdir:
+    if fixture.fixture_in_workdir:
         dest = require_fixture_path_inside_root_or_exit(
-            run_dir / relative_path,
-            run_dir,
-            fixture_name,
-            eval_id,
+            fixture.run_dir / relative_path,
+            fixture.run_dir,
+            fixture.fixture_name,
+            fixture.eval_id,
             "prepared run directory",
         )
         shutil.copytree(source, dest)
         return dest
 
-    external_dir = eval_dir / f"{run_type}_fixtures"
+    external_dir = fixture.eval_dir / f"{fixture.run_type}_fixtures"
     external_dir.mkdir(parents=True, exist_ok=True)
     dest = require_fixture_path_inside_root_or_exit(
         external_dir / relative_path,
         external_dir,
-        fixture_name,
-        eval_id,
+        fixture.fixture_name,
+        fixture.eval_id,
         "prepared fixture directory",
     )
     if not dest.exists():
@@ -569,45 +583,48 @@ def copy_fixture_or_exit(
     return dest
 
 
-def prepare_run_type(
-    skill_path: Path,
-    run_root: Path,
-    eval_def: dict,
-    run_type: str,
-    fixture_staging: Path | None,
-    skill_name: str,
-    skill_root: str,
-) -> PreparedRunTypeEntry:
+def prepare_run_type(preparation: RunTypePreparation) -> PreparedRunTypeEntry:
     """Prepare one eval run-type working directory."""
-    eval_id = str(eval_def["id"])
-    eval_dir = run_root / f"eval-{eval_id}"
-    run_dir = eval_dir / run_type
+    eval_id = str(preparation.eval_def["id"])
+    eval_dir = preparation.run_root / f"eval-{eval_id}"
+    run_dir = eval_dir / preparation.run_type
     run_dir.mkdir(parents=True, exist_ok=True)
     write_eval_gitignore(run_dir)
 
     fixture_path = None
-    fixture_name = eval_def.get("fixture")
-    if fixture_name and fixture_staging:
+    fixture_name = preparation.eval_def.get("fixture")
+    if fixture_name and preparation.fixture_staging:
         fixture_path = copy_fixture_or_exit(
-            fixture_staging=fixture_staging,
-            eval_dir=eval_dir,
-            run_dir=run_dir,
-            run_type=run_type,
-            fixture_name=fixture_name,
-            fixture_in_workdir=eval_def.get("fixture_in_workdir", True),
-            eval_id=eval_id,
+            FixtureCopy(
+                fixture_staging=preparation.fixture_staging,
+                eval_dir=eval_dir,
+                run_dir=run_dir,
+                run_type=preparation.run_type,
+                fixture_name=fixture_name,
+                fixture_in_workdir=preparation.eval_def.get("fixture_in_workdir", True),
+                eval_id=eval_id,
+            )
         )
 
-    eval_files = eval_def.get("files", [])
+    eval_files = preparation.eval_def.get("files", [])
     if eval_files:
-        copy_eval_files_or_exit(skill_path, run_dir, eval_files, eval_id)
+        copy_eval_files_or_exit(preparation.skill_path, run_dir, eval_files, eval_id)
 
-    if run_type == SKILL_RUN_TYPE:
-        copy_skill(skill_path, run_dir, skill_name, skill_root)
+    if preparation.run_type == SKILL_RUN_TYPE:
+        copy_skill(
+            preparation.skill_path,
+            run_dir,
+            preparation.skill_name,
+            preparation.skill_root,
+        )
 
     skill_file = None
-    if run_type == SKILL_RUN_TYPE:
-        skill_file = skill_file_path(run_dir, skill_root, skill_name)
+    if preparation.run_type == SKILL_RUN_TYPE:
+        skill_file = skill_file_path(
+            run_dir,
+            preparation.skill_root,
+            preparation.skill_name,
+        )
     return PreparedRunTypeEntry(run_dir, fixture_path, skill_file)
 
 
@@ -646,13 +663,15 @@ def prepare_eval(
     reset_prepared_eval_dir(run_root, eval_def["id"])
     run_paths = {
         run_type: prepare_run_type(
-            skill_path=skill_path,
-            run_root=run_root,
-            eval_def=eval_def,
-            run_type=run_type,
-            fixture_staging=fixture_staging,
-            skill_name=skill_name,
-            skill_root=skill_root,
+            RunTypePreparation(
+                skill_path=skill_path,
+                run_root=run_root,
+                eval_def=eval_def,
+                run_type=run_type,
+                fixture_staging=fixture_staging,
+                skill_name=skill_name,
+                skill_root=skill_root,
+            )
         )
         for run_type in RUN_TYPES
     }

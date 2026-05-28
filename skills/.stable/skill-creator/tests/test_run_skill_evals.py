@@ -1,5 +1,6 @@
 import contextlib
 import io
+import inspect
 import json
 import sys
 import tempfile
@@ -727,6 +728,11 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
 
 class EvalLibTests(unittest.TestCase):
+    def test_run_single_job_accepts_one_execution_spec(self):
+        signature = inspect.signature(eval_job.run_single_job)
+
+        self.assertEqual(list(signature.parameters), ["job"])
+
     def _job(
         self,
         iteration_dir: Path,
@@ -1708,14 +1714,17 @@ class EvalLibTests(unittest.TestCase):
 
             self.assertEqual(futures, {future: job})
             submitted = executor.submit.call_args.args
-            self.assertEqual(submitted[1:], executor.submit.call_args.args[1:])
-            self.assertEqual(submitted[2], "skill")
-            self.assertEqual(submitted[3], str(temp_path / "run"))
-            self.assertEqual(submitted[4], str(temp_path / "fixture"))
-            self.assertEqual(submitted[7], "fake-model")
-            self.assertEqual(submitted[8], "high")
-            self.assertEqual(submitted[10], 123.0)
-            self.assertIs(submitted[11], grading_job_factory)
+            self.assertIs(submitted[0], eval_job.run_single_job)
+            submitted_job = submitted[1]
+            self.assertIsInstance(submitted_job, eval_job.EvalJobRun)
+            self.assertEqual(submitted_job.eval_def, {"id": 1})
+            self.assertEqual(submitted_job.run_type, "skill")
+            self.assertEqual(submitted_job.run_dir, str(temp_path / "run"))
+            self.assertEqual(submitted_job.fixture_path, str(temp_path / "fixture"))
+            self.assertEqual(submitted_job.model, "fake-model")
+            self.assertEqual(submitted_job.effort, "high")
+            self.assertEqual(submitted_job.deadline, 123.0)
+            self.assertIs(submitted_job.grading_job_factory, grading_job_factory)
 
 
 class RunSkillEvalsPromptTests(unittest.TestCase):

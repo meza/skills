@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .eval_definitions import write_eval_metadata
-from .eval_job import ActiveProcessRegistry, run_single_job
+from .eval_job import ActiveProcessRegistry, EvalJobRun, run_single_job
 from .telemetry import redact_sensitive_telemetry
 
 if TYPE_CHECKING:
@@ -249,18 +249,20 @@ class EvalRun:
         for job in jobs:
             future = executor.submit(
                 run_single_job,
-                job.eval_def,
-                job.run_type,
-                job.run_dir,
-                job.fixture_path,
-                iteration_dir,
-                self.provider,
-                self.options.model,
-                self.options.effort,
-                self.options.timeout,
-                deadline,
-                self.options.grading_job_factory,
-                self.options.process_registry,
+                EvalJobRun(
+                    eval_def=job.eval_def,
+                    run_type=job.run_type,
+                    run_dir=job.run_dir,
+                    fixture_path=job.fixture_path,
+                    iteration_dir=iteration_dir,
+                    provider=self.provider,
+                    model=self.options.model,
+                    effort=self.options.effort,
+                    timeout=self.options.timeout,
+                    deadline=deadline,
+                    grading_job_factory=self.options.grading_job_factory,
+                    process_registry=self.options.process_registry,
+                ),
             )
             futures[future] = job
         return futures
