@@ -841,7 +841,7 @@ class EvalLibTests(unittest.TestCase):
             )
 
         self.assertEqual(result.stdout, "")
-        self.assertEqual(result.stderr, "")
+        self.assertIn("Provider communication failed: broken pipe", result.stderr)
         self.assertEqual(result.returncode, -9)
         self.assertFalse(result.timed_out)
         self.assertGreaterEqual(result.duration_ms, 0)
@@ -941,7 +941,7 @@ class EvalLibTests(unittest.TestCase):
                 return TurnResult(
                     response="response",
                     transcript="transcript",
-                    events=[],
+                    events=[{"event": "completed"}],
                     session_id="session",
                     duration_ms=0,
                     input_tokens=1,
@@ -995,6 +995,57 @@ class EvalLibTests(unittest.TestCase):
 
             self.assertEqual(job.status, "error")
             self.assertEqual(job.error_message, "Exit code 17")
+
+    def test_eval_job_records_process_error_even_with_stdout(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            job = self._job(Path(temp_dir))
+
+            with mock.patch.object(
+                job,
+                "invoke_provider",
+                return_value=timed_process_result(
+                    stdout="partial provider output",
+                    stderr="provider failed badly",
+                    returncode=17,
+                    duration_ms=10,
+                ),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+
+            self.assertEqual(job.status, "error")
+            self.assertEqual(job.error_message, "provider failed badly")
+
+    def test_eval_job_records_unparseable_provider_output_as_error(self):
+        class EmptyEventsProvider(FakeProvider):
+            def parse_output(self, stdout, prompt):
+                self.prompts.append(prompt)
+                return TurnResult(
+                    response="",
+                    transcript="[USER INPUT]\nprompt",
+                    events=[],
+                )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            job = self._job(Path(temp_dir), provider=EmptyEventsProvider())
+
+            with mock.patch.object(
+                job,
+                "invoke_provider",
+                return_value=timed_process_result(
+                    stdout="not json",
+                    returncode=0,
+                    duration_ms=10,
+                ),
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertFalse(job.run_turn(0, job.turns[0], 30, {}))
+
+            self.assertEqual(job.status, "error")
+            self.assertEqual(
+                job.error_message,
+                "Provider output did not contain parseable events",
+            )
 
     def test_eval_job_unlinks_temporary_git_config(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -277,8 +277,9 @@ def run_with_timeout(
     start = time.monotonic()
     try:
         stdout, stderr = process.communicate(input=prompt)
-    except Exception:
-        stdout, stderr = "", ""
+    except Exception as error:
+        stdout = ""
+        stderr = f"Provider communication failed: {error}"
         try:
             process.kill()
         except OSError:
@@ -463,6 +464,11 @@ class EvalJob:
             effective_timeout,
             process_env,
         )
+        if process_result.returncode != 0 and not process_result.timed_out:
+            return self.record_error(
+                turn_idx, process_result.stderr, process_result.returncode
+            )
+
         turn_result = self.provider.parse_output(process_result.stdout, prompt)
         if turn_result.duration_ms <= 0:
             turn_result.duration_ms = process_result.duration_ms
@@ -470,9 +476,11 @@ class EvalJob:
 
         if process_result.timed_out:
             return self.record_timeout(turn_idx, effective_timeout, turn_result)
-        if process_result.returncode != 0 and not process_result.stdout.strip():
+        if process_result.stdout.strip() and not turn_result.events:
             return self.record_error(
-                turn_idx, process_result.stderr, process_result.returncode
+                turn_idx,
+                "Provider output did not contain parseable events",
+                process_result.returncode,
             )
         self.record_success(turn_idx, turn_result)
         return True
