@@ -417,6 +417,43 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 [iteration_dir / "eval-1" / "skill"],
             )
 
+    def test_eval_job_records_grading_failure_in_run_summary(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            run_dir = temp_path / "run"
+            run_dir.mkdir()
+
+            class FailingGradingJob:
+                def run(self):
+                    raise RuntimeError("bad grading")
+
+            job = eval_job.EvalJob(
+                eval_def={
+                    "id": 1,
+                    "eval_name": "basic",
+                    "turns": [{"prompt": "Do the task", "expectations": []}],
+                },
+                run_type="skill",
+                run_dir=str(run_dir),
+                fixture_path=None,
+                iteration_dir=temp_path / "iteration",
+                provider=FakeProvider(),
+                model=None,
+                effort=None,
+                timeout=30,
+                grading_job_factory=lambda job: FailingGradingJob(),
+            )
+
+            with mock.patch.object(
+                eval_job,
+                "run_with_timeout",
+                return_value=timed_process_result(stdout="stdout", duration_ms=50),
+            ):
+                summary = job.run()
+
+            self.assertEqual(summary["status"], "grading_error")
+            self.assertEqual(summary["error"], "bad grading")
+
     def test_run_artifact_writer_serializes_job_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_type_dir = Path(temp_dir) / "iteration" / "eval-1" / "skill"
@@ -1446,6 +1483,20 @@ class EvalLibTests(unittest.TestCase):
                 self.assertEqual(raised.exception.code, 1)
                 self.assertIn(expected_error, stderr.getvalue())
 
+    def test_eval_definitions_rejects_malformed_json(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            evals_json = Path(temp_dir) / "evals.json"
+            evals_json.write_text("{", encoding="utf-8")
+
+            with (
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+                self.assertRaises(SystemExit) as raised,
+            ):
+                eval_definitions.load_evals_data_or_exit(evals_json)
+
+            self.assertEqual(raised.exception.code, 1)
+            self.assertIn("invalid JSON in evals.json", stderr.getvalue())
+
     def test_eval_definitions_select_evals_warns_and_rejects_empty_selection(self):
         evals_list = [{"id": 1}, {"id": 2}]
 
@@ -1465,6 +1516,15 @@ class EvalLibTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 1)
         self.assertIn("no matching evals", stderr.getvalue())
+
+        with (
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            eval_definitions.select_evals_or_exit(evals_list, "abc")
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn("invalid eval ID", stderr.getvalue())
 
     def test_eval_run_handles_string_jobs_missing_jobs_and_exception_summaries(self):
         with tempfile.TemporaryDirectory() as temp_dir:

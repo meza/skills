@@ -51,11 +51,23 @@ def load_evals_data_or_exit(evals_json_path: Path) -> dict:
         print(f"Error: {evals_json_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    with open(evals_json_path, encoding="utf-8") as evals_json:
-        evals_data = json.load(evals_json)
-
+    evals_data = load_evals_json_or_exit(evals_json_path)
     validate_evals_data_or_exit(evals_data)
     return evals_data
+
+
+def load_evals_json_or_exit(evals_json_path: Path) -> object:
+    """Load evals.json and surface malformed JSON through CLI error semantics."""
+    with open(evals_json_path, encoding="utf-8") as evals_json:
+        try:
+            return json.load(evals_json)
+        except json.JSONDecodeError as error:
+            print(
+                f"Error: invalid JSON in evals.json at {evals_json_path}: "
+                f"{error.msg}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
 
 def validate_evals_data_or_exit(evals_data: dict) -> None:
@@ -176,7 +188,7 @@ def select_evals_or_exit(
     if not raw_eval_ids:
         return evals_list
 
-    requested = {int(eval_id.strip()) for eval_id in raw_eval_ids.split(",")}
+    requested = parse_eval_ids_or_exit(raw_eval_ids)
     selected = [eval_def for eval_def in evals_list if eval_def["id"] in requested]
     missing = requested - {eval_def["id"] for eval_def in selected}
     if missing:
@@ -185,6 +197,18 @@ def select_evals_or_exit(
         print("Error: no matching evals after filtering by --eval-ids", file=sys.stderr)
         sys.exit(1)
     return selected
+
+
+def parse_eval_ids_or_exit(raw_eval_ids: str) -> set[int]:
+    requested = set()
+    for raw_eval_id in raw_eval_ids.split(","):
+        token = raw_eval_id.strip()
+        try:
+            requested.add(int(token))
+        except ValueError:
+            print(f"Error: invalid eval ID '{token}'", file=sys.stderr)
+            sys.exit(1)
+    return requested
 
 
 def write_eval_metadata(iteration_dir: Path, evals_list: list[dict]) -> None:

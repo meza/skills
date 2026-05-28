@@ -42,7 +42,6 @@ eval runner:
     )
 """
 
-import json
 import shutil
 import subprocess
 import sys
@@ -50,7 +49,11 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from .eval_definitions import select_evals_or_exit, validate_evals_data_or_exit
+from .eval_definitions import (
+    load_evals_json_or_exit,
+    select_evals_or_exit,
+    validate_evals_data_or_exit,
+)
 from .run_layout import (
     BASELINE_RUN_TYPE,
     PreparedRunTypeEntry,
@@ -449,9 +452,7 @@ def load_skill_evals_data_or_exit(skill_path: Path) -> dict:
         print(f"Error: evals.json not found at {evals_json_path}", file=sys.stderr)
         sys.exit(1)
 
-    with open(evals_json_path, encoding="utf-8") as f:
-        evals_data = json.load(f)
-
+    evals_data = load_evals_json_or_exit(evals_json_path)
     validate_evals_data_or_exit(evals_data)
     validate_eval_fixture_names_or_exit(evals_data)
     return evals_data

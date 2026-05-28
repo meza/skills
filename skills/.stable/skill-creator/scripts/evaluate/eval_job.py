@@ -754,7 +754,16 @@ class EvalJob:
     def run_grading_job(self) -> None:
         if self.status != "success" or not self.grading_job_factory:
             return
-        self.grading_job_factory(self).run()
+        try:
+            self.grading_job_factory(self).run()
+        except Exception as error:
+            self.status = "grading_error"
+            self.error_message = redact_sensitive_telemetry(str(error))
+            print(
+                f"  [{self.run_type}] eval-{self.eval_id} GRADING ERROR: "
+                f"{self.error_message}",
+                file=sys.stderr,
+            )
 
     def timing(self) -> dict:
         return {

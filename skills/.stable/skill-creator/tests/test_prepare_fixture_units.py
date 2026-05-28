@@ -376,6 +376,22 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertIn("evals.json not found", stderr.getvalue())
 
+    def test_load_evals_data_rejects_malformed_json(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skill_path = Path(temp_dir) / "demo-skill"
+            evals_dir = skill_path / "evals"
+            evals_dir.mkdir(parents=True)
+            (evals_dir / "evals.json").write_text("{", encoding="utf-8")
+
+            with (
+                self.assertRaises(SystemExit) as raised,
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.load_skill_evals_data_or_exit(skill_path)
+
+            self.assertEqual(raised.exception.code, 1)
+            self.assertIn("invalid JSON in evals.json", stderr.getvalue())
+
     def test_load_evals_data_uses_shared_eval_suite_validation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             skill_path = self._write_skill(
