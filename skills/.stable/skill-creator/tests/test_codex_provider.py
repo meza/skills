@@ -483,7 +483,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         stdout = "\n".join(
             [
                 "",
-                "not json",
+                "not json TOKEN=secret-value",
                 json.dumps({"type": "thread.started", "thread_id": "thread-123"}),
                 json.dumps(
                     {
@@ -544,7 +544,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "provider": "codex",
                 "line": 2,
                 "message": "Malformed JSON event",
-                "content": "not json",
+                "content": "not json TOKEN=[REDACTED]",
             },
         )
 

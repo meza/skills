@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
+from ..telemetry import redact_sensitive_telemetry
 
 AUTH_FILENAME = "auth.json"
 SENSITIVE_ACTIONS_FILENAME = "sensitive_actions.jsonl"
@@ -300,7 +301,7 @@ def _parse_warning_event(provider: str, line_number: int, content: str) -> dict:
         "provider": provider,
         "line": line_number,
         "message": "Malformed JSON event",
-        "content": content,
+        "content": redact_sensitive_telemetry(content),
     }
 
 

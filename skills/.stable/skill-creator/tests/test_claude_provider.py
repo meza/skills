@@ -8,7 +8,7 @@ from scripts.evaluate.providers.claude import ClaudeProvider
 def stream_json(*events: dict, invalid_line: bool = False) -> str:
     lines = ["", *(json.dumps(event) for event in events)]
     if invalid_line:
-        lines.insert(1, "{not-json")
+        lines.insert(1, "{not-json TOKEN=secret-value")
     return "\n".join(lines)
 
 
@@ -213,7 +213,7 @@ class ClaudeProviderParseOutputTests(unittest.TestCase):
                 "provider": "claude",
                 "line": 2,
                 "message": "Malformed JSON event",
-                "content": "{not-json",
+                "content": "{not-json TOKEN=[REDACTED]",
             },
         )
         self.assertEqual(result.duration_ms, 1234)

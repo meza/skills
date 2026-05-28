@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 from . import Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
+from ..telemetry import redact_sensitive_telemetry
 
 DEFAULT_EFFORT = "medium"
 CLAUDE_PERMISSION_MODE = "acceptEdits"
@@ -135,7 +136,7 @@ def _parse_warning_event(line_number: int, content: str) -> dict:
         "provider": "claude",
         "line": line_number,
         "message": "Malformed JSON event",
-        "content": content,
+        "content": redact_sensitive_telemetry(content),
     }
 
 
