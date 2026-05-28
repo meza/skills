@@ -169,22 +169,26 @@ class EvalRun:
     def run_dir_for_run_type(
         self, prepared_eval: "PreparedEval | None", run_type: str
     ) -> str | None:
-        if prepared_eval is None:
+        entry = self.prepared_entry_for_run_type(prepared_eval, run_type)
+        if not entry:
             return None
-        if run_type == "skill":
-            return str(prepared_eval.skill_run_path)
-        if run_type == "baseline":
-            return str(prepared_eval.baseline_run_path)
-        return None
+        return str(entry.run_dir)
 
     def fixture_path_for_run_type(
         self, prepared_eval: "PreparedEval", run_type: str
     ) -> str | None:
-        if run_type == "skill":
-            fixture_path = prepared_eval.skill_fixture_path
-        else:
-            fixture_path = prepared_eval.baseline_fixture_path
+        entry = self.prepared_entry_for_run_type(prepared_eval, run_type)
+        if not entry:
+            return None
+        fixture_path = entry.fixture_path
         return str(fixture_path) if fixture_path else None
+
+    def prepared_entry_for_run_type(
+        self, prepared_eval: "PreparedEval | None", run_type: str
+    ):
+        if prepared_eval is None:
+            return None
+        return prepared_eval.run_type_entry(run_type)
 
     def print_launch_summary(self, total_jobs: int) -> None:
         print(

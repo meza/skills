@@ -1476,6 +1476,9 @@ class EvalLibTests(unittest.TestCase):
                 str(temp_path / "without_fixture"),
             )
             self.assertIsNone(runner.run_dir_for_run_type(job_prepared_eval, "other"))
+            self.assertIsNone(
+                runner.fixture_path_for_run_type(job_prepared_eval, "other")
+            )
 
     def test_eval_run_records_completed_future_and_writes_manifest(self):
         with tempfile.TemporaryDirectory() as temp_dir:

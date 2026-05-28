@@ -85,6 +85,20 @@ class PreparedEval:
     skill_fixture_path: Path | None
     baseline_fixture_path: Path | None
 
+    def run_type_entry(self, run_type: str) -> PreparedRunTypeEntry | None:
+        entries = {
+            SKILL_RUN_TYPE: PreparedRunTypeEntry(
+                run_dir=self.skill_run_path,
+                fixture_path=self.skill_fixture_path,
+                skill_file=self.skill_file,
+            ),
+            BASELINE_RUN_TYPE: PreparedRunTypeEntry(
+                run_dir=self.baseline_run_path,
+                fixture_path=self.baseline_fixture_path,
+            ),
+        }
+        return entries.get(run_type)
+
     def to_dict(self) -> dict:
         return {
             "eval_id": self.eval_id,
