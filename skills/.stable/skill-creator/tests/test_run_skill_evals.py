@@ -1299,6 +1299,24 @@ class EvalLibTests(unittest.TestCase):
     def test_eval_definitions_selects_run_types_and_rejects_missing_or_empty_evals(
         self,
     ):
+        eval_definition = eval_definitions.EvalDefinition(
+            {
+                "id": 7,
+                "eval_name": "custom",
+                "turns": [{"prompt": "Do it"}],
+                "timeout": 45,
+            }
+        )
+
+        self.assertEqual(eval_definition.eval_id, 7)
+        self.assertEqual(eval_definition.eval_name, "custom")
+        self.assertEqual(eval_definition.turns, [{"prompt": "Do it"}])
+        self.assertEqual(eval_definition.timeout_or_default(30), 45)
+        self.assertEqual(
+            eval_definitions.EvalDefinition({"id": 8}).eval_name,
+            "eval-8",
+        )
+
         self.assertEqual(
             eval_definitions.selected_run_types(False), ["skill", "baseline"]
         )

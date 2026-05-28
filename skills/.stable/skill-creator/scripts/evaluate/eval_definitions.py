@@ -2,9 +2,32 @@
 
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from .run_layout import RUN_TYPES, SKILL_RUN_TYPE
+
+
+@dataclass(frozen=True)
+class EvalDefinition:
+    """Domain view over one eval definition loaded from evals.json."""
+
+    data: dict
+
+    @property
+    def eval_id(self) -> int:
+        return self.data["id"]
+
+    @property
+    def eval_name(self) -> str:
+        return self.data.get("eval_name", f"eval-{self.eval_id}")
+
+    @property
+    def turns(self) -> list[dict]:
+        return self.data.get("turns", [])
+
+    def timeout_or_default(self, default_timeout: int) -> int:
+        return self.data.get("timeout", default_timeout)
 
 
 def selected_run_types(skip_baseline: bool) -> list[str]:

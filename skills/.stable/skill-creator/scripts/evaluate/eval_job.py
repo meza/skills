@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from .eval_definitions import EvalDefinition
 from .providers import Provider
 
 _IS_WINDOWS = sys.platform == "win32"
@@ -386,12 +387,16 @@ class EvalJob:
     error_message: str | None = None
 
     @property
+    def eval_definition(self) -> EvalDefinition:
+        return EvalDefinition(self.eval_def)
+
+    @property
     def eval_id(self) -> int:
-        return self.eval_def["id"]
+        return self.eval_definition.eval_id
 
     @property
     def turns(self) -> list[dict]:
-        return self.eval_def.get("turns", [])
+        return self.eval_definition.turns
 
     @property
     def run_type_dir(self) -> Path:
@@ -423,7 +428,7 @@ class EvalJob:
         return self.summary()
 
     def run_turns(self, process_env: dict[str, str]) -> None:
-        eval_timeout = self.eval_def.get("timeout", self.timeout)
+        eval_timeout = self.eval_definition.timeout_or_default(self.timeout)
         for turn_idx, turn in enumerate(self.turns):
             turn_timeout = turn.get("timeout", eval_timeout)
             effective_timeout = self.effective_timeout(turn_timeout, turn_idx)
@@ -639,7 +644,7 @@ class EvalJob:
     def summary(self) -> dict:
         return RunSummary(
             eval_id=self.eval_id,
-            eval_name=self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            eval_name=self.eval_definition.eval_name,
             run_type=self.run_type,
             session_id=self.session_id,
             status=self.status,
@@ -657,7 +662,7 @@ class EvalJob:
         )
         return RunSummary(
             eval_id=self.eval_id,
-            eval_name=self.eval_def.get("eval_name", f"eval-{self.eval_id}"),
+            eval_name=self.eval_definition.eval_name,
             run_type=self.run_type,
             session_id=self.session_id,
             status="skipped",
