@@ -1,10 +1,5 @@
-import type {
-  ExpectationView,
-  FeedbackTurnView,
-  RunFeedbackView,
-  RunView,
-  TurnExpectationView
-} from '../shared/viewModel.js';
+import { feedbackTurnShape, turnExpectationIndex } from '../shared/feedbackModel.js';
+import type { ExpectationView, FeedbackTurnView, RunFeedbackView, RunView } from '../shared/viewModel.js';
 
 export type FeedbackDraftUpdater = (updater: (draft: RunFeedbackView) => RunFeedbackView) => void;
 
@@ -14,7 +9,7 @@ export function runKey(run: RunView | undefined): string {
 
 export function feedbackDraftFromRun(run: RunView): RunFeedbackView {
   const overallExpectations = run.expectations.filter((expectation) => expectation.scope === 'overall');
-  const turnShape = turnFeedbackShape(run.expectations);
+  const turnShape = feedbackTurnShape(run.expectations);
   return {
     comments: run.feedback.comments || run.userComments || '',
     overall: overallExpectations.map((expectation, index) => ({
@@ -90,31 +85,4 @@ function feedbackComment(
     return feedback?.find((candidate) => candidate.expectation_id === expectationId)?.comment ?? '';
   }
   return '';
-}
-
-function turnFeedbackShape(expectations: ExpectationView[]): FeedbackTurnView[] {
-  const turns = new Map<number, FeedbackTurnView['expectations']>();
-  for (const expectation of expectations) {
-    if (expectation.scope !== 'turn') {
-      continue;
-    }
-    const turn = expectation.turn;
-    turns.set(turn, [...(turns.get(turn) ?? []), { comment: '', expectation_id: expectation.id }]);
-  }
-  return [...turns.entries()].map(([turn, expectationFeedback]) => ({
-    expectations: expectationFeedback,
-    turn
-  }));
-}
-
-function turnExpectationIndex(
-  expectations: ExpectationView[],
-  expectation: TurnExpectationView,
-  index: number
-): number {
-  return (
-    expectations
-      .slice(0, index + 1)
-      .filter((candidate) => candidate.scope === 'turn' && candidate.turn === expectation.turn).length - 1
-  );
 }

@@ -1,6 +1,7 @@
 import { accessSync, constants, readFileSync } from 'node:fs';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
+import { feedbackTurnShape } from '../shared/feedbackModel.js';
 import type {
   ArtifactIssue,
   ExpectationView,
@@ -467,7 +468,7 @@ function feedbackReviewFrom(value: unknown): FeedbackReview {
 
 function feedbackForExpectations(expectations: ExpectationView[], review: FeedbackReview | undefined): RunFeedbackView {
   const overallExpectations = expectations.filter((expectation) => expectation.scope === 'overall');
-  const turns = turnFeedbackShape(expectations);
+  const turns = feedbackTurnShape(expectations);
   return {
     comments: review?.comments ?? '',
     overall: overallExpectations.map((expectation, index) =>
@@ -484,21 +485,6 @@ function feedbackForExpectations(expectations: ExpectationView[], review: Feedba
       turn: turn.turn
     }))
   };
-}
-
-function turnFeedbackShape(expectations: ExpectationView[]): FeedbackTurnView[] {
-  const turnMap = new Map<number, FeedbackExpectationView[]>();
-  for (const expectation of expectations) {
-    if (expectation.scope !== 'turn') {
-      continue;
-    }
-    const turn = expectation.turn;
-    turnMap.set(turn, [...(turnMap.get(turn) ?? []), { comment: '', expectation_id: expectation.id }]);
-  }
-  return [...turnMap.entries()].map(([turn, expectationFeedback]) => ({
-    expectations: expectationFeedback,
-    turn
-  }));
 }
 
 function emptyRunFeedback(): RunFeedbackView {

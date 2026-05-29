@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { ExpectationView, RunFeedbackView, TurnExpectationView } from '../../shared/viewModel.js';
+import { turnExpectationIndex } from '../../shared/feedbackModel.js';
+import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
 import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
 
 export function ExpectationCard({
@@ -166,16 +167,4 @@ function expectationStatus(expectation: ExpectationView | undefined): string {
     return 'N/A';
   }
   return expectation.passed ? 'PASS' : 'FAIL';
-}
-
-function turnExpectationIndex(
-  expectations: ExpectationView[],
-  expectation: TurnExpectationView,
-  index: number
-): number {
-  return (
-    expectations
-      .slice(0, index + 1)
-      .filter((candidate) => candidate.scope === 'turn' && candidate.turn === expectation.turn).length - 1
-  );
 }
