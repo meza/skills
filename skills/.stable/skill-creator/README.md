@@ -194,7 +194,7 @@ Fixture copies are isolated per eval and per run type. Changes made by a `skill`
 
 The handoff between preparation and execution is an in-memory `PreparedRun` dataclass. There is no prepared manifest file between those steps.
 
-`run_manifest.json` still exists as a result artifact under the iteration directory. It summarizes completed runs, statuses, timings, costs, model, and effort.
+`run_manifest.json` still exists as a result artifact under the iteration directory. It summarizes completed runs, execution statuses, timings, costs, model, and effort.
 
 ## Grade Results
 

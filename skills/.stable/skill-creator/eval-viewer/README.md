@@ -67,7 +67,6 @@ It must show:
 - provider, model, and effort
 - eval ids and names
 - run types for each eval
-- run status
 - pass rate, timing, and token usage
 - grader executive summaries
 - overall expectation results

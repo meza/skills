@@ -254,7 +254,9 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             self.assertEqual(manifest["skill_name"], "fake-skill")
             self.assertEqual(manifest["provider"], "fake")
             self.assertEqual(len(manifest["runs"]), 2)
-            self.assertEqual({run["status"] for run in manifest["runs"]}, {"success"})
+            self.assertEqual(
+                {run["execution_status"] for run in manifest["runs"]}, {"success"}
+            )
 
             metadata = json.loads(
                 (iteration_dir / "eval-1" / "eval_metadata.json").read_text(
@@ -451,7 +453,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             ):
                 summary = job.run()
 
-            self.assertEqual(summary["status"], "grading_error")
+            self.assertEqual(summary["execution_status"], "grading_error")
             self.assertEqual(summary["error"], "bad grading")
 
     def test_run_artifact_writer_serializes_job_outputs(self):
@@ -541,7 +543,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 eval_name="basic",
                 run_type="skill",
                 session_id="session-1",
-                status="success",
+                execution_status="success",
                 duration_ms=25,
                 total_tokens=7,
                 cost_usd=0.1234567,
@@ -551,7 +553,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 "eval_name": "basic",
                 "run_type": "skill",
                 "session_id": "session-1",
-                "status": "success",
+                "execution_status": "success",
                 "duration_ms": 25,
                 "total_tokens": 7,
                 "cost_usd": 0.123457,
@@ -563,7 +565,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 eval_name="basic",
                 run_type="skill",
                 session_id="session-1",
-                status="error",
+                execution_status="error",
                 duration_ms=0,
                 total_tokens=0,
                 cost_usd=0,
@@ -652,7 +654,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             )
 
             run = manifest["runs"][0]
-            self.assertEqual(run["status"], "timeout")
+            self.assertEqual(run["execution_status"], "timeout")
             self.assertEqual(run["error"], "Turn 1/1 timed out after 600s")
 
             run_type_dir = run_root / "results" / "iteration-1" / "eval-1" / "skill"
@@ -1089,7 +1091,7 @@ class EvalLibTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 summary = job.run()
 
-        self.assertEqual(summary["status"], "skipped")
+        self.assertEqual(summary["execution_status"], "skipped")
         self.assertEqual(summary["error"], "Total timeout exceeded before job started")
 
     def test_eval_job_handles_deadline_expiring_before_a_turn(self):
@@ -1099,7 +1101,7 @@ class EvalLibTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 job.run_turns({})
 
-            self.assertEqual(job.status, "timeout")
+            self.assertEqual(job.execution_status, "timeout")
             self.assertEqual(
                 job.error_message,
                 "Total timeout exceeded before turn 1/1",
@@ -1161,7 +1163,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
 
     def test_eval_job_records_process_error_without_stderr(self):
@@ -1179,7 +1181,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(job.error_message, "Exit code 17")
 
     def test_eval_job_records_process_error_even_with_stdout(self):
@@ -1202,7 +1204,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(job.error_message, "provider failed badly")
             self.assertEqual(
                 job.all_events,
@@ -1242,7 +1244,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(job.error_message, "Provider output exceeded 4 bytes")
 
     def test_eval_job_records_unparseable_provider_output_as_error(self):
@@ -1273,7 +1275,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(
                 job.error_message,
                 "Provider output did not contain parseable events",
@@ -1318,7 +1320,7 @@ class EvalLibTests(unittest.TestCase):
             ):
                 summary = job.run()
 
-            self.assertEqual(summary["status"], "error")
+            self.assertEqual(summary["execution_status"], "error")
             grading_job_factory.assert_not_called()
             raw_output = json.loads(
                 (job.run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8")
@@ -1353,7 +1355,7 @@ class EvalLibTests(unittest.TestCase):
                         eval_job.TurnFlow.STOP,
                     )
 
-            self.assertEqual(job.status, "error")
+            self.assertEqual(job.execution_status, "error")
             self.assertEqual(
                 job.error_message,
                 "Provider did not return a session id for multi-turn resume",
@@ -1687,7 +1689,7 @@ class EvalLibTests(unittest.TestCase):
                 {
                     "eval_id": 1,
                     "run_type": "skill",
-                    "status": "exception",
+                    "execution_status": "exception",
                     "error": "boom",
                 },
             )
@@ -1710,11 +1712,15 @@ class EvalLibTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 runner.print_failed_runs(
                     [
-                        {"eval_id": 1, "run_type": "skill", "status": "success"},
+                        {
+                            "eval_id": 1,
+                            "run_type": "skill",
+                            "execution_status": "success",
+                        },
                         {
                             "eval_id": 2,
                             "run_type": "baseline",
-                            "status": "error",
+                            "execution_status": "error",
                             "error": "failed",
                         },
                     ]
@@ -1813,7 +1819,7 @@ class EvalLibTests(unittest.TestCase):
             future.result.return_value = {
                 "eval_id": 1,
                 "run_type": "skill",
-                "status": "success",
+                "execution_status": "success",
                 "cost_usd": 0.5,
             }
 
@@ -1847,7 +1853,7 @@ class EvalLibTests(unittest.TestCase):
                 {
                     "eval_id": 2,
                     "run_type": "baseline",
-                    "status": "error",
+                    "execution_status": "error",
                     "error": "failed",
                 }
             ]
@@ -1866,9 +1872,9 @@ class EvalLibTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             completion_order = [
-                {"eval_id": 2, "run_type": "skill", "status": "success"},
-                {"eval_id": 1, "run_type": "baseline", "status": "success"},
-                {"eval_id": 1, "run_type": "skill", "status": "success"},
+                {"eval_id": 2, "run_type": "skill", "execution_status": "success"},
+                {"eval_id": 1, "run_type": "baseline", "execution_status": "success"},
+                {"eval_id": 1, "run_type": "skill", "execution_status": "success"},
             ]
             progress_path = temp_path / "progress.json"
             progress = eval_runner.EvalProgress(

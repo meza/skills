@@ -59,7 +59,7 @@ function sampleManifest(root: string, iteration: number) {
         eval_id: 1,
         run_type: 'skill',
         session_id: '019e64c2-2d87-7a21-a12c-d569bab5c067',
-        status: 'success',
+        execution_status: 'success',
         duration_ms: 24_000,
         total_tokens: 1200
       },
@@ -67,7 +67,7 @@ function sampleManifest(root: string, iteration: number) {
         eval_id: 1,
         run_type: 'baseline',
         session_id: '019e64c2-2d2f-7ff2-a16c-9359a2b2304c',
-        status: 'success',
+        execution_status: 'success',
         duration_ms: 18_000,
         total_tokens: 900
       }

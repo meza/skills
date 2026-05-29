@@ -1,5 +1,3 @@
-export type RunStatus = 'success' | 'failed' | 'exception';
-
 export interface ArtifactIssue {
   artifact: string;
   message: string;
@@ -65,7 +63,6 @@ export interface RunView {
   providerSessionId?: string;
   feedback: RunFeedbackView;
   runType: string;
-  status: RunStatus;
   tokenCount: number;
   turns: TurnView[];
   userComments?: string;

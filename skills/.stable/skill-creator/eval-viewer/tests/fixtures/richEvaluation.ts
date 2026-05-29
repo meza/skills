@@ -10,7 +10,7 @@ interface RichRun {
   finalResponse: string;
   sessionId?: string;
   runType: string;
-  status?: string;
+  executionStatus?: string;
   totalTokens: number;
   turns: RichTurn[];
 }
@@ -53,7 +53,7 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: numb
       eval_name: run.evalName,
       run_type: run.runType,
       session_id: run.sessionId,
-      status: run.status ?? 'success',
+      execution_status: run.executionStatus ?? 'success',
       total_tokens: run.totalTokens
     })),
     skill_name: 'conventional-commit-message',
@@ -222,7 +222,7 @@ function richRun(
     duration: 31,
     executiveSummary:
       'The run satisfies the relevant expectations and preserves the required Conventional Commit output contract.',
-    status: 'success',
+    executionStatus: 'success',
     totalTokens: 113_059,
     turns,
     ...overrides,

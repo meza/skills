@@ -441,7 +441,7 @@ class RunSummary:
     eval_name: str
     run_type: str
     session_id: str
-    status: str
+    execution_status: str
     duration_ms: int
     total_tokens: int
     cost_usd: float
@@ -453,7 +453,7 @@ class RunSummary:
             "eval_name": self.eval_name,
             "run_type": self.run_type,
             "session_id": self.session_id,
-            "status": self.status,
+            "execution_status": self.execution_status,
             "duration_ms": self.duration_ms,
             "total_tokens": self.total_tokens,
             "cost_usd": round(self.cost_usd, 6),
@@ -485,7 +485,7 @@ class EvalJob:
     output_tokens: int = 0
     duration_ms: int = 0
     cost_usd: float = 0.0
-    status: str = "success"
+    execution_status: str = "success"
     error_message: str | None = None
 
     @property
@@ -548,7 +548,7 @@ class EvalJob:
         remaining = self.deadline - time.time()
         if remaining > 0:
             return min(turn_timeout, remaining)
-        self.status = "timeout"
+        self.execution_status = "timeout"
         self.error_message = (
             f"Total timeout exceeded before turn {turn_idx + 1}/{len(self.turns)}"
         )
@@ -680,7 +680,7 @@ class EvalJob:
         if turn_result.events:
             self.all_events.extend(turn_result.events)
             self.write_turn_outputs(turn_idx, turn_result)
-        self.status = "timeout"
+        self.execution_status = "timeout"
         self.error_message = (
             f"Turn {turn_idx + 1}/{len(self.turns)} timed out "
             f"after {int(effective_timeout)}s"
@@ -699,7 +699,7 @@ class EvalJob:
         returncode: int | None,
         process_result: TimedProcessResult | None = None,
     ) -> TurnFlow:
-        self.status = "error"
+        self.execution_status = "error"
         self.error_message = (
             redact_sensitive_telemetry(stderr[:500])
             if stderr
@@ -769,12 +769,12 @@ class EvalJob:
         ).write()
 
     def run_grading_job(self) -> None:
-        if self.status != "success" or not self.grading_job_factory:
+        if self.execution_status != "success" or not self.grading_job_factory:
             return
         try:
             self.grading_job_factory(self).run()
         except Exception as error:
-            self.status = "grading_error"
+            self.execution_status = "grading_error"
             self.error_message = redact_sensitive_telemetry(str(error))
             print(
                 f"  [{self.run_type}] eval-{self.eval_id} GRADING ERROR: "
@@ -802,7 +802,7 @@ class EvalJob:
             eval_name=self.eval_definition.eval_name,
             run_type=self.run_type,
             session_id=self.session_id,
-            status=self.status,
+            execution_status=self.execution_status,
             duration_ms=self.duration_ms,
             total_tokens=self.total_tokens,
             cost_usd=self.cost_usd,
@@ -820,7 +820,7 @@ class EvalJob:
             eval_name=self.eval_definition.eval_name,
             run_type=self.run_type,
             session_id=self.session_id,
-            status="skipped",
+            execution_status="skipped",
             duration_ms=0,
             total_tokens=0,
             cost_usd=0,

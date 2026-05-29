@@ -118,7 +118,7 @@ class ArtifactSchemaTests(unittest.TestCase):
                     "eval_name": "sample-eval",
                     "run_type": "skill",
                     "session_id": "session-1",
-                    "status": "success",
+                    "execution_status": "success",
                     "duration_ms": 12500,
                     "total_tokens": 42,
                     "cost_usd": 0.123456,

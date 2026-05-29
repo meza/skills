@@ -59,7 +59,7 @@
     "run": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["eval_id", "run_type", "status"],
+      "required": ["eval_id", "run_type", "execution_status"],
       "properties": {
         "eval_id": {
           "type": "integer"
@@ -76,7 +76,7 @@
           "type": "string",
           "minLength": 1
         },
-        "status": {
+        "execution_status": {
           "type": "string",
           "enum": [
             "success",

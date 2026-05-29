@@ -33,7 +33,6 @@ it('loads an iteration from explicit evaluator artifacts with comparison data', 
     evalId: 1,
     evalName: 'breaking-change-returns-full-message-when-needed',
     runType: 'skill',
-    status: 'success',
     passRate: 1,
     providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
     tokenCount: 1200,
@@ -692,23 +691,23 @@ it('updates existing viewer feedback entries by eval_id', async () => {
 it('rejects manifest artifacts that do not match the schema', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
-  manifest.runs[0].status = 'queued';
+  manifest.runs[0].execution_status = 'queued';
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
 });
 
-it('maps non-success run statuses from valid manifests to failed runs', async () => {
+it('loads runs without exposing execution status in the viewer model', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
-  manifest.runs[0].status = 'error';
+  manifest.runs[0].execution_status = 'error';
   manifest.runs[0].error = 'executor timed out';
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   const iteration = await loadIteration(root);
 
-  expect(iteration.runs[0]?.status).toBe('failed');
+  expect(iteration.runs[0]).not.toHaveProperty('status');
 });
 
 it('rejects malformed turn artifact entries', async () => {
@@ -807,7 +806,7 @@ it('rejects omitted manifest statuses', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
-  delete manifest.runs[0].status;
+  delete manifest.runs[0].execution_status;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);

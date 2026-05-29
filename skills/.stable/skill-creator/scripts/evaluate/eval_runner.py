@@ -87,7 +87,9 @@ class EvalProgress:
         elapsed = time.time() - self.start_time
         completed = len(self.summaries)
         succeeded = sum(
-            1 for summary in self.summaries if summary.get("status") == "success"
+            1
+            for summary in self.summaries
+            if summary.get("execution_status") == "success"
         )
         failed = completed - succeeded
         cost_so_far = sum(summary.get("cost_usd", 0) for summary in self.summaries)
@@ -101,7 +103,7 @@ class EvalProgress:
             "cost_usd": round(cost_so_far, 6),
             "completed_runs": [
                 f"eval-{summary.get('eval_id')}/{summary.get('run_type')}: "
-                f"{summary.get('status')}"
+                f"{summary.get('execution_status')}"
                 for summary in stable_run_summaries(self.summaries)
             ],
         }
@@ -297,7 +299,7 @@ class EvalRun:
         return {
             "eval_id": eval_id,
             "run_type": run_type,
-            "status": "exception",
+            "execution_status": "exception",
             "error": error_text,
         }
 
@@ -331,7 +333,7 @@ class EvalRun:
     ) -> None:
         elapsed = time.time() - start_time
         succeeded = sum(
-            1 for summary in summaries if summary.get("status") == "success"
+            1 for summary in summaries if summary.get("execution_status") == "success"
         )
         failed = total_jobs - succeeded
         total_cost = sum(summary.get("cost_usd", 0) for summary in summaries)
@@ -347,7 +349,7 @@ class EvalRun:
     def print_failed_runs(self, summaries: list[dict]) -> None:
         print("  failed runs:")
         for summary in summaries:
-            if summary.get("status") == "success":
+            if summary.get("execution_status") == "success":
                 continue
-            error = summary.get("error", summary.get("status"))
+            error = summary.get("error", summary.get("execution_status"))
             print(f"    eval-{summary['eval_id']} [{summary['run_type']}]: {error}")

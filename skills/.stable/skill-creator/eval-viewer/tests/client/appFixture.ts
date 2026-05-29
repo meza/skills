@@ -66,7 +66,6 @@ function skillRunView(): RunView {
     issues: [],
     passRate: 1,
     providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
-    status: 'success',
     tokenCount: 1200,
     turns: [
       {
@@ -99,7 +98,6 @@ function baselineRunView(): RunView {
     issues: [],
     passRate: 0,
     providerSessionId: '019e64c2-2d2f-7ff2-a16c-9359a2b2304c',
-    status: 'success',
     tokenCount: 900,
     turns: [],
     userComments: '',

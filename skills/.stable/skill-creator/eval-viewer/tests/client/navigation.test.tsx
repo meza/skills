@@ -12,15 +12,13 @@ it('filters failed runs by pass rate', async () => {
   }
   view.runs[0] = {
     ...failedRun,
-    passRate: 0,
-    status: 'success'
+    passRate: 0
   };
   view.runs.push({
     ...failedRun,
     evalId: 2,
     evalName: 'partial-pass-rate-eval',
-    passRate: 0.5,
-    status: 'success'
+    passRate: 0.5
   });
 
   const user = userEvent.setup();
@@ -114,7 +112,6 @@ it('labels partial pass-rate runs as failed in navigation', () => {
     throw new Error('Expected a first run in the test fixture.');
   }
   run.passRate = 0.86;
-  run.status = 'success';
   renderApp({ initialIteration: view });
 
   const navigation = screen.getByRole('navigation', { name: /evals/i });

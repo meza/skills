@@ -12,7 +12,6 @@ import type {
   OverallExpectationView,
   RunComparisonView,
   RunFeedbackView,
-  RunStatus,
   RunView,
   TurnExpectationView,
   TurnView
@@ -27,7 +26,6 @@ interface ManifestRun {
   eval_name?: string;
   run_type: string;
   session_id?: string;
-  status: string;
   total_tokens?: number;
 }
 
@@ -218,7 +216,6 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     providerSessionId: textValue(manifestRun.session_id, ''),
     feedback: runFeedback,
     runType,
-    status: statusFor(manifestRun),
     tokenCount: numberValue(timing.total_tokens, 0),
     turns,
     userComments: runFeedback.comments,
@@ -383,7 +380,6 @@ async function loadPreviousRunComparisonTarget(
         issues: [],
         passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
         runType,
-        status: 'success',
         tokenCount: numberValue(timing.total_tokens, 0),
         turns: []
       }
@@ -662,14 +658,6 @@ async function resolveResultRoot(resultRoot: string): Promise<string> {
 
 function iterationNumber(path: string): number {
   return Number(basename(path).replace('iteration-', ''));
-}
-
-function statusFor(manifestRun: ManifestRun): RunStatus {
-  const status = manifestRun.status;
-  if (status === 'success' || status === 'exception') {
-    return status;
-  }
-  return 'failed';
 }
 
 function existsSync(path: string): boolean {
