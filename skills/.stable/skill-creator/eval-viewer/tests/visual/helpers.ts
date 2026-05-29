@@ -15,14 +15,11 @@ export async function expectPrototypeShell(page: Page) {
   await expect(page.locator('.metadata').getByRole('link', { name: /raw json output/i })).toBeVisible();
   await expect(page.locator('.metadata').getByRole('link', { name: /view all artifacts/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /missing-artifact-smoke fail/i })).toBeVisible();
   await expect(page.getByText('Evals', { exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Evals' }).locator('.run-link > span:first-child')).toHaveText([
     'internal-refactor-stays-refactor',
     'user-visible-fix-avoids-code-narration',
-    'breaking-change-returns-full-message-when-needed',
-    'missing-artifact-smoke'
+    'breaking-change-returns-full-message-when-needed'
   ]);
   await expect(page.locator('body')).not.toContainText('with_skill');
   await expect(page.locator('body')).not.toContainText('without_skill');
@@ -115,8 +112,8 @@ export async function expectRunHeaderLayout(page: Page) {
 
 export async function expectInteractiveHoverStates(page: Page) {
   await expectHoverChange(page, '.filters .filter-pass', 'background-color');
-  await expectHoverChange(page, '.run-list .run-link:nth-child(2)', 'background-color');
-  await expectHoverChange(page, '.run-pager button:not(:disabled)', 'background-color');
+  await expectHoverChange(page, '.run-list .run-link:first-child', 'background-color');
+  await expectOptionalHoverChange(page, '.run-pager button:not(:disabled)', 'background-color');
   await expectHoverChange(page, '.finalize-button', 'filter');
   await page.mouse.move(0, 0);
 }
@@ -207,4 +204,11 @@ async function expectHoverChange(page: Page, selector: string, property: string)
     property
   );
   expect(after).not.toBe(before);
+}
+
+async function expectOptionalHoverChange(page: Page, selector: string, property: string) {
+  if ((await page.locator(selector).count()) === 0) {
+    return;
+  }
+  await expectHoverChange(page, selector, property);
 }

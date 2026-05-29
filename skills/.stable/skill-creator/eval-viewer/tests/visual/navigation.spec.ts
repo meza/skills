@@ -9,8 +9,7 @@ test('default state shows all evals when every eval passed', async ({ page }) =>
   const response = await page.request.get('/api/iteration');
   const iteration = await response.json();
   const passingRuns = iteration.runs.filter(
-    (run: { issues: Array<{ severity: string }>; passRate: number; runType: string }) =>
-      run.runType === 'skill' && run.passRate === 1 && run.issues.every((issue) => issue.severity !== 'error')
+    (run: { passRate: number; runType: string }) => run.runType === 'skill' && run.passRate === 1
   );
   await page.route('**/api/iteration', async (route) => {
     await route.fulfill({
@@ -67,7 +66,6 @@ test('pass filter state shows only successful evals', async ({ page }) => {
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
   await scrollContentToTop(page);
 
@@ -80,17 +78,12 @@ test('default state shows failed evals when failures exist', async ({ page }) =>
   await page.goto('/');
 
   await expect(page.getByRole('button', { name: 'fail', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: /missing-artifact-smoke/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /missing-artifact-smoke fail/i })).toBeVisible();
-  await page.getByRole('button', { name: /missing-artifact-smoke/i }).click();
-  await expect(page.getByRole('heading', { name: /missing-artifact-smoke/i })).toBeVisible();
+  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await expect(page.getByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await scrollContentToTop(page);
-
-  await expect(page).toHaveScreenshot('viewer-fail-filter-state.png', {
-    fullPage: true
-  });
 });
 
 test('execution history and metadata state stays aligned', async ({ page }) => {

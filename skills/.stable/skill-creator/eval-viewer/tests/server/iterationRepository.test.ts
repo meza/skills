@@ -64,7 +64,7 @@ it('loads the latest iteration when given an evaluation results workspace root',
   expect(iteration.runs[0]?.artifactPaths.grading).toContain('iteration-3');
 });
 
-it('loads a representative workspace with comparisons, large counts, failures, and artifact issues', async () => {
+it('loads a representative workspace with comparisons, large counts, and failures', async () => {
   const workspaceRoot = join(root, 'rich-workspace');
   await writeRichEvaluationWorkspace(workspaceRoot);
 
@@ -75,15 +75,14 @@ it('loads a representative workspace with comparisons, large counts, failures, a
     iteration: 3,
     model: 'gpt-5.5',
     provider: 'codex',
-    runCount: 5,
+    runCount: 4,
     skillName: 'conventional-commit-message'
   });
   expect(iteration.runs.map((run) => run.evalName)).toEqual([
     'user-visible-fix-avoids-code-narration',
     'user-visible-fix-avoids-code-narration',
     'internal-refactor-stays-refactor',
-    'breaking-change-returns-full-message-when-needed',
-    'missing-artifact-smoke'
+    'breaking-change-returns-full-message-when-needed'
   ]);
   const internalRun = iteration.runs.find(
     (run) => run.evalName === 'internal-refactor-stays-refactor' && run.runType === 'skill'
@@ -91,7 +90,6 @@ it('loads a representative workspace with comparisons, large counts, failures, a
   const userVisibleRun = iteration.runs.find(
     (run) => run.evalName === 'user-visible-fix-avoids-code-narration' && run.runType === 'skill'
   );
-  const missingArtifactRun = iteration.runs.find((run) => run.evalName === 'missing-artifact-smoke');
   expect(internalRun?.expectations).toHaveLength(6);
   expect(internalRun?.turns).toHaveLength(2);
   expect(userVisibleRun?.comparisons.baseline).toMatchObject({
@@ -100,19 +98,9 @@ it('loads a representative workspace with comparisons, large counts, failures, a
     passRateDelta: 0.5,
     tokenDelta: 24_840
   });
-  expect(missingArtifactRun?.issues.map((issue) => issue.state)).toEqual(
-    expect.arrayContaining([
-      'failed_execution',
-      'invalid_grading',
-      'missing_raw_output',
-      'missing_response',
-      'missing_timing',
-      'missing_transcript'
-    ])
-  );
 });
 
-it('uses real grader turn results and falls back when recorded artifact paths reference renamed iteration folders', async () => {
+it('uses real grader turn results from recorded artifact paths', async () => {
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
@@ -138,21 +126,6 @@ it('uses real grader turn results and falls back when recorded artifact paths re
         failed: 0,
         total: 1,
         pass_rate: 1
-      }
-    }),
-    'utf-8'
-  );
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'run_artifacts.json'),
-    JSON.stringify({
-      artifacts: {
-        turns: [
-          {
-            turn: 1,
-            response_path: join(root, '..', 'iteration-5', 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'),
-            transcript_path: join(root, '..', 'iteration-5', 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md')
-          }
-        ]
       }
     }),
     'utf-8'
@@ -205,33 +178,20 @@ it('uses real grader turn results and falls back when recorded artifact paths re
   expect(iteration.runs[0]?.feedback.turns).toEqual([
     { expectations: [{ comment: 'Nested turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }
   ]);
-  expect(iteration.runs[0]?.issues.map((issue) => issue.state)).not.toContain('missing_response');
-  expect(iteration.runs[0]?.issues.map((issue) => issue.state)).not.toContain('missing_transcript');
+  expect(iteration.runs[0]?.issues).toEqual([]);
 });
 
-it('surfaces missing artifacts as run issues instead of hiding the run', async () => {
+it('rejects missing required run artifacts', async () => {
   await rm(join(root, 'eval-1', 'skill', 'grading.json'));
   await rm(join(root, 'eval-1', 'skill', 'raw_output.jsonl'));
   await rm(join(root, 'eval-1', 'skill', 'timing.json'));
   await rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
   await rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
 
-  const iteration = await loadIteration(root);
-
-  const run = iteration.runs.find((candidate) => candidate.runType === 'skill');
-  expect(run?.issues.map((issue) => issue.state)).toEqual(
-    expect.arrayContaining([
-      'missing_grading',
-      'missing_raw_output',
-      'missing_response',
-      'missing_timing',
-      'missing_transcript'
-    ])
-  );
-  expect(run?.status).toBe('artifact_error');
+  await expect(loadIteration(root)).rejects.toThrow(/Missing grading\.json/);
 });
 
-it('surfaces invalid grading and failed execution states', async () => {
+it('rejects invalid grading artifacts', async () => {
   await writeFile(join(root, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
@@ -239,21 +199,18 @@ it('surfaces invalid grading and failed execution states', async () => {
   manifest.runs[0].error = 'executor timed out';
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
+});
+
+it('uses manifest metrics when timing artifacts omit totals', async () => {
+  await writeFile(join(root, 'eval-1', 'skill', 'timing.json'), JSON.stringify({}), 'utf-8');
+
   const iteration = await loadIteration(root);
 
-  const run = iteration.runs.find((candidate) => candidate.runType === 'skill');
-  expect(run?.issues).toContainEqual(
-    expect.objectContaining({
-      message: 'Invalid grading.json',
-      state: 'invalid_grading'
-    })
-  );
-  expect(run?.issues).toContainEqual(
-    expect.objectContaining({
-      message: 'executor timed out',
-      state: 'failed_execution'
-    })
-  );
+  expect(iteration.runs[0]).toMatchObject({
+    durationSeconds: 24,
+    tokenCount: 1200
+  });
 });
 
 it('writes viewer feedback without mutating evaluator artifacts', async () => {
@@ -646,7 +603,7 @@ it('updates existing viewer feedback entries by eval_id', async () => {
   expect(feedback.reviews[0]).not.toHaveProperty('review_state');
 });
 
-it('handles fallback metadata, missing comparisons, malformed turn artifacts, and unknown statuses', async () => {
+it('handles fallback metadata, missing comparisons, and unknown statuses', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
   delete manifest.skill_name;
@@ -656,11 +613,6 @@ it('handles fallback metadata, missing comparisons, malformed turn artifacts, an
   manifest.runs = [manifest.runs[0]];
   manifest.runs[0].status = 'queued';
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'run_artifacts.json'),
-    JSON.stringify({ artifacts: { turns: [{}] } }),
-    'utf-8'
-  );
 
   const iteration = await loadIteration(root);
 
@@ -671,10 +623,17 @@ it('handles fallback metadata, missing comparisons, malformed turn artifacts, an
     skillName: 'conventional-commit-message'
   });
   expect(iteration.runs[0]?.comparisons.baseline).toBeUndefined();
-  expect(iteration.runs[0]?.status).toBe('artifact_error');
-  expect(iteration.runs[0]?.issues.map((issue) => issue.state)).toEqual(
-    expect.arrayContaining(['missing_response', 'missing_transcript'])
+  expect(iteration.runs[0]?.status).toBe('success');
+});
+
+it('rejects malformed turn artifact entries', async () => {
+  await writeFile(
+    join(root, 'eval-1', 'skill', 'run_artifacts.json'),
+    JSON.stringify({ artifacts: { turns: [{}] } }),
+    'utf-8'
   );
+
+  await expect(loadIteration(root)).rejects.toThrow(/Missing response\.md/);
 });
 
 it('loads previous iteration comparisons from numbered iteration directories', async () => {
@@ -720,7 +679,7 @@ it('surfaces incomplete previous iteration comparison artifacts', async () => {
   );
 });
 
-it('handles grading and metadata without expectation arrays', async () => {
+it('rejects run artifacts without turn entries', async () => {
   await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),
@@ -729,10 +688,7 @@ it('handles grading and metadata without expectation arrays', async () => {
   );
   await writeFile(join(root, 'eval-1', 'skill', 'run_artifacts.json'), JSON.stringify({ artifacts: {} }), 'utf-8');
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.expectations).toEqual([]);
-  expect(iteration.runs[0]?.artifactPaths.response).toBe('');
+  await expect(loadIteration(root)).rejects.toThrow(/no runs to review|Missing response\.md/i);
 });
 
 it('does not synthesize expectation rows from metadata when grading has no expectation results', async () => {
@@ -798,13 +754,10 @@ it('rejects a result root that points at a file', async () => {
   await expect(loadIteration(fileRoot)).rejects.toThrow(/not a directory/i);
 });
 
-it('loads an empty iteration when the manifest has no run array', async () => {
+it('rejects an empty iteration when the manifest has no run array', async () => {
   await writeFile(join(root, 'run_manifest.json'), JSON.stringify({ iteration: 1 }), 'utf-8');
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs).toEqual([]);
-  expect(iteration.summary.runCount).toBe(0);
+  await expect(loadIteration(root)).rejects.toThrow(/no runs to review/i);
 });
 
 it('rejects a directory that is neither an iteration root nor an evaluation workspace', async () => {

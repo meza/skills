@@ -88,8 +88,8 @@ state must distinguish:
 - reviewed with no comments
 - reviewed with comments
 
-Missing or invalid artifacts must be visible as review states, not silently
-hidden.
+Missing or invalid current-iteration artifacts are contract failures. The
+server must fail startup instead of serving a partial review application.
 
 ## Design Target
 

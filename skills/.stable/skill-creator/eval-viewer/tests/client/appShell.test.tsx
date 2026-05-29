@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { emptyIterationView, iterationView } from './appFixture.js';
+import { iterationView } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
 it('renders run details, comparisons, artifacts, and feedback state', () => {
@@ -58,11 +58,7 @@ it('renders fallback final responses and negative comparison deltas', () => {
   expect(screen.getByText('feat!: support signing key rotation')).toBeInTheDocument();
 });
 
-it('renders empty runs and fallback copy', () => {
-  renderApp({ initialIteration: emptyIterationView() });
-
-  expect(screen.getByText('No evaluation runs were found.')).toBeInTheDocument();
-
+it('renders fallback copy for missing run content', () => {
   const view = iterationView();
   const run = view.runs[0];
   if (!run) {

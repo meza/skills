@@ -49,11 +49,6 @@ interface RunFilePaths {
   timing: string;
 }
 
-interface ArtifactJsonResult {
-  issues: ArtifactIssue[];
-  value?: Record<string, unknown>;
-}
-
 function objectValue(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
@@ -89,6 +84,9 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
   const feedback = await readFeedback(resolvedRoot);
   const manifestRuns = Array.isArray(manifest.runs) ? (manifest.runs as ManifestRun[]) : [];
   const runs = await Promise.all(manifestRuns.map((run) => loadRun(resolvedRoot, run, feedback)));
+  if (runs.length === 0) {
+    throw new Error('Evaluation results contain no runs to review.');
+  }
 
   return {
     feedbackPath: feedbackPath(resolvedRoot),
@@ -169,38 +167,38 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   const evalDir = join(resultRoot, `eval-${evalId}`);
   const runTypeDir = join(evalDir, runType);
   const filePaths = runFilePaths(runTypeDir);
-  const { artifactsResult, gradingResult, metadata, timing } = await readRunArtifacts(evalDir, filePaths);
-  const artifactRoot = objectValue(artifactsResult.value?.artifacts);
+  const { artifacts, grading, metadata, timing } = await readRunArtifacts(evalDir, filePaths);
+  const artifactRoot = objectValue(artifacts.artifacts);
   const metadataTurns = metadataTurnsFrom(metadata);
-  const gradedTurns = gradedTurnExpectations(gradingResult.value);
-  const turns = await loadTurns(metadataTurns, artifactRoot.turns, runTypeDir, gradedTurns);
-  const expectations = expectationsFrom(gradingResult.value);
-  const issues = runIssues(filePaths, gradingResult, turns, timing, manifestRun);
+  const gradedTurns = gradedTurnExpectations(grading);
+  const turns = await loadTurns(metadataTurns, artifactRoot.turns, gradedTurns);
+  if (turns.length === 0) {
+    throw new Error('Missing response.md');
+  }
+  const expectations = expectationsFrom(grading);
+  const issues: ArtifactIssue[] = [];
   const review = feedback.reviews.find((candidate) => candidate.eval_id === evalId);
   const runFeedback = feedbackForExpectations(expectations, review);
 
   return {
-    artifactPaths: artifactPaths(artifactsResult.value, filePaths, runTypeDir),
+    artifactPaths: artifactPaths(artifactRoot, filePaths),
     comparisons: {},
-    durationSeconds: numberValue(timing?.total_duration_seconds ?? manifestRun.duration_seconds, 0),
+    durationSeconds: numberValue(timing.total_duration_seconds ?? manifestRun.duration_seconds, 0),
     evalId,
     evalName: textValue(
       metadata?.eval_name ?? objectValue(metadata?.eval).eval_name ?? manifestRun.eval_name,
       `eval-${evalId}`
     ),
-    executiveSummary: textValue(
-      gradingResult.value?.executive_summary ?? objectValue(gradingResult.value?.eval_feedback).overall,
-      ''
-    ),
+    executiveSummary: textValue(grading.executive_summary ?? objectValue(grading.eval_feedback).overall, ''),
     expectations,
-    finalResponse: turns.at(-1)?.response ?? '',
+    finalResponse: (turns[turns.length - 1] as TurnView).response,
     issues,
-    passRate: numberValue(objectValue(gradingResult.value?.summary).pass_rate, 0),
+    passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
     providerSessionId: textValue(manifestRun.session_id, ''),
     feedback: runFeedback,
     runType,
-    status: statusFor(manifestRun, issues),
-    tokenCount: numberValue(timing?.total_tokens ?? manifestRun.total_tokens, 0),
+    status: statusFor(manifestRun),
+    tokenCount: numberValue(timing.total_tokens ?? manifestRun.total_tokens, 0),
     turns,
     userComments: runFeedback.comments,
     workingDirectory: textValue(artifactRoot.working_dir_path, '')
@@ -220,61 +218,41 @@ async function readRunArtifacts(
   evalDir: string,
   filePaths: RunFilePaths
 ): Promise<{
-  artifactsResult: ArtifactJsonResult;
-  gradingResult: ArtifactJsonResult;
+  artifacts: Record<string, unknown>;
+  grading: Record<string, unknown>;
   metadata: Record<string, unknown> | undefined;
-  timing: Record<string, unknown> | undefined;
+  timing: Record<string, unknown>;
 }> {
-  const [metadata, gradingResult, artifactsResult, timing] = await Promise.all([
+  const [metadata, grading, artifacts, timing] = await Promise.all([
     readOptionalJson(join(evalDir, 'eval_metadata.json')),
-    readArtifactJson(filePaths.grading, 'grading.json', 'missing_grading', 'invalid_grading'),
-    readArtifactJson(filePaths.artifacts, 'run_artifacts.json', 'missing_response', 'missing_response'),
-    readOptionalJson(filePaths.timing)
+    readRequiredJson(filePaths.grading, 'grading.json'),
+    readRequiredJson(filePaths.artifacts, 'run_artifacts.json'),
+    readRequiredJson(filePaths.timing, 'timing.json'),
+    readRequiredText(filePaths.rawOutput, 'raw_output.jsonl')
   ]);
 
   return {
-    artifactsResult,
-    gradingResult,
+    artifacts,
+    grading,
     metadata,
     timing
   };
 }
 
-function runIssues(
-  filePaths: RunFilePaths,
-  gradingResult: ArtifactJsonResult,
-  turns: TurnView[],
-  timing: unknown,
-  manifestRun: ManifestRun
-): ArtifactIssue[] {
-  return [
-    ...gradingResult.issues,
-    ...missingFileIssue(filePaths.rawOutput, 'raw_output.jsonl', 'missing_raw_output'),
-    ...missingTimingIssue(filePaths.timing, timing),
-    ...turnIssues(turns),
-    ...executionIssues(manifestRun)
-  ];
-}
-
-function artifactPaths(
-  artifacts: Record<string, unknown> | undefined,
-  filePaths: RunFilePaths,
-  runTypeDir: string
-): RunView['artifactPaths'] {
+function artifactPaths(artifactRoot: Record<string, unknown>, filePaths: RunFilePaths): RunView['artifactPaths'] {
   return {
     grading: filePaths.grading,
     rawOutput: filePaths.rawOutput,
-    response: firstTurnPath(artifacts, 'response_path', runTypeDir),
+    response: firstTurnPath(artifactRoot, 'response_path'),
     runArtifacts: filePaths.artifacts,
     timing: filePaths.timing,
-    transcript: firstTurnPath(artifacts, 'transcript_path', runTypeDir)
+    transcript: firstTurnPath(artifactRoot, 'transcript_path')
   };
 }
 
 async function loadTurns(
   metadataTurns: unknown,
   artifactTurns: unknown,
-  configDir: string,
   gradedTurns: Map<number, TurnExpectationView[]>
 ): Promise<TurnView[]> {
   const turns = Array.isArray(artifactTurns) ? artifactTurns : [];
@@ -284,16 +262,10 @@ async function loadTurns(
       const turnRecord = objectValue(turn);
       const turnNumber = numberValue(turnRecord.turn, index + 1);
       const prompt = textValue(objectValue(metadata[index]).prompt, '');
-      const responsePath = artifactPathWithFallback(
-        textValue(turnRecord.response_path, ''),
-        join(configDir, `turn-${turnNumber}`, 'outputs', 'response.md')
-      );
-      const transcriptPath = artifactPathWithFallback(
-        textValue(turnRecord.transcript_path, ''),
-        join(configDir, `turn-${turnNumber}`, 'outputs', 'transcript.md')
-      );
-      const response = await readOptionalText(responsePath);
-      const transcript = await readOptionalText(transcriptPath);
+      const responsePath = textValue(turnRecord.response_path, '');
+      const transcriptPath = textValue(turnRecord.transcript_path, '');
+      const response = await readRequiredText(responsePath, 'response.md');
+      const transcript = await readRequiredText(transcriptPath, 'transcript.md');
       return {
         expectations: gradedTurns.get(turnNumber) ?? [],
         prompt,
@@ -464,25 +436,11 @@ function turnExpectationFrom(item: unknown, turn: number): TurnExpectationView {
   };
 }
 
-async function readArtifactJson(
-  path: string,
-  artifact: string,
-  missingState: ArtifactIssue['state'],
-  invalidState: ArtifactIssue['state']
-): Promise<{ issues: ArtifactIssue[]; value?: Record<string, unknown> }> {
+async function readRequiredJson(path: string, artifact: string): Promise<Record<string, unknown>> {
   try {
-    return { issues: [], value: await readJson(path) };
+    return await readJson(path);
   } catch (error) {
-    return {
-      issues: [
-        {
-          artifact,
-          message: error instanceof SyntaxError ? `Invalid ${artifact}` : `Missing ${artifact}`,
-          severity: 'error',
-          state: error instanceof SyntaxError ? invalidState : missingState
-        }
-      ]
-    };
+    throw new Error(error instanceof SyntaxError ? `Invalid ${artifact}` : `Missing ${artifact}`);
   }
 }
 
@@ -498,14 +456,14 @@ async function readOptionalJson(path: string): Promise<Record<string, unknown> |
   }
 }
 
-async function readOptionalText(path: string): Promise<string> {
+async function readRequiredText(path: string, artifact: string): Promise<string> {
   if (!path) {
-    return '';
+    throw new Error(`Missing ${artifact}`);
   }
   try {
     return await readFile(path, 'utf-8');
   } catch {
-    return '';
+    throw new Error(`Missing ${artifact}`);
   }
 }
 
@@ -521,18 +479,10 @@ function feedbackPath(resultRoot: string): string {
   return join(resultRoot, 'viewer_feedback.json');
 }
 
-function firstTurnPath(
-  artifacts: Record<string, unknown> | undefined,
-  key: 'response_path' | 'transcript_path',
-  configDir: string
-): string | undefined {
-  const turns = objectValue(artifacts?.artifacts).turns;
-  const firstTurn = Array.isArray(turns) ? objectValue(turns[0]) : {};
-  const fallbackName = key === 'response_path' ? 'response.md' : 'transcript.md';
-  return artifactPathWithFallback(
-    textValue(firstTurn[key], ''),
-    join(configDir, `turn-${numberValue(firstTurn.turn, 1)}`, 'outputs', fallbackName)
-  );
+function firstTurnPath(artifactRoot: Record<string, unknown>, key: 'response_path' | 'transcript_path'): string {
+  const turns = artifactRoot.turns as unknown[];
+  const firstTurn = objectValue(turns[0]);
+  return textValue(firstTurn[key], '');
 }
 
 function feedbackReviewFrom(value: unknown): FeedbackReview {
@@ -638,16 +588,6 @@ function filledFeedbackTurns(turns: FeedbackTurnView[]): FeedbackTurnView[] {
   });
 }
 
-function artifactPathWithFallback(recordedPath: string, fallbackPath: string): string {
-  if (!recordedPath) {
-    return '';
-  }
-  if (recordedPath && existsSync(recordedPath)) {
-    return recordedPath;
-  }
-  return existsSync(fallbackPath) ? fallbackPath : recordedPath;
-}
-
 async function resolveResultRoot(resultRoot: string): Promise<string> {
   await assertResultRoot(resultRoot);
   if (existsSync(join(resultRoot, 'run_manifest.json'))) {
@@ -670,69 +610,12 @@ function iterationNumber(path: string): number {
   return Number(basename(path).replace('iteration-', ''));
 }
 
-function statusFor(manifestRun: ManifestRun, issues: ArtifactIssue[]): RunStatus {
-  if (issues.some((issue) => issue.severity === 'error')) {
-    return 'artifact_error';
-  }
+function statusFor(manifestRun: ManifestRun): RunStatus {
   const status = manifestRun.status;
   if (status === 'failed' || status === 'exception' || status === 'success') {
     return status;
   }
   return 'success';
-}
-
-function executionIssues(manifestRun: ManifestRun): ArtifactIssue[] {
-  if (manifestRun.status === 'success' || !manifestRun.status) {
-    return [];
-  }
-  return [
-    {
-      artifact: 'run_manifest.json',
-      message: textValue(manifestRun.error, `Execution status: ${manifestRun.status}`),
-      severity: 'error',
-      state: 'failed_execution'
-    }
-  ];
-}
-
-function missingFileIssue(path: string, artifact: string, state: ArtifactIssue['state']): ArtifactIssue[] {
-  return existsSync(path)
-    ? []
-    : [
-        {
-          artifact,
-          message: `Missing ${artifact}`,
-          severity: 'error',
-          state
-        }
-      ];
-}
-
-function missingTimingIssue(path: string, timing: unknown): ArtifactIssue[] {
-  return timing ? [] : missingFileIssue(path, 'timing.json', 'missing_timing');
-}
-
-function turnIssues(turns: TurnView[]): ArtifactIssue[] {
-  return turns.flatMap((turn) => {
-    const issues: ArtifactIssue[] = [];
-    if (!turn.response) {
-      issues.push({
-        artifact: 'response.md',
-        message: 'Missing response.md',
-        severity: 'error',
-        state: 'missing_response'
-      });
-    }
-    if (!turn.transcript) {
-      issues.push({
-        artifact: 'transcript.md',
-        message: 'Missing transcript.md',
-        severity: 'error',
-        state: 'missing_transcript'
-      });
-    }
-    return issues;
-  });
 }
 
 function existsSync(path: string): boolean {

@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 interface RichRun {
@@ -36,7 +36,6 @@ export async function writeRichEvaluationWorkspace(workspaceRoot: string): Promi
   const previousRoot = join(workspaceRoot, 'results', 'iteration-2');
   await writeRichIteration(previousRoot, previousRuns(), 2);
   await writeRichIteration(currentRoot, currentRuns(), 3);
-  await writeBrokenRun(currentRoot);
   return currentRoot;
 }
 
@@ -301,60 +300,6 @@ async function writeRun(root: string, run: RichRun): Promise<void> {
       writeFile(join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'), turn.transcript, 'utf-8')
     ])
   );
-}
-
-async function writeBrokenRun(root: string): Promise<void> {
-  const manifestPath = join(root, 'run_manifest.json');
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
-  manifest.runs.push({
-    run_type: 'skill',
-    duration_seconds: 0,
-    error: 'executor timed out before response artifacts were written',
-    eval_id: 4,
-    eval_name: 'missing-artifact-smoke',
-    status: 'failed',
-    total_tokens: 0
-  });
-  await writeJson(manifestPath, manifest);
-  await mkdir(join(root, 'eval-4', 'skill', 'turn-1', 'outputs'), { recursive: true });
-  await writeJson(join(root, 'eval-4', 'eval_metadata.json'), {
-    eval_id: 4,
-    eval_name: 'missing-artifact-smoke',
-    turns: [{ expectations: ['The failed run still appears for review.'], prompt: 'Generate a commit message.' }]
-  });
-  await writeJson(join(root, 'eval-4', 'skill', 'run_artifacts.json'), {
-    artifacts: {
-      raw_output_path: join(root, 'eval-4', 'skill', 'raw_output.jsonl'),
-      timing_path: join(root, 'eval-4', 'skill', 'timing.json'),
-      turns: [
-        {
-          response_path: join(root, 'eval-4', 'skill', 'turn-1', 'outputs', 'response.md'),
-          transcript_path: join(root, 'eval-4', 'skill', 'turn-1', 'outputs', 'transcript.md'),
-          turn: 1
-        }
-      ]
-    }
-  });
-  await writeJson(join(root, 'eval-4', 'skill', 'grading.json'), {
-    executive_summary: '',
-    results: {
-      overall_expectations: [],
-      turns: [
-        {
-          expectations: [
-            {
-              evidence: '',
-              id: 'f6d486b0-d59a-54d1-a52d-492857258631',
-              passed: false,
-              text: 'The failed run still appears for review.'
-            }
-          ],
-          turn: 1
-        }
-      ]
-    },
-    summary: { failed: 1, pass_rate: 0, passed: 0, total: 1 }
-  });
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {

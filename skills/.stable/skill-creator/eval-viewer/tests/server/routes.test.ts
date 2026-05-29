@@ -53,6 +53,25 @@ it('rejects startup when the result root is missing', async () => {
   await expect(buildServer({ resultRoot: join(root, 'missing') })).rejects.toThrow(/result root does not exist/i);
 });
 
+it('rejects startup when the result root has no runs to review', async () => {
+  const emptyRoot = join(root, 'empty');
+  await mkdir(emptyRoot, { recursive: true });
+  await writeFile(
+    join(emptyRoot, 'run_manifest.json'),
+    JSON.stringify({
+      effort: 'high',
+      iteration: 1,
+      model: 'gpt-5',
+      provider: 'codex',
+      runs: [],
+      skill_name: 'empty'
+    }),
+    'utf-8'
+  );
+
+  await expect(buildServer({ resultRoot: emptyRoot })).rejects.toThrow(/no runs to review/i);
+});
+
 it('serves built client assets from nested asset paths', async () => {
   const staticRoot = join(root, 'static');
   await mkdir(join(staticRoot, 'assets'), { recursive: true });

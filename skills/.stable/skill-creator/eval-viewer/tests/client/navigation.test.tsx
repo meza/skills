@@ -4,7 +4,7 @@ import { expect, it, vi } from 'vitest';
 import { iterationView } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
-it('filters failed runs and shows artifact errors clearly', async () => {
+it('filters failed runs by pass rate', async () => {
   const view = iterationView();
   const failedRun = view.runs[0];
   if (!failedRun) {
@@ -12,31 +12,15 @@ it('filters failed runs and shows artifact errors clearly', async () => {
   }
   view.runs[0] = {
     ...failedRun,
-    issues: [
-      {
-        artifact: 'grading.json',
-        message: 'Missing grading.json',
-        severity: 'error',
-        state: 'missing_grading'
-      }
-    ],
     passRate: 0,
-    status: 'artifact_error'
+    status: 'success'
   };
   view.runs.push({
     ...failedRun,
     evalId: 2,
-    evalName: 'artifact-error-with-passing-grades',
-    issues: [
-      {
-        artifact: 'raw_output.jsonl',
-        message: 'Missing raw_output.jsonl',
-        severity: 'error',
-        state: 'missing_raw_output'
-      }
-    ],
-    passRate: 1,
-    status: 'artifact_error'
+    evalName: 'partial-pass-rate-eval',
+    passRate: 0.5,
+    status: 'success'
   });
 
   const user = userEvent.setup();
@@ -46,7 +30,7 @@ it('filters failed runs and shows artifact errors clearly', async () => {
 
   const navigation = screen.getByRole('navigation', { name: /evals/i });
   expect(within(navigation).getByText('breaking-change-returns-full-message-when-needed')).toBeInTheDocument();
-  expect(within(navigation).getByText('artifact-error-with-passing-grades')).toBeInTheDocument();
+  expect(within(navigation).getByText('partial-pass-rate-eval')).toBeInTheDocument();
   expect(document.body).not.toHaveTextContent('with_skill');
   expect(document.body).not.toHaveTextContent('without_skill');
   expect(screen.queryByText('Artifact Issues')).not.toBeInTheDocument();
@@ -60,14 +44,7 @@ it('filters passing runs', async () => {
   if (!run) {
     throw new Error('Expected a first run in the test fixture.');
   }
-  run.issues = [
-    {
-      artifact: 'timing.json',
-      message: 'Timing was incomplete',
-      severity: 'warning',
-      state: 'missing_timing'
-    }
-  ];
+  run.issues = [];
   renderApp({ initialIteration: view });
 
   await user.click(screen.getByRole('button', { name: /^pass$/i }));
@@ -112,6 +89,22 @@ it('defaults to all runs when every eval passed', () => {
   expect(screen.getByRole('button', { name: /^all$/i })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByRole('button', { name: /first-passing-eval/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /second-passing-eval/i })).toBeInTheDocument();
+});
+
+it('keeps a run selected when a filter has no matching runs', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const firstRun = view.runs[0];
+  if (!firstRun) {
+    throw new Error('Expected a first run in the test fixture.');
+  }
+  view.runs = [{ ...firstRun, evalId: 1, evalName: 'first-passing-eval', passRate: 1 }];
+
+  renderApp({ initialIteration: view });
+
+  await user.click(screen.getByRole('button', { name: /^fail$/i }));
+
+  expect(screen.getByRole('heading', { name: 'first-passing-eval' })).toBeInTheDocument();
 });
 
 it('labels partial pass-rate runs as failed in navigation', () => {

@@ -1,18 +1,10 @@
-export type RunStatus = 'success' | 'failed' | 'exception' | 'artifact_error';
+export type RunStatus = 'success' | 'failed' | 'exception';
 
 export interface ArtifactIssue {
   artifact: string;
   message: string;
   severity: 'error' | 'warning';
-  state:
-    | 'failed_execution'
-    | 'invalid_grading'
-    | 'missing_comparison_target'
-    | 'missing_grading'
-    | 'missing_raw_output'
-    | 'missing_response'
-    | 'missing_timing'
-    | 'missing_transcript';
+  state: 'missing_comparison_target';
 }
 
 interface ExpectationViewBase {

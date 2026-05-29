@@ -139,18 +139,3 @@ function baselineArtifactPaths() {
     transcript: 'F:/runs/eval-1/baseline/turn-1/outputs/transcript.md'
   };
 }
-
-export function emptyIterationView(): IterationView {
-  return {
-    feedbackPath: 'viewer_feedback.json',
-    runs: [],
-    summary: {
-      effort: 'default',
-      iteration: 1,
-      model: 'default',
-      provider: 'codex',
-      runCount: 0,
-      skillName: 'empty-skill'
-    }
-  };
-}

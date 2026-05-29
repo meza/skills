@@ -13,11 +13,11 @@ export function filterIcon(filter: RunFilter): string {
 }
 
 export function isFailingRun(run: RunView): boolean {
-  return run.passRate < 1 || run.issues.some((issue) => issue.severity === 'error');
+  return run.passRate < 1;
 }
 
 export function isPassingRun(run: RunView): boolean {
-  return run.passRate === 1 && run.issues.every((issue) => issue.severity !== 'error');
+  return run.passRate === 1;
 }
 
 export function reviewStatusLabel(run: RunView): 'fail' | 'success' {

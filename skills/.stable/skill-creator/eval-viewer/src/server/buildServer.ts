@@ -19,6 +19,7 @@ export interface ServerOptions {
  */
 export async function buildServer(options: ServerOptions) {
   await assertResultRoot(options.resultRoot);
+  await loadIteration(options.resultRoot);
   const server = Fastify({ logger: false });
 
   server.get('/api/iteration', async () => loadIteration(options.resultRoot));

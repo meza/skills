@@ -35,9 +35,10 @@ export function App({
     [initialIteration.runs]
   );
   const [filter, setFilter] = useState<RunFilter>(() => defaultReviewFilter(reviewRuns));
-  const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] ?? initialIteration.runs[0]));
+  const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] as RunView));
   const visibleRuns = useMemo(() => visibleReviewRuns(reviewRuns, filter), [filter, reviewRuns]);
-  const selectedRun = visibleRuns.find((run) => runKey(run) === selectedKey) ?? visibleRuns[0] ?? reviewRuns[0];
+  const visibleRunFallback = (visibleRuns[0] ?? reviewRuns[0]) as RunView;
+  const selectedRun = visibleRuns.find((run) => runKey(run) === selectedKey) ?? visibleRunFallback;
   const { highlightedKey, selectEvalKey, transitionState } = useEvalSelectionTransition({
     evalTransitionMs,
     selectedKey,
@@ -47,10 +48,6 @@ export function App({
     0,
     visibleRuns.findIndex((run) => runKey(run) === runKey(selectedRun))
   );
-
-  if (!selectedRun) {
-    return <main className="content empty-state">No evaluation runs were found.</main>;
-  }
 
   const selectedRunKey = runKey(selectedRun);
   const highlightedRun = visibleRuns.find((run) => runKey(run) === highlightedKey) ?? selectedRun;

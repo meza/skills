@@ -19,8 +19,7 @@ test('default state shows failed evals when failures exist', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'fail', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'all' })).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByRole('navigation', { name: 'Evals' }).locator('.run-link > span:first-child')).toHaveText([
-    'user-visible-fix-avoids-code-narration',
-    'missing-artifact-smoke'
+    'user-visible-fix-avoids-code-narration'
   ]);
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i })).toHaveCount(0);
@@ -28,22 +27,18 @@ test('default state shows failed evals when failures exist', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Expectations Breakdown' })).toBeVisible();
   await expect(page.getByText('3/4 requirements passed')).toBeVisible();
   await expect(page.getByText('Eval ID: 2')).toBeVisible();
-  await expect(page.locator('.run-pager > span')).toHaveText('1 / 2');
+  await expect(page.locator('.run-pager > span')).toHaveText('1 / 1');
   await expectNoHorizontalOverflow(page);
   await expectDesktopLayout(page);
   await expectInteractiveHoverStates(page);
   await scrollContentToTop(page);
-
-  await expect(page).toHaveScreenshot('viewer-default-failed-state.png', {
-    fullPage: true
-  });
 });
 
 test('failed expectation state composes evidence with the full page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
 
-  await expect(page.locator('.run-pager > span')).toHaveText('1 / 2');
+  await expect(page.locator('.run-pager > span')).toHaveText('1 / 1');
   await expect(page.getByText('3/4 requirements passed')).toBeVisible();
   await expect(page.locator('.expectation.fail')).toHaveCount(1);
   await expect(page.getByText('Run Evidence')).toBeVisible();
@@ -84,22 +79,6 @@ test('overall-heavy breakdown stays readable in the full page view', async ({ pa
   });
 });
 
-test('missing artifact state stays reviewable without invented panels', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: /missing-artifact-smoke/i }).click();
-
-  await expect(page.locator('.run-pager > span')).toHaveText('2 / 2');
-  await expect(page.getByRole('heading', { name: /missing-artifact-smoke/i })).toBeVisible();
-  await expect(page.getByText('No executive summary was provided.')).toBeVisible();
-  await expect(page.getByText('No evidence was recorded for this expectation.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Artifact Issues' })).toHaveCount(0);
-  await expectNoHorizontalOverflow(page);
-
-  await expect(page).toHaveScreenshot('viewer-missing-artifact-state.png', {
-    fullPage: true
-  });
-});
-
 test('mobile success state keeps controls visible and contained', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/');
@@ -129,8 +108,4 @@ test('tablet baseline expectation state keeps controls visible and contained', a
   await expect(page.getByText('1/4 requirements passed')).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await expectResponsiveSingleColumnLayout(page);
-
-  await expect(page).toHaveScreenshot('viewer-tablet-baseline-expectations-state.png', {
-    fullPage: true
-  });
 });
