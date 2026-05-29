@@ -46,6 +46,11 @@ function objectValue(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+/**
+ * Confirms that a requested eval result location can be used by the viewer.
+ *
+ * @param resultRoot - Local path supplied by the server startup flow or repository caller.
+ */
 export async function assertResultRoot(resultRoot: string): Promise<void> {
   try {
     const result = await stat(resultRoot);
@@ -60,6 +65,11 @@ export async function assertResultRoot(resultRoot: string): Promise<void> {
   }
 }
 
+/**
+ * Builds the browser view model for the eval iteration a reviewer wants to inspect.
+ *
+ * @param resultRoot - Local eval result location chosen by the reviewer or server startup flow.
+ */
 export async function loadIteration(resultRoot: string): Promise<IterationView> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
   const manifest = await readJson(join(resolvedRoot, 'run_manifest.json'));
@@ -82,6 +92,12 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
   };
 }
 
+/**
+ * Persists a reviewer's feedback for one eval in the viewer-owned feedback artifact.
+ *
+ * @param resultRoot - Local eval result location that owns the feedback artifact.
+ * @param feedback - Review notes and expectation comments submitted by the browser.
+ */
 export async function saveFeedback(resultRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
   const artifact = await readFeedback(resolvedRoot);
@@ -118,6 +134,12 @@ export async function saveFeedback(resultRoot: string, feedback: FeedbackInput):
   return saved;
 }
 
+/**
+ * Reads an eval artifact so the browser can display its text content.
+ *
+ * @param resultRoot - Local eval result location that defines the readable artifact set.
+ * @param artifactPath - Local artifact path requested by the browser.
+ */
 export async function readArtifactText(resultRoot: string, artifactPath: string): Promise<string> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
   const root = resolve(resolvedRoot);

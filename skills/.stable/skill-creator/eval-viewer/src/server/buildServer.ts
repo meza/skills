@@ -6,10 +6,17 @@ import type { FeedbackInput } from '../shared/viewModel.js';
 import { assertResultRoot, loadIteration, readArtifactText, saveFeedback } from './iterationRepository.js';
 
 export interface ServerOptions {
+  /** Local eval result location that the server presents to the browser. */
   resultRoot: string;
+  /** Built client asset directory to serve when tests or scripts provide one. */
   staticRoot?: string;
 }
 
+/**
+ * Creates the local HTTP server used by the browser-based eval review UI.
+ *
+ * @param options - Server inputs that identify the local artifacts and client assets to expose.
+ */
 export async function buildServer(options: ServerOptions) {
   await assertResultRoot(options.resultRoot);
   const server = Fastify({ logger: false });

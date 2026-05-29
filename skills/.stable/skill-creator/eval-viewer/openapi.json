@@ -1,0 +1,622 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Eval Viewer Local API",
+    "version": "0.1.0",
+    "description": "HTTP API for the local eval viewer. The server reads evaluator-produced artifacts from a local result root and writes viewer_feedback.json for human review notes."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4177",
+      "description": "Default local viewer server"
+    }
+  ],
+  "paths": {
+    "/api/iteration": {
+      "get": {
+        "summary": "Read the current evaluation iteration",
+        "operationId": "getIteration",
+        "responses": {
+          "200": {
+            "description": "The resolved iteration and its runs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IterationView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{evalId}/{runType}": {
+      "get": {
+        "summary": "Read one run from the current iteration",
+        "operationId": "getRun",
+        "parameters": [
+          {
+            "name": "evalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Eval identifier from run_manifest.json."
+          },
+          {
+            "name": "runType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "examples": ["skill", "baseline"]
+            },
+            "description": "Run type from run_manifest.json."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requested run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No run in the current iteration matches the eval id and run type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts": {
+      "get": {
+        "summary": "Read an artifact text file",
+        "operationId": "getArtifactText",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Absolute local filesystem path to an artifact under the resolved result root."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact contents.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The path query parameter is missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The artifact path does not resolve inside the result root.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested artifact path is allowed but does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/{evalId}": {
+      "put": {
+        "summary": "Save human feedback for one eval",
+        "operationId": "putFeedback",
+        "parameters": [
+          {
+            "name": "evalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Eval identifier whose review entry should be replaced."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The saved review shape. Empty feedback removes any existing review entry and returns only eval_id and updated_at.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReview"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArtifactIssue": {
+        "type": "object",
+        "required": ["artifact", "message", "severity", "state"],
+        "properties": {
+          "artifact": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning"]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ArtifactIssueState"
+          }
+        }
+      },
+      "ArtifactIssueState": {
+        "type": "string",
+        "enum": [
+          "failed_execution",
+          "invalid_grading",
+          "missing_comparison_target",
+          "missing_grading",
+          "missing_raw_output",
+          "missing_response",
+          "missing_timing",
+          "missing_transcript"
+        ]
+      },
+      "ArtifactPaths": {
+        "type": "object",
+        "properties": {
+          "grading": {
+            "type": "string"
+          },
+          "rawOutput": {
+            "type": "string"
+          },
+          "response": {
+            "type": "string"
+          },
+          "runArtifacts": {
+            "type": "string"
+          },
+          "timing": {
+            "type": "string"
+          },
+          "transcript": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExpectationView": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OverallExpectationView"
+          },
+          {
+            "$ref": "#/components/schemas/TurnExpectationView"
+          }
+        ]
+      },
+      "ExpectationViewBase": {
+        "type": "object",
+        "required": ["evidence", "passed", "text"],
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable expectation id when present in grading or metadata artifacts. Missing ids cannot be matched to persisted expectation feedback."
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "FeedbackExpectation": {
+        "type": "object",
+        "required": ["comment"],
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "expectation_id": {
+            "type": "string",
+            "description": "Expectation id used to match persisted feedback to current grading output. Feedback without an id is not written."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackRequest": {
+        "type": "object",
+        "properties": {
+          "comments": {
+            "type": "string",
+            "default": ""
+          },
+          "overall": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackExpectation"
+            },
+            "default": []
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackTurn"
+            },
+            "default": []
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackReview": {
+        "type": "object",
+        "required": ["eval_id", "updated_at"],
+        "properties": {
+          "comments": {
+            "type": "string",
+            "description": "Trimmed comments. Empty comments are omitted."
+          },
+          "eval_id": {
+            "type": "integer"
+          },
+          "overall": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackExpectation"
+            },
+            "description": "Only non-empty expectation comments with expectation ids are written."
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackTurn"
+            },
+            "description": "Only turns containing non-empty expectation comments are written."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeedbackTurn": {
+        "type": "object",
+        "required": ["expectations", "turn"],
+        "properties": {
+          "expectations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackExpectation"
+            }
+          },
+          "turn": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "IterationSummary": {
+        "type": "object",
+        "required": ["effort", "iteration", "model", "provider", "runCount", "skillName"],
+        "properties": {
+          "effort": {
+            "type": "string"
+          },
+          "iteration": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "runCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skillName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IterationView": {
+        "type": "object",
+        "required": ["feedbackPath", "runs", "summary"],
+        "properties": {
+          "feedbackPath": {
+            "type": "string",
+            "description": "Absolute local path to viewer_feedback.json under the resolved result root."
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunView"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/IterationSummary"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OverallExpectationView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ExpectationViewBase"
+          },
+          {
+            "type": "object",
+            "required": ["scope"],
+            "properties": {
+              "scope": {
+                "const": "overall"
+              }
+            }
+          }
+        ]
+      },
+      "RunComparisonView": {
+        "type": "object",
+        "required": ["durationDelta", "expectations", "finalResponse", "passRateDelta", "runType", "tokenDelta"],
+        "properties": {
+          "durationDelta": {
+            "type": "number"
+          },
+          "expectations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpectationView"
+            }
+          },
+          "finalResponse": {
+            "type": "string"
+          },
+          "passRateDelta": {
+            "type": "number"
+          },
+          "runType": {
+            "type": "string"
+          },
+          "tokenDelta": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RunFeedbackView": {
+        "type": "object",
+        "required": ["comments", "overall", "turns"],
+        "properties": {
+          "comments": {
+            "type": "string"
+          },
+          "overall": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackExpectation"
+            }
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedbackTurn"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": ["success", "failed", "exception", "artifact_error"]
+      },
+      "RunView": {
+        "type": "object",
+        "required": [
+          "artifactPaths",
+          "comparisons",
+          "durationSeconds",
+          "evalId",
+          "evalName",
+          "executiveSummary",
+          "expectations",
+          "feedback",
+          "finalResponse",
+          "issues",
+          "passRate",
+          "runType",
+          "status",
+          "tokenCount",
+          "turns"
+        ],
+        "properties": {
+          "artifactPaths": {
+            "$ref": "#/components/schemas/ArtifactPaths"
+          },
+          "comparisons": {
+            "type": "object",
+            "properties": {
+              "baseline": {
+                "$ref": "#/components/schemas/RunComparisonView"
+              },
+              "previousIteration": {
+                "$ref": "#/components/schemas/RunComparisonView"
+              }
+            },
+            "additionalProperties": false
+          },
+          "durationSeconds": {
+            "type": "number"
+          },
+          "evalId": {
+            "type": "integer"
+          },
+          "evalName": {
+            "type": "string"
+          },
+          "executiveSummary": {
+            "type": "string"
+          },
+          "expectations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpectationView"
+            }
+          },
+          "feedback": {
+            "$ref": "#/components/schemas/RunFeedbackView"
+          },
+          "finalResponse": {
+            "type": "string"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactIssue"
+            }
+          },
+          "passRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "providerSessionId": {
+            "type": "string"
+          },
+          "runType": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "tokenCount": {
+            "type": "integer"
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TurnView"
+            }
+          },
+          "userComments": {
+            "type": "string"
+          },
+          "workingDirectory": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TurnExpectationView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ExpectationViewBase"
+          },
+          {
+            "type": "object",
+            "required": ["scope", "turn"],
+            "properties": {
+              "scope": {
+                "const": "turn"
+              },
+              "turn": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        ]
+      },
+      "TurnView": {
+        "type": "object",
+        "required": ["expectations", "prompt", "response", "transcript"],
+        "properties": {
+          "expectations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpectationView"
+            }
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "response": {
+            "type": "string"
+          },
+          "transcript": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
