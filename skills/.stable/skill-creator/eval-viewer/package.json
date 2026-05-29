@@ -15,10 +15,10 @@
     "style:check": "stylelint \"src/client/**/*.css\"",
     "test": "vitest run",
     "test:visual": "playwright test",
-    "test:visual:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual\" && npm i",
+    "test:visual:docker": "docker run --rm -t -v \".:/work\" -v \"../schemas:/schemas:ro\" -w /work mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual\" && npm i",
     "test:visual:update": "run-s test:visual:update:local test:visual:update:docker",
     "test:visual:update:local": "playwright test --update-snapshots changed",
-    "test:visual:update:docker": "docker run --rm -t -v \".:/work\" -w /work/skills/.stable/skill-creator/eval-viewer mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual:update:local\" && npm i"
+    "test:visual:update:docker": "docker run --rm -t -v \".:/work\" -v \"../schemas:/schemas:ro\" -w /work mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual:update:local\" && npm i"
   },
   "browserslist": [
     "last 2 Chrome versions",
