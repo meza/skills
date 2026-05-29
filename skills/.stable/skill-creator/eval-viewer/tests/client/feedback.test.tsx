@@ -48,6 +48,21 @@ it('autosaves reviewer feedback with expectation ids', async () => {
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
 
+it('cancels pending autosaves when the app unmounts', () => {
+  vi.useFakeTimers();
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+  const { unmount } = renderApp({ autosaveDelayMs: 50_000, saveFeedback });
+
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Draft that should not save after unmount.' }
+  });
+  unmount();
+  vi.runOnlyPendingTimers();
+
+  expect(saveFeedback).not.toHaveBeenCalled();
+  vi.useRealTimers();
+});
+
 it('records overall expectation feedback by grading order', async () => {
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   const view = iterationView();

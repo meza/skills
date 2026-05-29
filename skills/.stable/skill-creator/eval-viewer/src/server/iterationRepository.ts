@@ -42,6 +42,18 @@ interface FeedbackReview {
   updated_at: string;
 }
 
+interface RunFilePaths {
+  artifacts: string;
+  grading: string;
+  rawOutput: string;
+  timing: string;
+}
+
+interface ArtifactJsonResult {
+  issues: ArtifactIssue[];
+  value?: Record<string, unknown>;
+}
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
@@ -156,43 +168,19 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   const runType = textValue(manifestRun.run_type, 'unknown');
   const evalDir = join(resultRoot, `eval-${evalId}`);
   const runTypeDir = join(evalDir, runType);
-  const metadata = await readOptionalJson(join(evalDir, 'eval_metadata.json'));
-  const gradingPath = join(runTypeDir, 'grading.json');
-  const timingPath = join(runTypeDir, 'timing.json');
-  const rawOutputPath = join(runTypeDir, 'raw_output.jsonl');
-  const artifactsPath = join(runTypeDir, 'run_artifacts.json');
-  const gradingResult = await readArtifactJson(gradingPath, 'grading.json', 'missing_grading', 'invalid_grading');
-  const artifactsResult = await readArtifactJson(
-    artifactsPath,
-    'run_artifacts.json',
-    'missing_response',
-    'missing_response'
-  );
-  const timing = await readOptionalJson(timingPath);
+  const filePaths = runFilePaths(runTypeDir);
+  const { artifactsResult, gradingResult, metadata, timing } = await readRunArtifacts(evalDir, filePaths);
   const artifactRoot = objectValue(artifactsResult.value?.artifacts);
   const metadataTurns = metadataTurnsFrom(metadata);
   const gradedTurns = gradedTurnExpectations(gradingResult.value);
   const turns = await loadTurns(metadataTurns, artifactRoot.turns, runTypeDir, gradedTurns);
   const expectations = expectationsFrom(gradingResult.value, metadataTurns);
-  const issues = [
-    ...gradingResult.issues,
-    ...missingFileIssue(rawOutputPath, 'raw_output.jsonl', 'missing_raw_output'),
-    ...missingTimingIssue(timingPath, timing),
-    ...turnIssues(turns),
-    ...executionIssues(manifestRun)
-  ];
+  const issues = runIssues(filePaths, gradingResult, turns, timing, manifestRun);
   const review = feedback.reviews.find((candidate) => candidate.eval_id === evalId);
   const runFeedback = feedbackForExpectations(expectations, review);
 
   return {
-    artifactPaths: {
-      grading: gradingPath,
-      rawOutput: rawOutputPath,
-      response: firstTurnPath(artifactsResult.value, 'response_path', runTypeDir),
-      runArtifacts: artifactsPath,
-      timing: timingPath,
-      transcript: firstTurnPath(artifactsResult.value, 'transcript_path', runTypeDir)
-    },
+    artifactPaths: artifactPaths(artifactsResult.value, filePaths, runTypeDir),
     comparisons: {},
     durationSeconds: numberValue(timing?.total_duration_seconds ?? manifestRun.duration_seconds, 0),
     evalId,
@@ -216,6 +204,70 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     turns,
     userComments: runFeedback.comments,
     workingDirectory: textValue(artifactRoot.working_dir_path, '')
+  };
+}
+
+function runFilePaths(runTypeDir: string): RunFilePaths {
+  return {
+    artifacts: join(runTypeDir, 'run_artifacts.json'),
+    grading: join(runTypeDir, 'grading.json'),
+    rawOutput: join(runTypeDir, 'raw_output.jsonl'),
+    timing: join(runTypeDir, 'timing.json')
+  };
+}
+
+async function readRunArtifacts(
+  evalDir: string,
+  filePaths: RunFilePaths
+): Promise<{
+  artifactsResult: ArtifactJsonResult;
+  gradingResult: ArtifactJsonResult;
+  metadata: Record<string, unknown> | undefined;
+  timing: Record<string, unknown> | undefined;
+}> {
+  const [metadata, gradingResult, artifactsResult, timing] = await Promise.all([
+    readOptionalJson(join(evalDir, 'eval_metadata.json')),
+    readArtifactJson(filePaths.grading, 'grading.json', 'missing_grading', 'invalid_grading'),
+    readArtifactJson(filePaths.artifacts, 'run_artifacts.json', 'missing_response', 'missing_response'),
+    readOptionalJson(filePaths.timing)
+  ]);
+
+  return {
+    artifactsResult,
+    gradingResult,
+    metadata,
+    timing
+  };
+}
+
+function runIssues(
+  filePaths: RunFilePaths,
+  gradingResult: ArtifactJsonResult,
+  turns: TurnView[],
+  timing: unknown,
+  manifestRun: ManifestRun
+): ArtifactIssue[] {
+  return [
+    ...gradingResult.issues,
+    ...missingFileIssue(filePaths.rawOutput, 'raw_output.jsonl', 'missing_raw_output'),
+    ...missingTimingIssue(filePaths.timing, timing),
+    ...turnIssues(turns),
+    ...executionIssues(manifestRun)
+  ];
+}
+
+function artifactPaths(
+  artifacts: Record<string, unknown> | undefined,
+  filePaths: RunFilePaths,
+  runTypeDir: string
+): RunView['artifactPaths'] {
+  return {
+    grading: filePaths.grading,
+    rawOutput: filePaths.rawOutput,
+    response: firstTurnPath(artifacts, 'response_path', runTypeDir),
+    runArtifacts: filePaths.artifacts,
+    timing: filePaths.timing,
+    transcript: firstTurnPath(artifacts, 'transcript_path', runTypeDir)
   };
 }
 

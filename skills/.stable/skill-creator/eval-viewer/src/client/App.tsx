@@ -14,6 +14,7 @@ type FeedbackDraft = RunFeedbackView;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type SaveStates = Record<string, SaveState>;
 type EvalTransitionState = 'idle' | 'exiting' | 'entering';
+type SaveFeedback = (feedback: FeedbackInput) => Promise<unknown>;
 
 const DEFAULT_EVAL_TRANSITION_MS = 160;
 
@@ -134,18 +135,73 @@ function useFeedbackWorkflow({
   visibleRuns
 }: {
   autosaveDelayMs: number;
-  saveFeedback: (feedback: FeedbackInput) => Promise<unknown>;
+  saveFeedback: SaveFeedback;
   selectEvalKey: (key: string) => void;
   selectedIndex: number;
   selectedRun: RunView;
   selectedRunKey: string;
   visibleRuns: RunView[];
 }) {
+  const draftStore = useFeedbackDraftStore(selectedRunKey, selectedRun);
+  const persistence = useFeedbackPersistence(saveFeedback);
+  const autosave = useFeedbackAutosave(autosaveDelayMs, persistence.saveDraft);
+
+  async function saveSelectedRun(): Promise<boolean> {
+    autosave.clear(selectedRunKey);
+    const draft = draftStore.draftFor(selectedRunKey);
+    return persistence.saveDraft(selectedRun, draft);
+  }
+
+  async function moveToVisibleRun(offset: number) {
+    const targetRun = visibleRuns[selectedIndex + offset];
+    if (!targetRun || !(await saveSelectedRun())) {
+      return;
+    }
+    selectEvalKey(runKey(targetRun));
+  }
+
+  const updateFeedbackDraft: FeedbackDraftUpdater = (updater) => {
+    const currentDraft = draftStore.draftFor(selectedRunKey);
+    const nextDraft = updater(currentDraft);
+    draftStore.updateDraft(selectedRunKey, nextDraft);
+    autosave.schedule(selectedRun, nextDraft);
+  };
+
+  return {
+    feedbackDraft: draftStore.feedbackDraft,
+    moveToVisibleRun,
+    saveSelectedRun,
+    saveState: persistence.saveStateFor(selectedRunKey),
+    updateFeedbackDraft
+  };
+}
+
+function useFeedbackDraftStore(selectedRunKey: string, selectedRun: RunView) {
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, FeedbackDraft>>({});
-  const [saveStates, setSaveStates] = useState<SaveStates>({});
   const feedbackDraftsRef = useRef<Record<string, FeedbackDraft>>({});
-  const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const feedbackDraft = feedbackDrafts[selectedRunKey] ?? feedbackDraftFromRun(selectedRun);
+
+  function draftFor(key: string): FeedbackDraft {
+    return feedbackDraftsRef.current[key] ?? feedbackDraft;
+  }
+
+  function updateDraft(key: string, draft: FeedbackDraft): void {
+    feedbackDraftsRef.current = {
+      ...feedbackDraftsRef.current,
+      [key]: draft
+    };
+    setFeedbackDrafts(feedbackDraftsRef.current);
+  }
+
+  return {
+    draftFor,
+    feedbackDraft,
+    updateDraft
+  };
+}
+
+function useFeedbackPersistence(saveFeedback: SaveFeedback) {
+  const [saveStates, setSaveStates] = useState<SaveStates>({});
 
   async function saveDraft(run: RunView, draft: FeedbackDraft): Promise<boolean> {
     const key = runKey(run);
@@ -160,45 +216,48 @@ function useFeedbackWorkflow({
     }
   }
 
-  function scheduleAutosave(run: RunView, draft: FeedbackDraft) {
-    const key = runKey(run);
+  function saveStateFor(key: string): SaveState {
+    return saveStates[key] ?? 'idle';
+  }
+
+  return {
+    saveDraft,
+    saveStateFor
+  };
+}
+
+function useFeedbackAutosave(
+  autosaveDelayMs: number,
+  saveDraft: (run: RunView, draft: FeedbackDraft) => Promise<boolean>
+) {
+  const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(
+    () => () => {
+      for (const timer of Object.values(saveTimersRef.current)) {
+        clearTimeout(timer);
+      }
+    },
+    []
+  );
+
+  function clear(key: string): void {
     clearTimeout(saveTimersRef.current[key]);
+    delete saveTimersRef.current[key];
+  }
+
+  function schedule(run: RunView, draft: FeedbackDraft): void {
+    const key = runKey(run);
+    clear(key);
     saveTimersRef.current[key] = setTimeout(async () => {
       await saveDraft(run, draft);
+      delete saveTimersRef.current[key];
     }, autosaveDelayMs);
   }
 
-  async function saveSelectedRun(): Promise<boolean> {
-    clearTimeout(saveTimersRef.current[selectedRunKey]);
-    const draft = feedbackDraftsRef.current[selectedRunKey] ?? feedbackDraft;
-    return saveDraft(selectedRun, draft);
-  }
-
-  async function moveToVisibleRun(offset: number) {
-    const targetRun = visibleRuns[selectedIndex + offset];
-    if (!targetRun || !(await saveSelectedRun())) {
-      return;
-    }
-    selectEvalKey(runKey(targetRun));
-  }
-
-  const updateFeedbackDraft: FeedbackDraftUpdater = (updater) => {
-    const currentDraft = feedbackDraftsRef.current[selectedRunKey] ?? feedbackDraftFromRun(selectedRun);
-    const nextDraft = updater(currentDraft);
-    feedbackDraftsRef.current = {
-      ...feedbackDraftsRef.current,
-      [selectedRunKey]: nextDraft
-    };
-    setFeedbackDrafts(feedbackDraftsRef.current);
-    scheduleAutosave(selectedRun, nextDraft);
-  };
-
   return {
-    feedbackDraft,
-    moveToVisibleRun,
-    saveSelectedRun,
-    saveState: saveStates[selectedRunKey] ?? 'idle',
-    updateFeedbackDraft
+    clear,
+    schedule
   };
 }
 
