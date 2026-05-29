@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PORT, resultRootFromArgs, startServer } from '../../src/server/main.js';
+import { DEFAULT_PORT, resultRootFromArgs, startServer, viewerPortFromEnv } from '../../src/server/main.js';
 
 describe('server entrypoint', () => {
   it('requires an evaluation result root argument', () => {
@@ -31,5 +31,29 @@ describe('server entrypoint', () => {
     });
 
     expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: DEFAULT_PORT });
+  });
+
+  it.each([
+    ['empty', ''],
+    ['non-numeric', 'abc'],
+    ['decimal', '4123.5'],
+    ['zero', '0'],
+    ['out-of-range', '65536']
+  ])('rejects %s PORT values before starting the server', async (_name, port) => {
+    const buildServer = vi.fn(async () => ({ listen: vi.fn(async () => undefined) }));
+
+    await expect(
+      startServer({
+        argv: ['node', 'main.ts', '.'],
+        buildServer,
+        env: { PORT: port }
+      })
+    ).rejects.toThrow(/PORT must be an integer from 1 to 65535/);
+
+    expect(buildServer).not.toHaveBeenCalled();
+  });
+
+  it('parses configured viewer ports', () => {
+    expect(viewerPortFromEnv({ PORT: '4123' })).toBe(4123);
   });
 });

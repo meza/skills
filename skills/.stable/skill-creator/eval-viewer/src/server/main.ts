@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 import { buildServer } from './buildServer.js';
 
 export const DEFAULT_PORT = 4177;
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
 
 interface StartServerOptions {
   argv: string[];
@@ -19,9 +21,23 @@ export function resultRootFromArgs(argv: string[]): string {
   return resolve(resultRoot);
 }
 
+export function viewerPortFromEnv(env: NodeJS.ProcessEnv): number {
+  const portText = env.PORT;
+  if (portText === undefined) {
+    return DEFAULT_PORT;
+  }
+  const port = Number(portText);
+  if (!Number.isInteger(port) || port < MIN_PORT || port > MAX_PORT) {
+    throw new Error(`PORT must be an integer from ${MIN_PORT} to ${MAX_PORT}.`);
+  }
+  return port;
+}
+
 export async function startServer(options: StartServerOptions): Promise<void> {
-  const server = await options.buildServer({ resultRoot: resultRootFromArgs(options.argv) });
-  await server.listen({ host: '0.0.0.0', port: Number(options.env.PORT ?? DEFAULT_PORT) });
+  const resultRoot = resultRootFromArgs(options.argv);
+  const port = viewerPortFromEnv(options.env);
+  const server = await options.buildServer({ resultRoot });
+  await server.listen({ host: '0.0.0.0', port });
 }
 
 /* v8 ignore next 3 -- direct CLI launch is covered through startServer(). */
