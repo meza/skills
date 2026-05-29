@@ -8,7 +8,7 @@
     "biome:fix": "biome check --write .",
     "coverage": "vitest run --coverage",
     "dev": "npm run dev:server",
-    "dev:server": "npm run fixture:visual && tsx watch --clear-screen=false scripts/devServer.ts .tmp/visual-fixture",
+    "dev:server": "npm run build && npm run fixture:visual && tsx watch --clear-screen=false scripts/devServer.ts .tmp/visual-fixture",
     "fixture:visual": "tsx tests/fixtures/writeVisualFixture.ts",
     "serve": "tsx src/server/main.ts",
     "serve:visual": "npm run build && npm run fixture:visual && npm run serve -- .tmp/visual-fixture",
