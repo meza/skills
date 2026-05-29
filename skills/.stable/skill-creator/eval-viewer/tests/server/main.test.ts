@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PORT, resultRootFromArgs, startServer, viewerPortFromEnv } from '../../src/server/main.js';
+import { fs, vol } from '../support/memfs.js';
 
 describe('server entrypoint', () => {
   it('requires an evaluation result root argument', () => {
@@ -7,20 +8,27 @@ describe('server entrypoint', () => {
   });
 
   it('starts the server with the resolved result root and port', async () => {
+    vol.reset();
+    await fs.promises.mkdir('/cwd', { recursive: true });
     const listen = vi.fn(async () => undefined);
     const buildServer = vi.fn(async () => ({ listen }));
 
     await startServer({
       argv: ['node', 'main.ts', '.'],
       buildServer,
+      cwd: '/cwd',
       env: { PORT: '4123' }
     });
 
-    expect(buildServer).toHaveBeenCalledWith({ resultRoot: expect.stringMatching(/eval-viewer$/) });
+    expect(buildServer).toHaveBeenCalledWith({
+      logFilePath: expect.stringMatching(/eval-viewer\.log$/),
+      resultRoot: expect.stringMatching(/eval-viewer$/)
+    });
     expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: 4123 });
   });
 
   it('uses the shared viewer port when PORT is not set', async () => {
+    vol.reset();
     const listen = vi.fn(async () => undefined);
     const buildServer = vi.fn(async () => ({ listen }));
 
@@ -51,6 +59,31 @@ describe('server entrypoint', () => {
     ).rejects.toThrow(/PORT must be an integer from 1 to 65535/);
 
     expect(buildServer).not.toHaveBeenCalled();
+  });
+
+  it('rotates cwd-local log files before starting the server', async () => {
+    vol.reset();
+    await fs.promises.mkdir('/cwd', { recursive: true });
+    await fs.promises.writeFile('/cwd/eval-viewer.log', 'current', 'utf-8');
+    await fs.promises.writeFile('/cwd/eval-viewer.1.log', 'previous', 'utf-8');
+    await fs.promises.writeFile('/cwd/eval-viewer.2.log', 'oldest', 'utf-8');
+    const listen = vi.fn(async () => undefined);
+    const buildServer = vi.fn(async () => ({ listen }));
+
+    await startServer({
+      argv: ['node', 'main.ts', '.'],
+      buildServer,
+      cwd: '/cwd',
+      env: {}
+    });
+
+    await expect(fs.promises.readFile('/cwd/eval-viewer.log', 'utf-8')).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fs.promises.readFile('/cwd/eval-viewer.1.log', 'utf-8')).resolves.toBe('current');
+    await expect(fs.promises.readFile('/cwd/eval-viewer.2.log', 'utf-8')).resolves.toBe('previous');
+    expect(buildServer).toHaveBeenCalledWith({
+      logFilePath: expect.stringMatching(/eval-viewer\.log$/),
+      resultRoot: expect.stringMatching(/eval-viewer$/)
+    });
   });
 
   it('parses configured viewer ports', () => {

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { buildServer } from '../../src/server/buildServer.js';
+import { buildServer, fastifyLoggerOptions } from '../../src/server/buildServer.js';
 import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
 import { fs, vol } from '../support/memfs.js';
 
@@ -25,6 +25,14 @@ it('returns the current iteration through the JSON API', async () => {
     }
   });
   await server.close();
+});
+
+it('configures Fastify file logging when a log file path is provided', () => {
+  expect(fastifyLoggerOptions('/cwd/eval-viewer.log')).toEqual({
+    file: '/cwd/eval-viewer.log',
+    level: 'info'
+  });
+  expect(fastifyLoggerOptions(undefined)).toBe(false);
 });
 
 it('returns an individual run through the JSON API', async () => {

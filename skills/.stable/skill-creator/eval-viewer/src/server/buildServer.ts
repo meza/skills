@@ -1,15 +1,21 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
-import Fastify from 'fastify';
+import Fastify, { type FastifyServerOptions } from 'fastify';
 import type { FeedbackInput } from '../shared/viewModel.js';
 import { assertResultRoot, loadIteration, readArtifactText, saveFeedback } from './iterationRepository.js';
 
 export interface ServerOptions {
+  /** Log file path passed to Fastify's Pino-backed file logger. */
+  logFilePath?: string;
   /** Local eval result location that the server presents to the browser. */
   resultRoot: string;
   /** Built client asset directory to serve when tests or scripts provide one. */
   staticRoot?: string;
+}
+
+export function fastifyLoggerOptions(logFilePath: string | undefined): FastifyServerOptions['logger'] {
+  return logFilePath ? { file: logFilePath, level: 'info' } : false;
 }
 
 /**
@@ -20,7 +26,7 @@ export interface ServerOptions {
 export async function buildServer(options: ServerOptions) {
   await assertResultRoot(options.resultRoot);
   await loadIteration(options.resultRoot);
-  const server = Fastify({ logger: false });
+  const server = Fastify({ logger: fastifyLoggerOptions(options.logFilePath) });
 
   server.get('/api/iteration', async () => loadIteration(options.resultRoot));
   server.get<{ Params: { evalId: string; runType: string } }>('/api/runs/:evalId/:runType', async (request, reply) => {

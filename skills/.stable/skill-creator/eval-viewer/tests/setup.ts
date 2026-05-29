@@ -8,6 +8,7 @@ const fsPromisesMock = {
   mkdir: fs.promises.mkdir.bind(fs.promises),
   readFile: fs.promises.readFile.bind(fs.promises),
   readdir: fs.promises.readdir.bind(fs.promises),
+  rename: fs.promises.rename.bind(fs.promises),
   rm: fs.promises.rm.bind(fs.promises),
   stat: fs.promises.stat.bind(fs.promises),
   writeFile: fs.promises.writeFile.bind(fs.promises)
