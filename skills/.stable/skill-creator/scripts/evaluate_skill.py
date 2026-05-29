@@ -5,6 +5,7 @@ import argparse
 import signal
 import json
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import replace
@@ -135,16 +136,21 @@ def execute(args: argparse.Namespace) -> dict:
         stop_git_fsmonitor_daemons(prepared_run.run_root)
         process_registry.kill_all()
 
+    iteration_dir = (
+        prepared_run.run_root / "results" / f"iteration-{run_manifest['iteration']}"
+    )
+    aggregation_start = time.monotonic()
+    print("Aggregating grading results...", flush=True)
     aggregation = GradingResultAggregator(
-        iteration_dir=prepared_run.run_root
-        / "results"
-        / f"iteration-{run_manifest['iteration']}",
+        iteration_dir=iteration_dir,
         skill_name=prepared_run.skill_name,
         skill_path=args.skill_path,
         provider=args.provider,
         model=run_manifest.get("model", args.model or "default"),
         effort=run_manifest.get("effort", args.effort or "default"),
     ).aggregate()
+    aggregation_duration_ms = int((time.monotonic() - aggregation_start) * 1000)
+    print(f"Aggregating grading results done ({aggregation_duration_ms}ms)", flush=True)
 
     return {
         "prepare": prepared_run.to_summary(),

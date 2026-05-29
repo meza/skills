@@ -407,10 +407,13 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 grading_job_factory=grading_job_factory,
             )
 
-            with mock.patch.object(
-                eval_job,
-                "run_with_timeout",
-                return_value=timed_process_result(stdout="stdout", duration_ms=50),
+            with (
+                mock.patch.object(
+                    eval_job,
+                    "run_with_timeout",
+                    return_value=timed_process_result(stdout="stdout", duration_ms=50),
+                ),
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
             ):
                 job.run()
 
@@ -418,6 +421,8 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 graded_paths,
                 [iteration_dir / "eval-1" / "skill"],
             )
+            self.assertIn("  [skill] eval-1 grading starting...", stdout.getvalue())
+            self.assertIn("  [skill] eval-1 grading done (", stdout.getvalue())
 
     def test_eval_job_records_grading_failure_in_run_summary(self):
         with tempfile.TemporaryDirectory() as temp_dir:

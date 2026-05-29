@@ -771,6 +771,11 @@ class EvalJob:
     def run_grading_job(self) -> None:
         if self.execution_status != "success" or not self.grading_job_factory:
             return
+        start_time = time.monotonic()
+        print(
+            f"  [{self.run_type}] eval-{self.eval_id} grading starting...",
+            flush=True,
+        )
         try:
             self.grading_job_factory(self).run()
         except Exception as error:
@@ -780,6 +785,13 @@ class EvalJob:
                 f"  [{self.run_type}] eval-{self.eval_id} GRADING ERROR: "
                 f"{self.error_message}",
                 file=sys.stderr,
+            )
+        else:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            print(
+                f"  [{self.run_type}] eval-{self.eval_id} grading done "
+                f"({duration_ms}ms)",
+                flush=True,
             )
 
     def timing(self) -> dict:

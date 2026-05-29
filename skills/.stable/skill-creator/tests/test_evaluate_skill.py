@@ -72,19 +72,20 @@ class EvaluateSkillTests(unittest.TestCase):
                 aggregation_result
             )
 
-            result = evaluate_skill.execute(
-                argparse.Namespace(
-                    skill_path=Path("F:/skills/sample-skill"),
-                    run_root=Path("F:/runs"),
-                    provider="codex",
-                    model="gpt-5.4",
-                    effort="high",
-                    eval_ids="1,2",
-                    skip_baseline=False,
-                    max_parallel=12,
-                    timeout=900,
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                result = evaluate_skill.execute(
+                    argparse.Namespace(
+                        skill_path=Path("F:/skills/sample-skill"),
+                        run_root=Path("F:/runs"),
+                        provider="codex",
+                        model="gpt-5.4",
+                        effort="high",
+                        eval_ids="1,2",
+                        skip_baseline=False,
+                        max_parallel=12,
+                        timeout=900,
+                    )
                 )
-            )
 
         self.assertEqual(
             result,
@@ -133,6 +134,8 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(aggregator_args["effort"], "high")
         grading_result_aggregator.return_value.aggregate.assert_called_once_with()
         stop_fsmonitor.assert_called_once_with(prepared_run.run_root)
+        self.assertIn("Aggregating grading results...", stdout.getvalue())
+        self.assertIn("Aggregating grading results done (", stdout.getvalue())
 
     def test_execute_kills_active_processes_when_eval_runner_fails(self):
         prepared_run = PreparedRun(

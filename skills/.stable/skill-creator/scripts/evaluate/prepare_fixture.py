@@ -4,16 +4,15 @@ Prepare isolated run directories for skill evals.
 
 The orchestrator provides a skill directory, a base run root, and a provider.
 The module reads <skill>/evals/evals.json, stages any shared fixture source,
-creates a fresh prepared run root, and prepares one working directory for each
+uses the stable workdirs root, and prepares one working directory for each
 eval run type:
 
     <run-root>/
       fixtures/                 # cloned or reused fixture source, when needed
       workdirs/
-        prepared-xxxxxx/         # fresh prepared workdir root for this invocation
-          eval-1/
-            skill/               # provider-specific skills/<skill-name>/ copy
-            baseline/            # no skill copy
+        eval-1/
+          skill/                 # provider-specific skills/<skill-name>/ copy
+          baseline/              # no skill copy
 
 Each eval directory is isolated from every other eval directory. Within an eval,
 the skill and baseline run types receive separate fixture copies
@@ -25,16 +24,16 @@ eval runner:
 
     PreparedRun(
         eval_definitions_path=Path("<skill>/evals/evals.json"),
-        run_root=Path("<prepared-run-root>"),
+        run_root=Path("<run-root>"),
         provider="claude",
         skill_name="example-skill",
         evals=[
             PreparedEval(
                 eval_id=1,
                 eval_name="basic",
-                skill_run_path=Path("<prepared-run-root>/eval-1/skill"),
-                baseline_run_path=Path("<prepared-run-root>/eval-1/baseline"),
-                skill_file=Path("<prepared-run-root>/eval-1/skill/.../SKILL.md"),
+                skill_run_path=Path("<run-root>/workdirs/eval-1/skill"),
+                baseline_run_path=Path("<run-root>/workdirs/eval-1/baseline"),
+                skill_file=Path("<run-root>/workdirs/eval-1/skill/.../SKILL.md"),
                 skill_fixture_path=None,
                 baseline_fixture_path=None,
             )
@@ -42,11 +41,12 @@ eval runner:
     )
 """
 
+import os
+import re
 import shutil
+import stat
 import subprocess
 import sys
-import tempfile
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -175,7 +175,7 @@ class FixturePreparer:
 
     The preparer owns the old fixture preparation workflow as application code.
     It validates the skill's eval definitions, stages shared fixtures when an
-    eval uses them, creates a fresh prepared run root, and returns a PreparedRun
+    eval uses them, creates stable eval workdirs, and returns a PreparedRun
     object that the eval runner can consume directly. It does not write an
     interchange manifest file.
     """
@@ -200,7 +200,7 @@ class FixturePreparer:
         base.mkdir(parents=True, exist_ok=True)
 
         fixture_staging = resolve_fixture_staging_or_exit(selected_evals_data, base)
-        run_root = create_prepared_workdir_root(base)
+        run_root = create_workdir_root(base)
 
         prepared_evals = [
             prepare_eval(
@@ -721,15 +721,23 @@ def reset_prepared_eval_dir(run_root: Path, eval_id: int) -> None:
     shutil.rmtree(eval_dir)
 
 
-def create_prepared_workdir_root(run_root: Path) -> Path:
-    """Reserve a unique prepared workdir root for one eval invocation.
-
-    Existing invocation directories are left intact so repeated or concurrent
-    eval preparations do not delete work another runner may still be using.
-    """
+def create_workdir_root(run_root: Path) -> Path:
+    """Create an empty stable eval workdir root for this run."""
     workdirs = run_root / "workdirs"
+    if workdirs.exists():
+        remove_tree(workdirs)
     workdirs.mkdir(parents=True, exist_ok=True)
-    return Path(tempfile.mkdtemp(prefix="prepared-", dir=workdirs))
+    return workdirs
+
+
+def remove_tree(path: Path) -> None:
+    """Remove an orchestrator-owned tree, retrying read-only files on Windows."""
+    shutil.rmtree(path, onexc=retry_read_only_delete)
+
+
+def retry_read_only_delete(function, path, _error) -> None:
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
 
 
 def assert_eval_dir_inside_run_root_or_exit(

@@ -1034,30 +1034,29 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertFalse(eval_dir.exists())
 
-    def test_create_prepared_workdir_root_reserves_unique_invocation_directory(self):
+    def test_create_workdir_root_returns_stable_workdirs_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_root = Path(temp_dir)
 
-            first = prepare_fixture.create_prepared_workdir_root(run_root)
-            second = prepare_fixture.create_prepared_workdir_root(run_root)
+            first = prepare_fixture.create_workdir_root(run_root)
+            second = prepare_fixture.create_workdir_root(run_root)
 
-            self.assertEqual(first.parent, run_root / "workdirs")
-            self.assertEqual(second.parent, run_root / "workdirs")
-            self.assertNotEqual(first, second)
+            self.assertEqual(first, run_root / "workdirs")
+            self.assertEqual(second, run_root / "workdirs")
             self.assertTrue(first.is_dir())
-            self.assertTrue(second.is_dir())
 
-    def test_create_prepared_workdir_root_preserves_existing_active_workdirs(self):
+    def test_create_workdir_root_removes_existing_workdirs_content(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run_root = Path(temp_dir)
-            active_file = run_root / "workdirs" / "active" / "eval-1" / "marker.txt"
+            active_file = run_root / "workdirs" / "eval-1" / "marker.txt"
             active_file.parent.mkdir(parents=True)
             active_file.write_text("active", encoding="utf-8")
 
-            prepared_root = prepare_fixture.create_prepared_workdir_root(run_root)
+            workdir_root = prepare_fixture.create_workdir_root(run_root)
 
-            self.assertTrue(prepared_root.is_dir())
-            self.assertEqual(active_file.read_text(encoding="utf-8"), "active")
+            self.assertEqual(workdir_root, run_root / "workdirs")
+            self.assertFalse(active_file.exists())
+            self.assertTrue(workdir_root.exists())
 
     def test_assert_eval_dir_inside_run_root_accepts_direct_child(self):
         with tempfile.TemporaryDirectory() as temp_dir:
