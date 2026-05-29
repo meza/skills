@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { RunNavigation } from '../../src/client/components/RunNavigation.js';
+import { RunFilter } from '../../src/client/runFilters.js';
 import { iterationView } from './appFixture.js';
 
 it('renders filters, eval links, review statuses, and selection state', async () => {
@@ -16,7 +17,7 @@ it('renders filters, eval links, review statuses, and selection state', async ()
 
   render(
     <RunNavigation
-      filter="all"
+      filter={RunFilter.AllRuns}
       onFilterChange={onFilterChange}
       onRunSelect={onRunSelect}
       runs={[selectedRun, failedRun]}
@@ -36,7 +37,7 @@ it('renders filters, eval links, review statuses, and selection state', async ()
   expect(within(failedLink).getByText('fail')).toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: /^fail$/i }));
-  expect(onFilterChange).toHaveBeenCalledWith('fail');
+  expect(onFilterChange).toHaveBeenCalledWith(RunFilter.FailingRuns);
 
   await user.click(failedLink);
   expect(onRunSelect).toHaveBeenCalledWith(failedRun);
