@@ -9,7 +9,7 @@ it('renders turn prompts, responses, transcripts, metadata, and artifact links',
     throw new Error('Expected a run for the transcript fixture.');
   }
 
-  render(<TranscriptPanel run={{ ...run, turns: [{ ...run.turns[0]!, response: '' }] }} />);
+  render(<TranscriptPanel iteration={4} run={{ ...run, turns: [{ ...run.turns[0]!, response: '' }] }} />);
 
   expect(screen.getByRole('heading', { name: 'Execution History' })).toBeInTheDocument();
   expect(screen.getByText('Turn 1')).toBeInTheDocument();
@@ -20,7 +20,7 @@ it('renders turn prompts, responses, transcripts, metadata, and artifact links',
   expect(screen.getByText('019e64c2-2d87-7a21-a12c-d569bab5c067')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Raw JSON Output' })).toHaveAttribute(
     'href',
-    `/api/artifacts?path=${encodeURIComponent(run.artifactPaths.rawOutput as string)}`
+    `/api/artifacts?iteration=4&path=${encodeURIComponent(run.artifactPaths.rawOutput as string)}`
   );
 });
 
@@ -31,7 +31,10 @@ it('renders final-response fallback when no turn history exists', () => {
   }
 
   render(
-    <TranscriptPanel run={{ ...run, finalResponse: '', providerSessionId: '', turns: [], workingDirectory: '' }} />
+    <TranscriptPanel
+      iteration={4}
+      run={{ ...run, finalResponse: '', providerSessionId: '', turns: [], workingDirectory: '' }}
+    />
   );
 
   expect(screen.getByText('Final Response')).toBeInTheDocument();

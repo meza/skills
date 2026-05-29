@@ -3,7 +3,7 @@ import { runKey } from '../../src/client/feedbackDraft.js';
 import { artifactHref } from '../../src/client/formatters.js';
 
 it('formats missing artifact links as inert links', () => {
-  expect(artifactHref(undefined)).toBe('#');
+  expect(artifactHref(undefined, 4)).toBe('#');
 });
 
 it('formats a missing run key as empty text', () => {

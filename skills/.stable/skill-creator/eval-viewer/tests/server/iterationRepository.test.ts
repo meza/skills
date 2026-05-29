@@ -3,17 +3,22 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { validateArtifactSchema } from '../../src/server/artifactSchemas.js';
 import { loadIteration, saveFeedback } from '../../src/server/iterationRepository.js';
 import { writeRichEvaluationWorkspace } from '../fixtures/richEvaluation.js';
-import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
+import {
+  SAMPLE_SKILL_EXPECTATION_ID,
+  writeSampleIteration,
+  writeSampleWorkspaceWithHistory
+} from '../fixtures/sampleIteration.js';
 import { fs, vol } from '../support/memfs.js';
 
 vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
 
 let root: string;
+let iterationRoot: string;
 
 beforeEach(async () => {
   vol.reset();
   root = join('/memory', 'current');
-  await writeSampleIteration(root);
+  iterationRoot = await writeSampleWorkspaceWithHistory(root);
 });
 
 it('loads an iteration from explicit evaluator artifacts with comparison data', async () => {
@@ -35,9 +40,11 @@ it('loads an iteration from explicit evaluator artifacts with comparison data', 
     providerSessionId: '019e64c2-2d87-7a21-a12c-d569bab5c067',
     tokenCount: 1200,
     durationSeconds: 24,
-    workingDirectory: join(root, 'eval-1', 'skill', 'work')
+    workingDirectory: join(iterationRoot, 'eval-1', 'skill', 'work')
   });
-  expect(iteration.runs[0]?.artifactPaths.runArtifacts).toBe(join(root, 'eval-1', 'skill', 'run_artifacts.json'));
+  expect(iteration.runs[0]?.artifactPaths.runArtifacts).toBe(
+    join(iterationRoot, 'eval-1', 'skill', 'run_artifacts.json')
+  );
   expect(iteration.runs[0]?.comparisons.baseline).toMatchObject({
     runType: 'baseline',
     passRateDelta: 1,
@@ -51,15 +58,52 @@ it('loads an iteration from explicit evaluator artifacts with comparison data', 
   });
 });
 
-it('loads the latest iteration when given an evaluation results workspace root', async () => {
+it('rejects direct iteration roots', async () => {
+  await expect(loadIteration(iterationRoot)).rejects.toThrow(/must contain results\/iteration-N artifacts/i);
+});
+
+it('uses iteration directory numbers instead of manifest iteration values when selecting latest', async () => {
   const workspaceRoot = join(root, 'workspace');
-  await writeSampleIteration(join(workspaceRoot, 'results', 'iteration-1'), { iteration: 3 });
-  await writeSampleIteration(join(workspaceRoot, 'results', 'iteration-3'), { iteration: 5 });
+  const olderDirectoryNumber = 1;
+  const latestDirectoryNumber = 3;
+  const mismatchedOlderManifestIteration = 3;
+  const mismatchedLatestManifestIteration = 5;
+  await writeSampleIteration(join(workspaceRoot, 'results', `iteration-${olderDirectoryNumber}`), {
+    iteration: mismatchedOlderManifestIteration
+  });
+  await writeSampleIteration(join(workspaceRoot, 'results', `iteration-${latestDirectoryNumber}`), {
+    iteration: mismatchedLatestManifestIteration
+  });
 
   const iteration = await loadIteration(workspaceRoot);
 
-  expect(iteration.summary.iteration).toBe(5);
-  expect(iteration.runs[0]?.artifactPaths.grading).toContain('iteration-3');
+  expect(iteration.summary).toMatchObject({
+    availableIterations: [olderDirectoryNumber, latestDirectoryNumber],
+    isLatest: true,
+    iteration: latestDirectoryNumber,
+    latestIteration: latestDirectoryNumber
+  });
+  expect(iteration.summary.iteration).not.toBe(mismatchedLatestManifestIteration);
+  expect(iteration.runs[0]?.artifactPaths.grading).toContain(`iteration-${latestDirectoryNumber}`);
+});
+
+it('loads a requested iteration from an evaluation workspace root', async () => {
+  const workspaceRoot = join(root, 'selected-workspace');
+  await writeSampleIteration(join(workspaceRoot, 'results', 'iteration-1'), { iteration: 1 });
+  await writeSampleIteration(join(workspaceRoot, 'results', 'iteration-3'), { iteration: 3 });
+
+  const iteration = await loadIteration(workspaceRoot, { iteration: 1 });
+
+  expect(iteration.summary).toMatchObject({
+    isLatest: false,
+    iteration: 1,
+    latestIteration: 3
+  });
+  expect(iteration.runs[0]?.artifactPaths.grading).toContain('iteration-1');
+});
+
+it('rejects a requested iteration that does not exist', async () => {
+  await expect(loadIteration(root, { iteration: 9 })).rejects.toThrow(/iteration-9 does not exist/);
 });
 
 it('loads a representative workspace with comparisons, large counts, and failures', async () => {
@@ -100,7 +144,7 @@ it('loads a representative workspace with comparisons, large counts, and failure
 
 it('uses real grader turn results from recorded artifact paths', async () => {
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
       executive_summary: 'The run satisfied all turn expectations.',
       results: {
@@ -129,7 +173,7 @@ it('uses real grader turn results from recorded artifact paths', async () => {
     'utf-8'
   );
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -179,11 +223,11 @@ it('uses real grader turn results from recorded artifact paths', async () => {
 });
 
 it('rejects missing required run artifacts', async () => {
-  await fs.promises.rm(join(root, 'eval-1', 'skill', 'grading.json'));
-  await fs.promises.rm(join(root, 'eval-1', 'skill', 'raw_output.jsonl'));
-  await fs.promises.rm(join(root, 'eval-1', 'skill', 'timing.json'));
-  await fs.promises.rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
-  await fs.promises.rm(join(root, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
+  await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'grading.json'));
+  await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'raw_output.jsonl'));
+  await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'timing.json'));
+  await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
+  await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
 
   await expect(loadIteration(root)).rejects.toThrow(
     /Missing (grading\.json|raw_output\.jsonl|timing\.json|response\.md|transcript\.md)/
@@ -191,13 +235,13 @@ it('rejects missing required run artifacts', async () => {
 });
 
 it('rejects invalid grading artifacts', async () => {
-  await fs.promises.writeFile(join(root, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
+  await fs.promises.writeFile(join(iterationRoot, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
 });
 
 it('rejects invalid optional generated artifacts when they are present', async () => {
-  await fs.promises.writeFile(join(root, 'aggregated_results.json'), '{', 'utf-8');
+  await fs.promises.writeFile(join(iterationRoot, 'aggregated_results.json'), '{', 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid aggregated_results\.json/);
 });
@@ -207,13 +251,13 @@ it('rejects unknown artifact schema names', async () => {
 });
 
 it('rejects timing artifacts that do not match the schema', async () => {
-  await fs.promises.writeFile(join(root, 'eval-1', 'skill', 'timing.json'), JSON.stringify({}), 'utf-8');
+  await fs.promises.writeFile(join(iterationRoot, 'eval-1', 'skill', 'timing.json'), JSON.stringify({}), 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid timing\.json/);
 });
 
 it('writes viewer feedback without mutating evaluator artifacts', async () => {
-  const gradingPath = join(root, 'eval-1', 'skill', 'grading.json');
+  const gradingPath = join(iterationRoot, 'eval-1', 'skill', 'grading.json');
   const before = await fs.promises.readFile(gradingPath, 'utf-8');
 
   await saveFeedback(root, {
@@ -234,7 +278,7 @@ it('writes viewer feedback without mutating evaluator artifacts', async () => {
   });
 
   expect(await fs.promises.readFile(gradingPath, 'utf-8')).toBe(before);
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
   expect(feedback.reviews).toContainEqual(
     expect.objectContaining({
       comments: 'Looks correct, but add a stricter markdown assertion.',
@@ -254,7 +298,7 @@ it('writes viewer feedback without mutating evaluator artifacts', async () => {
   );
   expect(JSON.stringify(feedback)).not.toContain('review_state');
   expect(JSON.stringify(feedback)).not.toContain('""');
-  await expect(fs.promises.stat(join(root, 'viewer_feedback.json'))).resolves.toBeTruthy();
+  await expect(fs.promises.stat(join(iterationRoot, 'viewer_feedback.json'))).resolves.toBeTruthy();
 });
 
 it('writes only non-empty viewer feedback content', async () => {
@@ -278,7 +322,7 @@ it('writes only non-empty viewer feedback content', async () => {
     ]
   });
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
 
   expect(feedback).toEqual({
     reviews: [
@@ -302,7 +346,7 @@ it('does not write a review entry when all feedback fields are blank', async () 
     turns: [{ expectations: [{ comment: '', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
   });
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
 
   expect(feedback).toEqual({ reviews: [] });
   expect(JSON.stringify(feedback)).not.toContain('""');
@@ -311,7 +355,7 @@ it('does not write a review entry when all feedback fields are blank', async () 
 
 it('removes an existing review entry when saved feedback is cleared', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -335,14 +379,14 @@ it('removes an existing review entry when saved feedback is cleared', async () =
     turns: []
   });
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
 
   expect(feedback).toEqual({ reviews: [] });
 });
 
 it('rejects preserving an empty existing feedback review', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify({ reviews: [{ eval_id: 2, updated_at: '2026-05-26T12:00:00.000Z' }] }, null, 2)}\n`,
     'utf-8'
   );
@@ -354,7 +398,7 @@ it('rejects preserving an empty existing feedback review', async () => {
 
 it('preserves existing comment-only feedback reviews', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -378,7 +422,7 @@ it('preserves existing comment-only feedback reviews', async () => {
     turns: []
   });
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
   expect(feedback.reviews).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ comments: 'Old note.', eval_id: 2 }),
@@ -403,7 +447,7 @@ it('preserves concurrent feedback saves for different evals', async () => {
     })
   ]);
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
   expect(feedback.reviews).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ comments: 'First eval note.', eval_id: 1 }),
@@ -414,7 +458,7 @@ it('preserves concurrent feedback saves for different evals', async () => {
 
 it('rejects preserving an invalid existing feedback turn', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -441,7 +485,7 @@ it('rejects preserving an invalid existing feedback turn', async () => {
 
 it('rejects preserving invalid existing expectation feedback', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -466,7 +510,7 @@ it('rejects preserving invalid existing expectation feedback', async () => {
 
 it('loads viewer feedback keyed by eval_id', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -498,7 +542,7 @@ it('loads viewer feedback keyed by eval_id', async () => {
 
 it('loads expectation feedback by expectation id instead of array position', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -543,7 +587,7 @@ it('loads expectation feedback by expectation id instead of array position', asy
 it('loads overall expectation feedback by expectation id', async () => {
   const overallExpectationId = '10a375c5-12f4-5a15-b5bd-951f7d6204f1';
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
       executive_summary: 'Overall grading summary.',
       results: {
@@ -562,7 +606,7 @@ it('loads overall expectation feedback by expectation id', async () => {
     'utf-8'
   );
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -589,7 +633,7 @@ it('loads overall expectation feedback by expectation id', async () => {
 it('keeps overall expectation feedback empty when no review exists', async () => {
   const overallExpectationId = '12c08335-3aa6-57ef-9b2f-78f8164497cd';
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
       executive_summary: 'Overall grading summary.',
       results: {
@@ -615,7 +659,7 @@ it('keeps overall expectation feedback empty when no review exists', async () =>
 
 it('rejects malformed eval ids in current feedback artifacts', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -637,7 +681,7 @@ it('rejects malformed eval ids in current feedback artifacts', async () => {
 
 it('updates existing viewer feedback entries by eval_id', async () => {
   await fs.promises.writeFile(
-    join(root, 'viewer_feedback.json'),
+    join(iterationRoot, 'viewer_feedback.json'),
     `${JSON.stringify(
       {
         reviews: [
@@ -672,7 +716,7 @@ it('updates existing viewer feedback entries by eval_id', async () => {
     ]
   });
 
-  const feedback = JSON.parse(await fs.promises.readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  const feedback = JSON.parse(await fs.promises.readFile(join(iterationRoot, 'viewer_feedback.json'), 'utf-8'));
   expect(feedback.reviews).toHaveLength(1);
   expect(feedback.reviews[0]).toMatchObject({
     comments: 'Updated note.',
@@ -689,7 +733,7 @@ it('updates existing viewer feedback entries by eval_id', async () => {
 });
 
 it('rejects manifest artifacts that do not match the schema', async () => {
-  const manifestPath = join(root, 'run_manifest.json');
+  const manifestPath = join(iterationRoot, 'run_manifest.json');
   const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
   manifest.runs[0].execution_status = 'queued';
   await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
@@ -698,7 +742,7 @@ it('rejects manifest artifacts that do not match the schema', async () => {
 });
 
 it('loads runs without exposing execution status in the viewer model', async () => {
-  const manifestPath = join(root, 'run_manifest.json');
+  const manifestPath = join(iterationRoot, 'run_manifest.json');
   const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
   manifest.runs[0].execution_status = 'error';
@@ -712,7 +756,7 @@ it('loads runs without exposing execution status in the viewer model', async () 
 
 it('rejects malformed turn artifact entries', async () => {
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'run_artifacts.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'run_artifacts.json'),
     JSON.stringify({ artifacts: { turns: [{}] } }),
     'utf-8'
   );
@@ -721,20 +765,16 @@ it('rejects malformed turn artifact entries', async () => {
 });
 
 it('loads previous iteration comparisons from numbered iteration directories', async () => {
-  const iterationRoot = join(root, 'iteration-1');
-  await writeSampleIteration(iterationRoot);
-  await writeSampleIteration(join(root, 'iteration-0'));
-
-  const iteration = await loadIteration(iterationRoot);
+  const iteration = await loadIteration(root);
 
   expect(iteration.runs[0]?.comparisons.previousIteration).toMatchObject({
     runType: 'skill',
-    passRateDelta: 0
+    passRateDelta: 1
   });
 });
 
 it('surfaces malformed previous iteration comparison artifacts', async () => {
-  await fs.promises.writeFile(join(root, 'iteration-0', 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
+  await fs.promises.writeFile(join(root, 'results', 'iteration-0', 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
 
   const iteration = await loadIteration(root);
 
@@ -749,7 +789,7 @@ it('surfaces malformed previous iteration comparison artifacts', async () => {
 });
 
 it('surfaces incomplete previous iteration comparison artifacts', async () => {
-  await fs.promises.rm(join(root, 'iteration-0', 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
+  await fs.promises.rm(join(root, 'results', 'iteration-0', 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
 
   const iteration = await loadIteration(root);
 
@@ -765,7 +805,7 @@ it('surfaces incomplete previous iteration comparison artifacts', async () => {
 
 it('rejects run artifacts without turn entries', async () => {
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'run_artifacts.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'run_artifacts.json'),
     JSON.stringify({ artifacts: {} }),
     'utf-8'
   );
@@ -775,7 +815,7 @@ it('rejects run artifacts without turn entries', async () => {
 
 it('keeps expectations empty when grading has no expectation results', async () => {
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
       executive_summary: 'No expectations were graded.',
       results: { overall_expectations: [], turns: [] },
@@ -792,7 +832,7 @@ it('keeps expectations empty when grading has no expectation results', async () 
 
 it('rejects grader turn entries without expectation arrays', async () => {
   await fs.promises.writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
+    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
       executive_summary: 'Malformed turn.',
       results: {
@@ -807,7 +847,7 @@ it('rejects grader turn entries without expectation arrays', async () => {
 });
 
 it('rejects omitted manifest statuses', async () => {
-  const manifestPath = join(root, 'run_manifest.json');
+  const manifestPath = join(iterationRoot, 'run_manifest.json');
   const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
   delete manifest.runs[0].execution_status;
@@ -816,14 +856,22 @@ it('rejects omitted manifest statuses', async () => {
   await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
 });
 
-it('rejects a result root that points at a file', async () => {
-  const fileRoot = join(root, 'run_manifest.json');
+it('rejects a workspace root that points at a file', async () => {
+  const fileRoot = join(iterationRoot, 'run_manifest.json');
 
   await expect(loadIteration(fileRoot)).rejects.toThrow(/not a directory/i);
 });
 
+it('rejects a workspace whose results path is a file', async () => {
+  const workspaceRoot = join(root, 'workspace-with-file-results');
+  await fs.promises.mkdir(workspaceRoot, { recursive: true });
+  await fs.promises.writeFile(join(workspaceRoot, 'results'), 'not a directory', 'utf-8');
+
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(/results path is not a directory/i);
+});
+
 it('rejects an empty iteration when the manifest has no run array', async () => {
-  await fs.promises.writeFile(join(root, 'run_manifest.json'), JSON.stringify({ iteration: 1 }), 'utf-8');
+  await fs.promises.writeFile(join(iterationRoot, 'run_manifest.json'), JSON.stringify({ iteration: 1 }), 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/i);
 });
@@ -834,7 +882,7 @@ it('rejects a directory that is neither an iteration root nor an evaluation work
   await writeSampleIteration(join(unrelatedRoot, 'other', 'iteration-1'));
   await fs.promises.rm(join(unrelatedRoot, 'other'), { recursive: true });
 
-  await expect(loadIteration(unrelatedRoot)).rejects.toThrow(/run_manifest\.json/);
+  await expect(loadIteration(unrelatedRoot)).rejects.toThrow(/results\/iteration-N artifacts/);
 });
 
 it('rejects an evaluation workspace when no iteration manifests exist', async () => {
@@ -842,5 +890,15 @@ it('rejects an evaluation workspace when no iteration manifests exist', async ()
   await writeSampleIteration(join(workspaceRoot, 'results', 'draft'));
   await fs.promises.rm(join(workspaceRoot, 'results', 'draft'), { recursive: true });
 
-  await expect(loadIteration(workspaceRoot)).rejects.toThrow(/run_manifest\.json/);
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(/no valid results\/iteration-N artifacts/);
+});
+
+it('ignores iteration directories without manifests', async () => {
+  const workspaceRoot = join(root, 'workspace-with-missing-manifest');
+  await writeSampleIteration(join(workspaceRoot, 'results', 'iteration-1'), { iteration: 1 });
+  await fs.promises.mkdir(join(workspaceRoot, 'results', 'iteration-2'), { recursive: true });
+
+  const iteration = await loadIteration(workspaceRoot);
+
+  expect(iteration.summary.availableIterations).toEqual([1]);
 });

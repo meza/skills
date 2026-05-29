@@ -11,8 +11,11 @@ export function iterationView(): IterationView {
     feedbackPath: 'F:/runs/viewer_feedback.json',
     runs: [skillRunView(), baselineRunView()],
     summary: {
+      availableIterations: [1, 2, 3, 4],
       effort: 'high',
-      iteration: 1,
+      isLatest: true,
+      iteration: 4,
+      latestIteration: 4,
       model: 'gpt-5',
       provider: 'codex',
       runCount: 2,

@@ -10,9 +10,22 @@ it('renders eval identity, summary copy, metrics, and pager state', async () => 
   if (!run) {
     throw new Error('Expected a run for the summary fixture.');
   }
+  const summary = iterationView().summary;
   const selectRunAt = vi.fn();
 
-  render(<RunSummary reviewRunCount={2} run={run} selectedIndex={0} selectRunAt={selectRunAt} />);
+  render(
+    <RunSummary
+      isRefreshingIterations={false}
+      iterationStatus=""
+      iterationSummary={summary}
+      onIterationRefreshAfterSavingFeedback={async () => undefined}
+      onIterationSelectAfterSavingFeedback={async () => undefined}
+      reviewRunCount={2}
+      run={run}
+      selectedIndex={0}
+      selectRunAt={selectRunAt}
+    />
+  );
 
   expect(screen.getByText('Eval ID: 1')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: run.evalName })).toBeInTheDocument();
@@ -27,12 +40,23 @@ it('renders eval identity, summary copy, metrics, and pager state', async () => 
 
 it('renders fallback summary and disables the final pager control', () => {
   const run = iterationView().runs[0];
+  const summary = iterationView().summary;
   if (!run) {
     throw new Error('Expected a run for the summary fixture.');
   }
 
   render(
-    <RunSummary reviewRunCount={2} run={{ ...run, executiveSummary: '' }} selectedIndex={1} selectRunAt={vi.fn()} />
+    <RunSummary
+      isRefreshingIterations={false}
+      iterationStatus=""
+      iterationSummary={summary}
+      onIterationRefreshAfterSavingFeedback={async () => undefined}
+      onIterationSelectAfterSavingFeedback={async () => undefined}
+      reviewRunCount={2}
+      run={{ ...run, executiveSummary: '' }}
+      selectedIndex={1}
+      selectRunAt={vi.fn()}
+    />
   );
 
   expect(screen.getByText('No executive summary was provided.')).toBeInTheDocument();

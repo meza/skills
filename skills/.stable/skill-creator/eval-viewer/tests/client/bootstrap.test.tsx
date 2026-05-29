@@ -42,7 +42,9 @@ describe('client bootstrap', () => {
     );
     const container = document.createElement('div');
 
-    await expect(renderViewer(container)).rejects.toThrow('Could not load evaluation results.');
+    await expect(renderViewer(container)).rejects.toThrow(
+      'Could not load evaluation results: 500 from /api/iteration.'
+    );
     expect(container.textContent).toBe('');
     vi.unstubAllGlobals();
   });

@@ -9,21 +9,28 @@ const MAX_PORT = 65535;
 
 interface StartServerOptions {
   argv: string[];
-  buildServer: (options: { logFilePath: string; resultRoot: string }) => Promise<{
+  buildServer: (options: { logFilePath: string; workspaceRoot: string }) => Promise<{
     listen: (options: { host: string; port: number }) => Promise<unknown>;
   }>;
   cwd?: string;
   env: NodeJS.ProcessEnv;
 }
 
-export function resultRootFromArgs(argv: string[]): string {
-  const resultRoot = argv[2];
-  if (!resultRoot) {
-    throw new Error('Usage: npm run serve -- <evaluation-result-root>');
+/**
+ * Resolves the required serve argument to the evaluation workspace root.
+ *
+ * The serve command accepts only a workspace root containing `results/iteration-N`.
+ * Direct iteration roots are rejected later during repository startup validation.
+ */
+export function workspaceRootFromArgs(argv: string[]): string {
+  const workspaceRoot = argv[2];
+  if (!workspaceRoot) {
+    throw new Error('Usage: npm run serve -- <evaluation-workspace-root>');
   }
-  return resolve(resultRoot);
+  return resolve(workspaceRoot);
 }
 
+/** Reads the HTTP port from `PORT`, defaulting to the viewer port when it is unset. */
 export function viewerPortFromEnv(env: NodeJS.ProcessEnv): number {
   const portText = env.PORT;
   if (portText === undefined) {
@@ -36,12 +43,18 @@ export function viewerPortFromEnv(env: NodeJS.ProcessEnv): number {
   return port;
 }
 
+/**
+ * Starts the packaged eval viewer server.
+ *
+ * Startup rotates local viewer logs, validates the workspace through `buildServer`,
+ * and binds Fastify on all interfaces so the browser can open the local UI.
+ */
 export async function startServer(options: StartServerOptions): Promise<void> {
-  const resultRoot = resultRootFromArgs(options.argv);
+  const workspaceRoot = workspaceRootFromArgs(options.argv);
   const port = viewerPortFromEnv(options.env);
   const logFilePath = logFilePathFromCwd(options.cwd ?? process.cwd());
   await rotateLogFiles(logFilePath);
-  const server = await options.buildServer({ logFilePath, resultRoot });
+  const server = await options.buildServer({ logFilePath, workspaceRoot });
   await server.listen({ host: '0.0.0.0', port });
 }
 

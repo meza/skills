@@ -3,7 +3,7 @@
   "info": {
     "title": "Eval Viewer Local API",
     "version": "0.1.0",
-    "description": "HTTP API for the local eval viewer. The server reads evaluator-produced artifacts from a local result root and writes viewer_feedback.json for human review notes."
+    "description": "HTTP API for the local eval viewer. The server reads evaluator-produced artifacts from a local evaluation workspace root and writes viewer_feedback.json for human review notes under the active iteration."
   },
   "servers": [
     {
@@ -16,6 +16,18 @@
       "get": {
         "summary": "Read the current evaluation iteration",
         "operationId": "getIteration",
+        "parameters": [
+          {
+            "name": "iteration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Iteration number to load from results/iteration-N. When omitted, the latest available iteration is loaded."
+          }
+        ],
         "responses": {
           "200": {
             "description": "The resolved iteration and its runs.",
@@ -23,6 +35,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IterationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The iteration query parameter is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested iteration is not available in the evaluation workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/iterations": {
+      "get": {
+        "summary": "List available evaluation iterations",
+        "operationId": "getIterations",
+        "responses": {
+          "200": {
+            "description": "The available iteration numbers and latest iteration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IterationIndexView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/iteration-events": {
+      "get": {
+        "summary": "Stream newly available evaluation iterations",
+        "operationId": "getIterationEvents",
+        "responses": {
+          "200": {
+            "description": "A server-sent event stream. Each data event is an IterationIndexView when a newer latest iteration is discovered.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/IterationIndexView"
                 }
               }
             }
@@ -53,6 +121,16 @@
               "examples": ["skill", "baseline"]
             },
             "description": "Run type from run_manifest.json."
+          },
+          {
+            "name": "iteration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Iteration number to read from results/iteration-N. When omitted, the latest available iteration is used."
           }
         ],
         "responses": {
@@ -66,8 +144,18 @@
               }
             }
           },
+          "400": {
+            "description": "The iteration query parameter is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "No run in the current iteration matches the eval id and run type.",
+            "description": "No run in the current iteration matches the eval id and run type, or the requested iteration is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -91,7 +179,17 @@
             "schema": {
               "type": "string"
             },
-            "description": "Absolute local filesystem path to an artifact under the resolved result root."
+            "description": "Absolute local filesystem path to an artifact under the selected iteration root."
+          },
+          {
+            "name": "iteration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Iteration number whose artifact root should constrain the requested path. When omitted, the latest available iteration is used."
           }
         ],
         "responses": {
@@ -106,7 +204,7 @@
             }
           },
           "400": {
-            "description": "The path query parameter is missing.",
+            "description": "The path query parameter is missing, or the iteration query parameter is malformed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -126,7 +224,7 @@
             }
           },
           "404": {
-            "description": "The requested artifact path is allowed but does not exist.",
+            "description": "The requested artifact path is allowed but does not exist, or the requested iteration is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -151,6 +249,16 @@
               "type": "integer"
             },
             "description": "Eval identifier whose review entry should be replaced."
+          },
+          {
+            "name": "iteration",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Active iteration number whose viewer_feedback.json should be updated."
           }
         ],
         "requestBody": {
@@ -170,6 +278,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FeedbackReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The iteration query parameter is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested iteration is not available in the evaluation workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -364,12 +492,35 @@
       },
       "IterationSummary": {
         "type": "object",
-        "required": ["effort", "iteration", "model", "provider", "runCount", "skillName"],
+        "required": [
+          "availableIterations",
+          "effort",
+          "isLatest",
+          "iteration",
+          "latestIteration",
+          "model",
+          "provider",
+          "runCount",
+          "skillName"
+        ],
         "properties": {
+          "availableIterations": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
           "effort": {
             "type": "string"
           },
+          "isLatest": {
+            "type": "boolean"
+          },
           "iteration": {
+            "type": "integer"
+          },
+          "latestIteration": {
             "type": "integer"
           },
           "model": {
@@ -384,6 +535,24 @@
           },
           "skillName": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IterationIndexView": {
+        "type": "object",
+        "required": ["iterations", "latestIteration"],
+        "properties": {
+          "iterations": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "latestIteration": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "additionalProperties": false

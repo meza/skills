@@ -1,5 +1,7 @@
-export function artifactHref(path: string | undefined): string {
-  return path ? `/api/artifacts?path=${encodeURIComponent(path)}` : '#';
+import type { IterationNumber } from '../shared/viewModel.js';
+
+export function artifactHref(path: string | undefined, iterationNumber: IterationNumber): string {
+  return path ? `/api/artifacts?iteration=${iterationNumber}&path=${encodeURIComponent(path)}` : '#';
 }
 
 export function displayWorkingDirectory(path: string): string {

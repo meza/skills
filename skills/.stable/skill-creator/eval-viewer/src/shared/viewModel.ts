@@ -89,13 +89,23 @@ export interface IterationView {
   feedbackPath: string;
   runs: RunView[];
   summary: {
+    availableIterations: IterationNumber[];
     effort: string;
-    iteration: number;
+    isLatest: boolean;
+    iteration: IterationNumber;
+    latestIteration: IterationNumber;
     model: string;
     provider: string;
     runCount: number;
     skillName: string;
   };
+}
+
+export type IterationNumber = number;
+
+export interface IterationIndexView {
+  iterations: IterationNumber[];
+  latestIteration: IterationNumber;
 }
 
 export interface FeedbackInput {

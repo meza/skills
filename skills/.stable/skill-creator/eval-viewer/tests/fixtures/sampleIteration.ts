@@ -1,30 +1,60 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 
 export const SAMPLE_SKILL_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
 export const SAMPLE_BASELINE_EXPECTATION_ID = '5e5bdcd1-eae8-5eed-aff2-2a3f3c262ebc';
 
-export async function writeSampleIteration(root: string, options: { iteration?: number } = {}): Promise<void> {
+export async function writeSampleWorkspace(
+  root: string,
+  options: { iteration?: IterationNumber } = {}
+): Promise<string> {
+  const iteration = options.iteration ?? 1;
+  const iterationRoot = join(root, 'results', `iteration-${iteration}`);
+  await writeSampleIteration(iterationRoot, { iteration });
+  return iterationRoot;
+}
+
+export async function writeSampleWorkspaceWithHistory(
+  root: string,
+  options: { iteration?: IterationNumber } = {}
+): Promise<string> {
+  const iteration = options.iteration ?? 1;
+  const iterationRoot = await writeSampleWorkspace(root, { iteration });
+  if (iteration > 0) {
+    await writeSampleIteration(join(root, 'results', `iteration-${iteration - 1}`), {
+      iteration: iteration - 1,
+      scenario: 'previousIteration'
+    });
+  }
+  return iterationRoot;
+}
+
+type SampleIterationScenario = 'currentIteration' | 'previousIteration';
+
+export async function writeSampleIteration(
+  root: string,
+  options: { iteration?: IterationNumber; scenario?: SampleIterationScenario } = {}
+): Promise<void> {
+  const scenario = options.scenario ?? 'currentIteration';
   await mkdir(join(root, 'eval-1', 'skill', 'turn-1', 'outputs'), {
     recursive: true
   });
   await mkdir(join(root, 'eval-1', 'baseline', 'turn-1', 'outputs'), {
     recursive: true
   });
-  await mkdir(join(root, 'iteration-0', 'eval-1', 'skill', 'turn-1', 'outputs'), {
-    recursive: true
-  });
 
   await writeJson(join(root, 'run_manifest.json'), sampleManifest(root, options.iteration ?? 1));
-  await writeJson(join(root, 'aggregated_results.json'), sampleAggregatedResults(root));
+  const skillResult = sampleSkillResult(scenario);
+  await writeJson(join(root, 'aggregated_results.json'), sampleAggregatedResults(root, skillResult));
   await writeJson(join(root, 'eval-1', 'eval_metadata.json'), sampleEvalMetadata());
   await writeRun(root, 'eval-1', 'skill', {
     expectationId: SAMPLE_SKILL_EXPECTATION_ID,
-    passed: true,
-    evidence: 'The answer starts with feat!: and explains the migration.',
-    response: 'feat!: support signing key rotation',
-    totalTokens: 1200,
-    duration: 24
+    passed: skillResult.passed,
+    evidence: skillResult.evidence,
+    response: skillResult.response,
+    totalTokens: skillResult.tokens,
+    duration: skillResult.timeSeconds
   });
   await writeRun(root, 'eval-1', 'baseline', {
     expectationId: SAMPLE_BASELINE_EXPECTATION_ID,
@@ -34,17 +64,9 @@ export async function writeSampleIteration(root: string, options: { iteration?: 
     totalTokens: 900,
     duration: 18
   });
-  await writeRun(join(root, 'iteration-0'), 'eval-1', 'skill', {
-    expectationId: SAMPLE_SKILL_EXPECTATION_ID,
-    passed: false,
-    evidence: 'Previous iteration used chore: and missed the breaking change.',
-    response: 'chore: update auth config',
-    totalTokens: 1400,
-    duration: 30
-  });
 }
 
-function sampleManifest(root: string, iteration: number) {
+function sampleManifest(root: string, iteration: IterationNumber) {
   return {
     skill_name: 'conventional-commit-message',
     eval_definitions_path: join(root, 'evals', 'evals.json'),
@@ -75,7 +97,7 @@ function sampleManifest(root: string, iteration: number) {
   };
 }
 
-function sampleAggregatedResults(root: string) {
+function sampleAggregatedResults(root: string, skillResult: SampleSkillResult) {
   return {
     metadata: {
       skill_name: 'conventional-commit-message',
@@ -90,9 +112,9 @@ function sampleAggregatedResults(root: string) {
         eval_id: 1,
         eval_name: 'breaking-change-returns-full-message-when-needed',
         run_type: 'skill',
-        result: { pass_rate: 1, passed: 1, failed: 0, total: 1, time_seconds: 24, tokens: 1200 },
+        result: skillResult.result,
         grading: {
-          executive_summary: 'The run satisfies the eval.',
+          executive_summary: skillResult.executiveSummary,
           results: {
             overall_expectations: [],
             turns: [
@@ -102,8 +124,8 @@ function sampleAggregatedResults(root: string) {
                   {
                     id: SAMPLE_SKILL_EXPECTATION_ID,
                     text: 'The response uses a breaking-change marker.',
-                    passed: true,
-                    evidence: 'The answer starts with feat!: and explains the migration.'
+                    passed: skillResult.passed,
+                    evidence: skillResult.evidence
                   }
                 ]
               }
@@ -138,11 +160,7 @@ function sampleAggregatedResults(root: string) {
       }
     ],
     summary: {
-      skill: {
-        pass_rate: { mean: 1, stddev: 0, min: 1, max: 1 },
-        time_seconds: { mean: 24, stddev: 0, min: 24, max: 24 },
-        tokens: { mean: 1200, stddev: 0, min: 1200, max: 1200 }
-      },
+      skill: skillResult.summary,
       baseline: {
         pass_rate: { mean: 0, stddev: 0, min: 0, max: 0 },
         time_seconds: { mean: 18, stddev: 0, min: 18, max: 18 },
@@ -150,6 +168,105 @@ function sampleAggregatedResults(root: string) {
       }
     }
   };
+}
+
+interface SampleSkillResult {
+  evidence: string;
+  executiveSummary: string;
+  passed: boolean;
+  response: string;
+  result: {
+    failed: number;
+    pass_rate: number;
+    passed: number;
+    time_seconds: number;
+    tokens: number;
+    total: number;
+  };
+  summary: {
+    pass_rate: ReturnType<typeof metricSummary>;
+    time_seconds: ReturnType<typeof metricSummary>;
+    tokens: ReturnType<typeof metricSummary>;
+  };
+  timeSeconds: number;
+  tokens: number;
+}
+
+const sampleSkillResults: Record<SampleIterationScenario, SampleSkillResult> = {
+  currentIteration: sampleSkillResult({
+    evidence: 'The answer starts with feat!: and explains the migration.',
+    executiveSummary: 'The run satisfies the eval.',
+    passRate: 1,
+    response: 'feat!: support signing key rotation',
+    timeSeconds: 24,
+    tokens: 1200
+  }),
+  previousIteration: sampleSkillResult({
+    evidence: 'Previous iteration used chore: and missed the breaking change.',
+    executiveSummary: 'The run misses the main requirement.',
+    passRate: 0,
+    response: 'chore: update auth config',
+    timeSeconds: 30,
+    tokens: 1400
+  })
+};
+
+function sampleSkillResult(scenario: SampleIterationScenario): SampleSkillResult;
+function sampleSkillResult({
+  evidence,
+  executiveSummary,
+  passRate,
+  response,
+  timeSeconds,
+  tokens
+}: {
+  evidence: string;
+  executiveSummary: string;
+  passRate: 0 | 1;
+  response: string;
+  timeSeconds: number;
+  tokens: number;
+}): SampleSkillResult;
+function sampleSkillResult(
+  input:
+    | SampleIterationScenario
+    | {
+        evidence: string;
+        executiveSummary: string;
+        passRate: 0 | 1;
+        response: string;
+        timeSeconds: number;
+        tokens: number;
+      }
+): SampleSkillResult {
+  if (typeof input === 'string') {
+    return sampleSkillResults[input];
+  }
+  return {
+    evidence: input.evidence,
+    executiveSummary: input.executiveSummary,
+    passed: input.passRate === 1,
+    response: input.response,
+    result: {
+      failed: input.passRate === 1 ? 0 : 1,
+      pass_rate: input.passRate,
+      passed: input.passRate,
+      time_seconds: input.timeSeconds,
+      tokens: input.tokens,
+      total: 1
+    },
+    summary: {
+      pass_rate: metricSummary(input.passRate),
+      time_seconds: metricSummary(input.timeSeconds),
+      tokens: metricSummary(input.tokens)
+    },
+    timeSeconds: input.timeSeconds,
+    tokens: input.tokens
+  };
+}
+
+function metricSummary(value: number) {
+  return { max: value, mean: value, min: value, stddev: 0 };
 }
 
 function sampleEvalMetadata() {

@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PORT, resultRootFromArgs, startServer, viewerPortFromEnv } from '../../src/server/main.js';
+import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } from '../../src/server/main.js';
 import { fs, vol } from '../support/memfs.js';
 
 describe('server entrypoint', () => {
-  it('requires an evaluation result root argument', () => {
-    expect(() => resultRootFromArgs(['node', 'main.ts'])).toThrow(/usage/i);
+  it('requires an evaluation workspace root argument', () => {
+    expect(() => workspaceRootFromArgs(['node', 'main.ts'])).toThrow(/usage/i);
   });
 
-  it('starts the server with the resolved result root and port', async () => {
+  it('starts the server with the resolved workspace root and port', async () => {
     vol.reset();
     await fs.promises.mkdir('/cwd', { recursive: true });
     const listen = vi.fn(async () => undefined);
@@ -22,7 +22,7 @@ describe('server entrypoint', () => {
 
     expect(buildServer).toHaveBeenCalledWith({
       logFilePath: expect.stringMatching(/eval-viewer\.log$/),
-      resultRoot: expect.stringMatching(/eval-viewer$/)
+      workspaceRoot: expect.stringMatching(/eval-viewer$/)
     });
     expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: 4123 });
   });
@@ -82,7 +82,7 @@ describe('server entrypoint', () => {
     await expect(fs.promises.readFile('/cwd/eval-viewer.2.log', 'utf-8')).resolves.toBe('previous');
     expect(buildServer).toHaveBeenCalledWith({
       logFilePath: expect.stringMatching(/eval-viewer\.log$/),
-      resultRoot: expect.stringMatching(/eval-viewer$/)
+      workspaceRoot: expect.stringMatching(/eval-viewer$/)
     });
   });
 

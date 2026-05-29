@@ -1,6 +1,5 @@
-import { accessSync, constants } from 'node:fs';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { feedbackTurnShape } from '../shared/feedbackModel.js';
 import type {
   ArtifactIssue,
@@ -8,6 +7,8 @@ import type {
   FeedbackExpectationView,
   FeedbackInput,
   FeedbackTurnView,
+  IterationIndexView,
+  IterationNumber,
   IterationView,
   OverallExpectationView,
   RunComparisonView,
@@ -17,6 +18,16 @@ import type {
   TurnView
 } from '../shared/viewModel.js';
 import { validateArtifactSchema } from './artifactSchemas.js';
+import {
+  iterationDirectoryName,
+  iterationManifestPath,
+  iterationNumberFromDirectoryName,
+  iterationNumberFromRoot,
+  iterationRootPath,
+  previousIterationRootPath,
+  resultsRootPath,
+  validIterationDirectoryEntries
+} from './iterationWorkspace.js';
 
 interface ManifestRun {
   cost_usd?: number;
@@ -50,56 +61,91 @@ interface RunFilePaths {
   timing: string;
 }
 
+interface IterationSelection {
+  availableIterations: IterationNumber[];
+  iterationNumber: IterationNumber;
+  latestIteration: IterationNumber;
+  root: string;
+}
+
+interface IterationSelectionOptions {
+  availableIterations?: IterationNumber[];
+  iteration?: IterationNumber;
+}
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
 /**
- * Confirms that a requested eval result location can be used by the viewer.
+ * Confirms that a requested eval workspace location can be used by the viewer.
  *
- * @param resultRoot - Local path supplied by the server startup flow or repository caller.
+ * @param workspaceRoot - Local workspace path supplied by the server startup flow or repository caller.
  */
-export async function assertResultRoot(resultRoot: string): Promise<void> {
+export async function assertWorkspaceRoot(workspaceRoot: string): Promise<void> {
   try {
-    const result = await stat(resultRoot);
+    const result = await stat(workspaceRoot);
     if (!result.isDirectory()) {
-      throw new Error(`result root is not a directory: ${resultRoot}`);
+      throw new Error(`evaluation workspace root is not a directory: ${workspaceRoot}`);
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('not a directory')) {
       throw error;
     }
-    throw new Error(`result root does not exist: ${resultRoot}`);
+    throw new Error(`evaluation workspace root does not exist: ${workspaceRoot}`);
   }
+}
+
+/**
+ * Discovers the valid iteration directories available in an evaluation workspace.
+ *
+ * The returned list is sorted by iteration number. Direct `iteration-N` roots are not accepted;
+ * callers must pass the workspace root that contains `results/iteration-N`.
+ */
+export async function loadIterationIndex(workspaceRoot: string): Promise<IterationIndexView> {
+  const iterations = await discoverIterations(workspaceRoot);
+  return {
+    iterations,
+    latestIteration: latestIterationFrom(iterations)
+  };
 }
 
 /**
  * Builds the browser view model for the eval iteration a reviewer wants to inspect.
  *
- * @param resultRoot - Local eval result location chosen by the reviewer or server startup flow.
+ * @param workspaceRoot - Local eval workspace chosen by the reviewer or server startup flow.
+ * @param options - Optional explicit iteration selection. Latest is used when omitted. Callers
+ * that already loaded the iteration index can pass it to avoid a second workspace scan.
  */
-export async function loadIteration(resultRoot: string): Promise<IterationView> {
-  const resolvedRoot = await resolveResultRoot(resultRoot);
-  const manifest = await readRequiredJson(join(resolvedRoot, 'run_manifest.json'), 'run_manifest.json', {
+export async function loadIteration(
+  workspaceRoot: string,
+  options: IterationSelectionOptions = {}
+): Promise<IterationView> {
+  const selection = await resolveIterationSelection(workspaceRoot, options);
+  const iterationRoot = selection.root;
+  const manifest = await readRequiredJson(join(iterationRoot, 'run_manifest.json'), 'run_manifest.json', {
     schemaName: 'run-manifest.schema.json'
   });
-  await readOptionalJson(join(resolvedRoot, 'aggregated_results.json'), {
+  await readOptionalJson(join(iterationRoot, 'aggregated_results.json'), {
     artifact: 'aggregated_results.json',
     schemaName: 'aggregated-results.schema.json'
   });
-  const feedback = await readFeedback(resolvedRoot);
+  const feedback = await readFeedback(iterationRoot);
   const manifestRuns = manifest.runs as ManifestRun[];
-  const runs = await Promise.all(manifestRuns.map((run) => loadRun(resolvedRoot, run, feedback)));
+  const runs = await Promise.all(manifestRuns.map((run) => loadRun(iterationRoot, run, feedback)));
   if (runs.length === 0) {
     throw new Error('Evaluation results contain no runs to review.');
   }
 
   return {
-    feedbackPath: feedbackPath(resolvedRoot),
-    runs: await loadComparisonsForRuns(runs, resolvedRoot),
+    feedbackPath: feedbackPath(iterationRoot),
+    runs: await loadComparisonsForRuns(runs, iterationRoot),
     summary: {
+      availableIterations: selection.availableIterations,
       effort: textValue(manifest.effort, 'default'),
-      iteration: numberValue(manifest.iteration, 0),
+      isLatest: selection.iterationNumber === selection.latestIteration,
+      iteration: selection.iterationNumber,
+      latestIteration: selection.latestIteration,
       model: textValue(manifest.model, 'default'),
       provider: textValue(manifest.provider, 'unknown'),
       runCount: runs.length,
@@ -111,16 +157,21 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
 /**
  * Persists a reviewer's feedback for one eval in the viewer-owned feedback artifact.
  *
- * @param resultRoot - Local eval result location that owns the feedback artifact.
+ * @param workspaceRoot - Local eval workspace that contains the active iteration.
  * @param feedback - Review notes and expectation comments submitted by the browser.
+ * @param options - Optional explicit iteration selection. Latest is used when omitted by repository callers.
  */
-export async function saveFeedback(resultRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
-  const resolvedRoot = await resolveResultRoot(resultRoot);
-  return queueFeedbackWrite(resolvedRoot, () => saveFeedbackNow(resolvedRoot, feedback));
+export async function saveFeedback(
+  workspaceRoot: string,
+  feedback: FeedbackInput,
+  options: IterationSelectionOptions = {}
+): Promise<FeedbackReview> {
+  const iterationRoot = (await resolveIterationSelection(workspaceRoot, options)).root;
+  return queueFeedbackWrite(iterationRoot, () => saveFeedbackNow(iterationRoot, feedback));
 }
 
-async function saveFeedbackNow(resolvedRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
-  const artifact = await readFeedback(resolvedRoot);
+async function saveFeedbackNow(iterationRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
+  const artifact = await readFeedback(iterationRoot);
   const comments = feedback.comments.trim();
   const overall = filledFeedbackExpectations(feedback.overall);
   const turns = filledFeedbackTurns(feedback.turns);
@@ -143,7 +194,7 @@ async function saveFeedbackNow(resolvedRoot: string, feedback: FeedbackInput): P
       artifact.reviews.splice(existingIndex, 1);
     }
     await validateArtifactSchema('viewer-feedback.schema.json', artifact);
-    await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
+    await writeFile(feedbackPath(iterationRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
     return saved;
   }
   if (existingIndex >= 0) {
@@ -152,19 +203,19 @@ async function saveFeedbackNow(resolvedRoot: string, feedback: FeedbackInput): P
     artifact.reviews.push(saved);
   }
   await validateArtifactSchema('viewer-feedback.schema.json', artifact);
-  await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
+  await writeFile(feedbackPath(iterationRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
   return saved;
 }
 
-async function queueFeedbackWrite<T>(resolvedRoot: string, writeFeedback: () => Promise<T>): Promise<T> {
-  const previousWrite = feedbackWriteQueues.get(resolvedRoot) ?? Promise.resolve();
+async function queueFeedbackWrite<T>(iterationRoot: string, writeFeedback: () => Promise<T>): Promise<T> {
+  const previousWrite = feedbackWriteQueues.get(iterationRoot) ?? Promise.resolve();
   const queuedWrite = previousWrite.then(writeFeedback, writeFeedback);
-  feedbackWriteQueues.set(resolvedRoot, queuedWrite);
+  feedbackWriteQueues.set(iterationRoot, queuedWrite);
   try {
     return await queuedWrite;
   } finally {
-    if (feedbackWriteQueues.get(resolvedRoot) === queuedWrite) {
-      feedbackWriteQueues.delete(resolvedRoot);
+    if (feedbackWriteQueues.get(iterationRoot) === queuedWrite) {
+      feedbackWriteQueues.delete(iterationRoot);
     }
   }
 }
@@ -172,24 +223,32 @@ async function queueFeedbackWrite<T>(resolvedRoot: string, writeFeedback: () => 
 /**
  * Reads an eval artifact so the browser can display its text content.
  *
- * @param resultRoot - Local eval result location that defines the readable artifact set.
+ * @param workspaceRoot - Local eval workspace that contains the active iteration.
  * @param artifactPath - Local artifact path requested by the browser.
+ * @param options - Optional explicit iteration selection. Latest is used when omitted.
  */
-export async function readArtifactText(resultRoot: string, artifactPath: string): Promise<string> {
-  const resolvedRoot = await resolveResultRoot(resultRoot);
-  const root = resolve(resolvedRoot);
+export async function readArtifactText(
+  workspaceRoot: string,
+  artifactPath: string,
+  options: IterationSelectionOptions = {}
+): Promise<string> {
+  const iterationRoot = (await resolveIterationSelection(workspaceRoot, options)).root;
+  const root = resolve(iterationRoot);
   const requested = resolve(artifactPath);
   const relativePath = relative(root, requested);
   if (relativePath.startsWith('..') || relativePath === '' || resolve(root, relativePath) !== requested) {
-    throw new Error('Artifact path must be inside the result root.');
+    throw new Error('Artifact path must be inside the active iteration root.');
   }
   return readFile(requested, 'utf-8');
 }
 
-async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: FeedbackArtifact): Promise<RunView> {
+/** Raised when a requested iteration number is not present in the workspace. */
+export class UnavailableIterationError extends Error {}
+
+async function loadRun(iterationRoot: string, manifestRun: ManifestRun, feedback: FeedbackArtifact): Promise<RunView> {
   const evalId = manifestRun.eval_id;
   const runType = manifestRun.run_type;
-  const evalDir = join(resultRoot, `eval-${evalId}`);
+  const evalDir = join(iterationRoot, `eval-${evalId}`);
   const runTypeDir = join(evalDir, runType);
   const filePaths = runFilePaths(runTypeDir);
   const { artifacts, grading, metadata, timing } = await readRunArtifacts(evalDir, filePaths);
@@ -294,14 +353,13 @@ async function loadTurns(
   );
 }
 
-async function loadComparisonsForRuns(runs: RunView[], resultRoot: string): Promise<RunView[]> {
+async function loadComparisonsForRuns(runs: RunView[], iterationRoot: string): Promise<RunView[]> {
+  const baselineByEvalId = new Map(runs.filter((run) => run.runType === 'baseline').map((run) => [run.evalId, run]));
   return Promise.all(
     runs.map(async (run) => {
-      const previousIteration = await loadPreviousIterationComparison(run, resultRoot);
+      const previousIteration = await loadPreviousIterationComparison(run, iterationRoot);
       const issues = previousIteration.issue ? [...run.issues, previousIteration.issue] : run.issues;
-      const baselineTarget = runs.find(
-        (candidate) => candidate.evalId === run.evalId && candidate.runType === 'baseline'
-      );
+      const baselineTarget = baselineByEvalId.get(run.evalId);
       const baseline = run.runType === 'skill' ? comparisonAgainst(run, baselineTarget) : undefined;
       return {
         ...run,
@@ -331,15 +389,9 @@ function comparisonAgainst(current: RunView, target: RunView | undefined): RunCo
 
 async function loadPreviousIterationComparison(
   current: RunView,
-  resultRoot: string
+  iterationRoot: string
 ): Promise<{ comparison?: RunComparisonView; issue?: ArtifactIssue }> {
-  const parent = dirname(resultRoot);
-  const currentName = basename(resultRoot);
-  const currentNumber = Number(currentName.replace('iteration-', ''));
-  const previousRoot =
-    Number.isFinite(currentNumber) && currentNumber > 0
-      ? join(parent, `iteration-${currentNumber - 1}`)
-      : join(resultRoot, 'iteration-0');
+  const previousRoot = previousIterationRootPath(iterationRoot);
   const previousRun = await loadPreviousRunComparisonTarget(previousRoot, current.evalId, current.runType);
   if (!previousRun.run) {
     return previousRun.issue ? { issue: previousRun.issue } : {};
@@ -504,8 +556,8 @@ async function readRequiredText(path: string, artifact: string): Promise<string>
   }
 }
 
-async function readFeedback(resultRoot: string): Promise<FeedbackArtifact> {
-  const existing = await readOptionalJson(feedbackPath(resultRoot), {
+async function readFeedback(iterationRoot: string): Promise<FeedbackArtifact> {
+  const existing = await readOptionalJson(feedbackPath(iterationRoot), {
     artifact: 'viewer_feedback.json',
     schemaName: 'viewer-feedback.schema.json'
   });
@@ -515,8 +567,8 @@ async function readFeedback(resultRoot: string): Promise<FeedbackArtifact> {
   };
 }
 
-function feedbackPath(resultRoot: string): string {
-  return join(resultRoot, 'viewer_feedback.json');
+function feedbackPath(iterationRoot: string): string {
+  return join(iterationRoot, 'viewer_feedback.json');
 }
 
 function firstTurnPath(artifactRoot: Record<string, unknown>, key: 'response_path' | 'transcript_path'): string {
@@ -638,31 +690,65 @@ function filledFeedbackTurns(turns: FeedbackTurnView[]): FeedbackTurnView[] {
   });
 }
 
-async function resolveResultRoot(resultRoot: string): Promise<string> {
-  await assertResultRoot(resultRoot);
-  if (existsSync(join(resultRoot, 'run_manifest.json'))) {
-    return resultRoot;
+async function resolveIterationSelection(
+  workspaceRoot: string,
+  options: IterationSelectionOptions
+): Promise<IterationSelection> {
+  const availableIterations = options.availableIterations ?? (await discoverIterations(workspaceRoot));
+  const latestIteration = latestIterationFrom(availableIterations);
+  const iterationNumber = options.iteration ?? latestIteration;
+  if (!availableIterations.includes(iterationNumber)) {
+    throw new UnavailableIterationError(
+      `${iterationDirectoryName(iterationNumber)} does not exist under evaluation workspace root: ${workspaceRoot}`
+    );
   }
-  const resultsRoot = join(resultRoot, 'results');
-  if (!existsSync(resultsRoot)) {
-    return resultRoot;
-  }
-  const entries = await readdir(resultsRoot, { withFileTypes: true });
-  const iterationRoots = entries
-    .filter((entry) => entry.isDirectory() && /^iteration-\d+$/.test(entry.name))
-    .map((entry) => join(resultsRoot, entry.name))
-    .filter((entryPath) => existsSync(join(entryPath, 'run_manifest.json')))
-    .sort((left, right) => iterationNumber(right) - iterationNumber(left));
-  return iterationRoots[0] ?? resultRoot;
+  return {
+    availableIterations,
+    iterationNumber,
+    latestIteration,
+    root: iterationRootPath(workspaceRoot, iterationNumber)
+  };
 }
 
-function iterationNumber(path: string): number {
-  return Number(basename(path).replace('iteration-', ''));
-}
-
-function existsSync(path: string): boolean {
+async function discoverIterations(workspaceRoot: string): Promise<IterationNumber[]> {
+  await assertWorkspaceRoot(workspaceRoot);
+  const resultsRoot = resultsRootPath(workspaceRoot);
+  let entries;
   try {
-    accessSync(path, constants.F_OK);
+    const result = await stat(resultsRoot);
+    if (!result.isDirectory()) {
+      throw new Error(`evaluation workspace results path is not a directory: ${resultsRoot}`);
+    }
+    entries = await readdir(resultsRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('not a directory')) {
+      throw error;
+    }
+    throw new Error(`evaluation workspace root must contain results/iteration-N artifacts: ${workspaceRoot}`);
+  }
+  const iterationCandidates = await Promise.all(
+    validIterationDirectoryEntries(entries).map(async (entry) => ({
+      hasManifest: await fileExists(iterationManifestPath(join(resultsRoot, entry.name))),
+      iterationNumber: iterationNumberFromDirectoryName(entry.name)
+    }))
+  );
+  const iterations = iterationCandidates
+    .filter((candidate) => candidate.hasManifest)
+    .map((candidate) => candidate.iterationNumber)
+    .sort((left, right) => left - right);
+  if (iterations.length === 0) {
+    throw new Error(`evaluation workspace root contains no valid results/iteration-N artifacts: ${workspaceRoot}`);
+  }
+  return iterations;
+}
+
+function latestIterationFrom(iterations: IterationNumber[]): IterationNumber {
+  return iterations[iterations.length - 1] as number;
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
     return true;
   } catch {
     return false;

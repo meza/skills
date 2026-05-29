@@ -4,6 +4,16 @@ import { fs } from './support/memfs.js';
 
 window.scrollTo = vi.fn();
 
+class TestEventSource {
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+
+  close() {
+    return undefined;
+  }
+}
+
+vi.stubGlobal('EventSource', TestEventSource);
+
 const fsPromisesMock = {
   mkdir: fs.promises.mkdir.bind(fs.promises),
   readFile: fs.promises.readFile.bind(fs.promises),
@@ -16,7 +26,8 @@ const fsPromisesMock = {
 
 const fsMock = {
   accessSync: fs.accessSync.bind(fs),
-  constants: fs.constants
+  constants: fs.constants,
+  watch: vi.fn(() => ({ close: vi.fn() }))
 };
 
 vi.mock('node:fs/promises', () => ({

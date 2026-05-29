@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import openapiJson from '../../openapi.json' with { type: 'json' };
 import { buildServer } from '../../src/server/buildServer.js';
-import { writeSampleIteration } from '../fixtures/sampleIteration.js';
+import { writeSampleWorkspace } from '../fixtures/sampleIteration.js';
 import { fs, vol } from '../support/memfs.js';
 
 type OpenApiDocument = {
@@ -21,6 +21,8 @@ const documentedRoutes: {
 }[] = [
   { method: 'GET', openApiPath: '/api/artifacts', serverPath: '/api/artifacts' },
   { method: 'GET', openApiPath: '/api/iteration', serverPath: '/api/iteration' },
+  { method: 'GET', openApiPath: '/api/iteration-events', serverPath: '/api/iteration-events' },
+  { method: 'GET', openApiPath: '/api/iterations', serverPath: '/api/iterations' },
   { method: 'GET', openApiPath: '/api/runs/{evalId}/{runType}', serverPath: '/api/runs/:evalId/:runType' },
   { method: 'PUT', openApiPath: '/api/feedback/{evalId}', serverPath: '/api/feedback/:evalId' }
 ];
@@ -36,8 +38,8 @@ describe('OpenAPI contract', () => {
 
   it('documents exactly the implemented JSON and artifact routes', async () => {
     const root = join('/memory', 'openapi-current');
-    await writeSampleIteration(root);
-    const server = await buildServer({ resultRoot: root });
+    await writeSampleWorkspace(root);
+    const server = await buildServer({ workspaceRoot: root });
     const routes = Object.entries(openapi.paths).flatMap(([path, operations]) =>
       Object.keys(operations).map((method) => ({ method, path }))
     );
@@ -61,7 +63,11 @@ describe('OpenAPI contract', () => {
 
   it('documents the expected status codes for local artifact and feedback behavior', async () => {
     expect(Object.keys(openapi.paths['/api/artifacts']?.get?.responses ?? {})).toEqual(['200', '400', '403', '404']);
-    expect(Object.keys(openapi.paths['/api/feedback/{evalId}']?.put?.responses ?? {})).toEqual(['200']);
-    expect(Object.keys(openapi.paths['/api/runs/{evalId}/{runType}']?.get?.responses ?? {})).toEqual(['200', '404']);
+    expect(Object.keys(openapi.paths['/api/feedback/{evalId}']?.put?.responses ?? {})).toEqual(['200', '400', '404']);
+    expect(Object.keys(openapi.paths['/api/runs/{evalId}/{runType}']?.get?.responses ?? {})).toEqual([
+      '200',
+      '400',
+      '404'
+    ]);
   });
 });

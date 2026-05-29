@@ -1,13 +1,24 @@
-import type { RunView } from '../../shared/viewModel.js';
+import type { IterationNumber, IterationView, RunView } from '../../shared/viewModel.js';
 import { formatDeltaPercent, formatPercent } from '../formatters.js';
+import { IterationControl } from './IterationControl.js';
 import { Metric } from './Metric.js';
 
 export function RunSummary({
+  isRefreshingIterations,
+  iterationStatus,
+  iterationSummary,
+  onIterationRefreshAfterSavingFeedback,
+  onIterationSelectAfterSavingFeedback,
   reviewRunCount,
   run,
   selectedIndex,
   selectRunAt
 }: {
+  isRefreshingIterations: boolean;
+  iterationStatus: string;
+  iterationSummary: IterationView['summary'];
+  onIterationRefreshAfterSavingFeedback: () => Promise<void>;
+  onIterationSelectAfterSavingFeedback: (iteration: IterationNumber) => Promise<void>;
   reviewRunCount: number;
   run: RunView;
   selectedIndex: number;
@@ -17,7 +28,16 @@ export function RunSummary({
     <>
       <section className="run-header">
         <div>
-          <span className="eyebrow">Eval ID: {run.evalId}</span>
+          <div className="run-context-row">
+            <span className="eyebrow">Eval ID: {run.evalId}</span>
+            <IterationControl
+              isRefreshing={isRefreshingIterations}
+              onRefreshAfterSavingFeedback={onIterationRefreshAfterSavingFeedback}
+              onSelectAfterSavingFeedback={onIterationSelectAfterSavingFeedback}
+              status={iterationStatus}
+              summary={iterationSummary}
+            />
+          </div>
           <h2>{run.evalName}</h2>
         </div>
         <div className="run-pager">

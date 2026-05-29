@@ -366,6 +366,13 @@ button:disabled {
   min-width: 0;
 }
 
+.run-context-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--inline-gap);
+}
+
 .run-header h2 {
   font-size: var(--text-page-title-size);
   line-height: var(--text-page-title-line-height);

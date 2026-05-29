@@ -21,29 +21,35 @@ it('autosaves reviewer feedback with expectation ids', async () => {
     target: { value: 'Ready for the next iteration.' }
   });
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith({
-      comments: 'Ready for the next iteration.',
-      evalId: 1,
-      overall: [],
-      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
-    });
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: 'Ready for the next iteration.',
+        evalId: 1,
+        overall: [],
+        turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+      },
+      4
+    );
   });
   fireEvent.change(screen.getByLabelText('Feedback for turn 1 expectation 1'), {
     target: { value: 'Expectation-level note.' }
   });
 
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith({
-      comments: 'Ready for the next iteration.',
-      evalId: 1,
-      overall: [],
-      turns: [
-        {
-          expectations: [{ comment: 'Expectation-level note.', expectation_id: TURN_EXPECTATION_ID }],
-          turn: 1
-        }
-      ]
-    });
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: 'Ready for the next iteration.',
+        evalId: 1,
+        overall: [],
+        turns: [
+          {
+            expectations: [{ comment: 'Expectation-level note.', expectation_id: TURN_EXPECTATION_ID }],
+            turn: 1
+          }
+        ]
+      },
+      4
+    );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
@@ -88,12 +94,15 @@ it('saves the latest draft after an in-flight autosave finishes', async () => {
   finishAutosave({ ok: true });
 
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith({
-      comments: 'Manual draft.',
-      evalId: 1,
-      overall: [],
-      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
-    });
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: 'Manual draft.',
+        evalId: 1,
+        overall: [],
+        turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+      },
+      4
+    );
   });
 });
 
@@ -135,15 +144,18 @@ it('records overall expectation feedback by grading order', async () => {
   });
 
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith({
-      comments: '',
-      evalId: 1,
-      overall: [
-        { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
-        { comment: 'Overall expectation note.', expectation_id: OVERALL_EXPECTATION_TWO_ID }
-      ],
-      turns: []
-    });
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: '',
+        evalId: 1,
+        overall: [
+          { comment: '', expectation_id: OVERALL_EXPECTATION_ONE_ID },
+          { comment: 'Overall expectation note.', expectation_id: OVERALL_EXPECTATION_TWO_ID }
+        ],
+        turns: []
+      },
+      4
+    );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
@@ -198,21 +210,24 @@ it('keeps turn expectation feedback aligned across turn and expectation position
   });
 
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith({
-      comments: '',
-      evalId: 1,
-      overall: [],
-      turns: [
-        {
-          expectations: [
-            { comment: '', expectation_id: TURN_EXPECTATION_ID },
-            { comment: 'Second expectation note.', expectation_id: TURN_ONE_SECOND_EXPECTATION_ID }
-          ],
-          turn: 1
-        },
-        { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
-      ]
-    });
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: '',
+        evalId: 1,
+        overall: [],
+        turns: [
+          {
+            expectations: [
+              { comment: '', expectation_id: TURN_EXPECTATION_ID },
+              { comment: 'Second expectation note.', expectation_id: TURN_ONE_SECOND_EXPECTATION_ID }
+            ],
+            turn: 1
+          },
+          { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
+        ]
+      },
+      4
+    );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
@@ -234,12 +249,15 @@ it('saves before advancing through the visible eval queue', async () => {
   });
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
 
-  expect(saveFeedback).toHaveBeenCalledWith({
-    comments: 'Move through the queue.',
-    evalId: 1,
-    overall: [],
-    turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
-  });
+  expect(saveFeedback).toHaveBeenCalledWith(
+    {
+      comments: 'Move through the queue.',
+      evalId: 1,
+      overall: [],
+      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+    },
+    4
+  );
   expect(screen.getByRole('heading', { name: 'second-visible-eval' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
 });
@@ -262,13 +280,46 @@ it('moves to the previous visible eval after saving current feedback', async () 
   });
   await user.click(screen.getByRole('button', { name: 'Previous' }));
 
-  expect(saveFeedback).toHaveBeenLastCalledWith({
-    comments: 'Back-check this eval.',
-    evalId: 2,
-    overall: [],
-    turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
-  });
+  expect(saveFeedback).toHaveBeenLastCalledWith(
+    {
+      comments: 'Back-check this eval.',
+      evalId: 2,
+      overall: [],
+      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+    },
+    4
+  );
   expect(screen.getByRole('heading', { name: 'breaking-change-returns-full-message-when-needed' })).toBeInTheDocument();
+});
+
+it('saves feedback to the active selected iteration', async () => {
+  const user = userEvent.setup();
+  const selectedIteration = iterationView();
+  selectedIteration.summary = {
+    ...selectedIteration.summary,
+    isLatest: false,
+    iteration: 3
+  };
+  const loadIteration = vi.fn(async () => selectedIteration);
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+  renderApp({ autosaveDelayMs: 0, loadIteration, saveFeedback });
+
+  await user.selectOptions(screen.getByLabelText('Iteration'), '3');
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Feedback for selected iteration.' }
+  });
+
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith(
+      {
+        comments: 'Feedback for selected iteration.',
+        evalId: 1,
+        overall: [],
+        turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+      },
+      3
+    );
+  });
 });
 
 it('uses the filtered nav visibility as the next queue', async () => {
@@ -340,7 +391,7 @@ it('persists feedback through the default server API and reports failures', asyn
 
   await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
 
-  expect(fetcher).toHaveBeenCalledWith('/api/feedback/1', {
+  expect(fetcher).toHaveBeenCalledWith('/api/feedback/1?iteration=4', {
     body: JSON.stringify({
       comments: '',
       overall: [],
@@ -357,7 +408,9 @@ it('persists feedback through the default server API and reports failures', asyn
   await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
 
   expect(
-    await screen.findByText('Could not save feedback: 500 from /api/feedback/1. Invalid viewer_feedback.json')
+    await screen.findByText(
+      'Could not save feedback: 500 from /api/feedback/1?iteration=4. Invalid viewer_feedback.json'
+    )
   ).toBeInTheDocument();
   vi.unstubAllGlobals();
 });

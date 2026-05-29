@@ -1,19 +1,27 @@
 import { createRoot } from 'react-dom/client';
 import type { IterationView } from '../shared/viewModel.js';
 import { App } from './App.js';
+import { loadIterationFromServer } from './api.js';
 
-export async function loadInitialIteration(fetcher: typeof fetch = fetch): Promise<IterationView> {
-  const response = await fetcher('/api/iteration');
-  if (!response.ok) {
-    throw new Error('Could not load evaluation results.');
-  }
-  const iteration = (await response.json()) as IterationView;
+export async function loadInitialIteration(
+  fetcher: typeof fetch = fetch,
+  loadIteration = loadIterationFromServer
+): Promise<IterationView> {
+  const iteration = fetcher === fetch ? await loadIteration() : await loadInitialIterationWithFetcher(fetcher);
   assertRunnableIteration(iteration);
   return iteration;
 }
 
 export async function renderViewer(container: HTMLElement): Promise<void> {
   createRoot(container).render(<App initialIteration={await loadInitialIteration()} />);
+}
+
+async function loadInitialIterationWithFetcher(fetcher: typeof fetch): Promise<IterationView> {
+  const response = await fetcher('/api/iteration');
+  if (!response.ok) {
+    throw new Error('Could not load evaluation results.');
+  }
+  return (await response.json()) as IterationView;
 }
 
 function assertRunnableIteration(iteration: IterationView): void {

@@ -9,7 +9,7 @@ The workflow runs realistic prompts against a skill, compares runs with and with
 Use this sequence for each iteration:
 
 1. Run the evals with `evaluate_skill.py` as defined below.
-2. Open the eval viewer UI in the `eval-viewer` folder with `npm run serve -- <path-to-iteration>`.
+2. Open the eval viewer UI in the `eval-viewer` folder with `npm run serve -- <path-to-evaluation-workspace>`.
 
 ## Inputs
 
@@ -230,14 +230,21 @@ Open the viewer after grading and aggregation:
 ```bash
 cd <skill-creator-path>/eval-viewer
 npm install
-npm run serve -- <run-root>/<skill-name>/results/iteration-1
+npm run serve -- <run-root>/<skill-name>
 ```
+
+The viewer serves the evaluation workspace root. It discovers iterations under
+`results/iteration-N`, opens the latest valid iteration by default, and lets the
+browser switch between available iterations. Direct `iteration-N` paths are not
+supported, and no compatibility path exists for serving them. The `vs Last
+Iteration` metric compares the selected iteration to the immediately previous
+numbered iteration, `iteration-(N-1)`.
 
 ## Isolation
 
 Every `evaluate_skill.py` invocation writes to the next results iteration and
-creates fresh invocation workdirs under the skill run root. Each eval gets
-separate `skill` and `baseline` working directories.
+prepares workdirs under `<run-root>/workdirs/eval-N`. Each eval gets separate
+`skill` and `baseline` working directories.
 
 `skill` receives a copied version of the skill under test in the provider-specific discovery location. `baseline` does not receive the skill.
 

@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 
 interface RichRun {
   duration: number;
@@ -39,7 +40,7 @@ export async function writeRichEvaluationWorkspace(workspaceRoot: string): Promi
   return currentRoot;
 }
 
-async function writeRichIteration(root: string, runs: RichRun[], iteration: number): Promise<void> {
+async function writeRichIteration(root: string, runs: RichRun[], iteration: IterationNumber): Promise<void> {
   await mkdir(root, { recursive: true });
   await writeJson(join(root, 'run_manifest.json'), {
     effort: 'default',

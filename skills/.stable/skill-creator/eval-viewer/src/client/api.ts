@@ -1,7 +1,31 @@
-import type { FeedbackInput } from '../shared/viewModel.js';
+import type { FeedbackInput, IterationIndexView, IterationNumber, IterationView } from '../shared/viewModel.js';
 
-export async function saveFeedbackToServer(feedback: FeedbackInput): Promise<unknown> {
-  const endpoint = `/api/feedback/${feedback.evalId}`;
+/** Loads the latest iteration, or a specific iteration when an iteration number is supplied. */
+export async function loadIterationFromServer(iterationNumber?: IterationNumber): Promise<IterationView> {
+  const endpoint = iterationNumber === undefined ? '/api/iteration' : `/api/iteration?iteration=${iterationNumber}`;
+  const response = await fetch(endpoint);
+  if (!response.ok) {
+    throw new Error(await responseErrorMessage(response, endpoint, 'Could not load evaluation results'));
+  }
+  return response.json();
+}
+
+/** Loads the iteration selector state without loading full run artifacts. */
+export async function loadIterationIndexFromServer(): Promise<IterationIndexView> {
+  const endpoint = '/api/iterations';
+  const response = await fetch(endpoint);
+  if (!response.ok) {
+    throw new Error(await responseErrorMessage(response, endpoint, 'Could not load iterations'));
+  }
+  return response.json();
+}
+
+/** Saves reviewer feedback to the active iteration shown in the browser. */
+export async function saveFeedbackToServer(
+  feedback: FeedbackInput,
+  iterationNumber: IterationNumber
+): Promise<unknown> {
+  const endpoint = `/api/feedback/${feedback.evalId}?iteration=${iterationNumber}`;
   const response = await fetch(endpoint, {
     body: JSON.stringify({
       comments: feedback.comments,
@@ -14,16 +38,16 @@ export async function saveFeedbackToServer(feedback: FeedbackInput): Promise<unk
     method: 'PUT'
   });
   if (!response.ok) {
-    throw new Error(await feedbackSaveErrorMessage(response, endpoint));
+    throw new Error(await responseErrorMessage(response, endpoint, 'Could not save feedback'));
   }
   return response.json();
 }
 
-async function feedbackSaveErrorMessage(response: Response, endpoint: string): Promise<string> {
+async function responseErrorMessage(response: Response, endpoint: string, prefix: string): Promise<string> {
   const details = await responseErrorDetails(response);
   return details
-    ? `Could not save feedback: ${response.status} from ${endpoint}. ${details}`
-    : `Could not save feedback: ${response.status} from ${endpoint}.`;
+    ? `${prefix}: ${response.status} from ${endpoint}. ${details}`
+    : `${prefix}: ${response.status} from ${endpoint}.`;
 }
 
 async function responseErrorDetails(response: Response): Promise<string> {

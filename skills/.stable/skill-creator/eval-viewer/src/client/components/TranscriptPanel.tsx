@@ -1,7 +1,7 @@
-import type { RunView } from '../../shared/viewModel.js';
+import type { IterationNumber, RunView } from '../../shared/viewModel.js';
 import { artifactHref, displayWorkingDirectory } from '../formatters.js';
 
-export function TranscriptPanel({ run }: { run: RunView }) {
+export function TranscriptPanel({ iteration, run }: { iteration: IterationNumber; run: RunView }) {
   return (
     <section className="history">
       <div className="history-main">
@@ -65,8 +65,8 @@ export function TranscriptPanel({ run }: { run: RunView }) {
           ) : null}
         </dl>
         <div className="artifact-links">
-          <a href={artifactHref(run.artifactPaths.rawOutput)}>Raw JSON Output</a>
-          <a href={artifactHref(run.artifactPaths.runArtifacts)}>View All Artifacts</a>
+          <a href={artifactHref(run.artifactPaths.rawOutput, iteration)}>Raw JSON Output</a>
+          <a href={artifactHref(run.artifactPaths.runArtifacts, iteration)}>View All Artifacts</a>
         </div>
       </aside>
     </section>
