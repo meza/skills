@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-skills.local/skill-creator/run-manifest.schema.json",
+  "title": "Skill Creator Run Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skill_name",
+    "eval_definitions_path",
+    "iteration",
+    "provider",
+    "model",
+    "effort",
+    "timestamp",
+    "total_elapsed_seconds",
+    "runs"
+  ],
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eval_definitions_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effort": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_elapsed_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/run"
+      }
+    }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eval_id", "run_type", "status"],
+      "properties": {
+        "eval_id": {
+          "type": "integer"
+        },
+        "eval_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_type": {
+          "type": "string",
+          "enum": ["skill", "baseline"]
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "timeout",
+            "error",
+            "grading_error",
+            "skipped",
+            "exception"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

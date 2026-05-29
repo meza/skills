@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-skills.local/skill-creator/eval-metadata.schema.json",
+  "title": "Skill Creator Eval Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eval_id", "eval_name", "turns"],
+  "properties": {
+    "eval_id": {
+      "type": "integer"
+    },
+    "eval_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "turns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "evals.schema.json#/$defs/turn"
+      }
+    }
+  }
+}

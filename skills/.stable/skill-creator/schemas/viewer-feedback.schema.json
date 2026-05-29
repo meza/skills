@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-skills.local/skill-creator/viewer-feedback.schema.json",
+  "title": "Eval Viewer Feedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reviews"],
+  "properties": {
+    "reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/review"
+      }
+    }
+  },
+  "$defs": {
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eval_id", "updated_at"],
+      "properties": {
+        "eval_id": {
+          "type": "integer"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "comments": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overall": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/expectation_feedback"
+          }
+        },
+        "turns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["turn", "expectations"],
+            "properties": {
+              "turn": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "expectations": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/expectation_feedback"
+                }
+              }
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["comments"]
+        },
+        {
+          "required": ["overall"]
+        },
+        {
+          "required": ["turns"]
+        }
+      ]
+    },
+    "expectation_feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expectation_id", "comment"],
+      "properties": {
+        "expectation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { validateArtifactSchema } from '../../src/server/artifactSchemas.js';
 import { loadIteration, saveFeedback } from '../../src/server/iterationRepository.js';
 import { writeRichEvaluationWorkspace } from '../fixtures/richEvaluation.js';
 import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
@@ -137,7 +138,6 @@ it('uses real grader turn results from recorded artifact paths', async () => {
         reviews: [
           {
             eval_id: 1,
-            overall: [],
             turns: [
               {
                 expectations: [
@@ -193,24 +193,24 @@ it('rejects missing required run artifacts', async () => {
 
 it('rejects invalid grading artifacts', async () => {
   await writeFile(join(root, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
-  const manifestPath = join(root, 'run_manifest.json');
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
-  manifest.runs[0].status = 'failed';
-  manifest.runs[0].error = 'executor timed out';
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
 });
 
-it('uses manifest metrics when timing artifacts omit totals', async () => {
+it('rejects invalid optional generated artifacts when they are present', async () => {
+  await writeFile(join(root, 'aggregated_results.json'), '{', 'utf-8');
+
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid aggregated_results\.json/);
+});
+
+it('rejects unknown artifact schema names', async () => {
+  await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(/Unknown artifact schema/);
+});
+
+it('rejects timing artifacts that do not match the schema', async () => {
   await writeFile(join(root, 'eval-1', 'skill', 'timing.json'), JSON.stringify({}), 'utf-8');
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]).toMatchObject({
-    durationSeconds: 24,
-    tokenCount: 1200
-  });
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid timing\.json/);
 });
 
 it('writes viewer feedback without mutating evaluator artifacts', async () => {
@@ -341,6 +341,105 @@ it('removes an existing review entry when saved feedback is cleared', async () =
   expect(feedback).toEqual({ reviews: [] });
 });
 
+it('rejects preserving an empty existing feedback review', async () => {
+  await writeFile(
+    join(root, 'viewer_feedback.json'),
+    `${JSON.stringify({ reviews: [{ eval_id: 2, updated_at: '2026-05-26T12:00:00.000Z' }] }, null, 2)}\n`,
+    'utf-8'
+  );
+
+  await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
+    /Invalid viewer_feedback\.json/
+  );
+});
+
+it('preserves existing comment-only feedback reviews', async () => {
+  await writeFile(
+    join(root, 'viewer_feedback.json'),
+    `${JSON.stringify(
+      {
+        reviews: [
+          {
+            comments: 'Old note.',
+            eval_id: 2,
+            updated_at: '2026-05-26T12:00:00.000Z'
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    'utf-8'
+  );
+
+  await saveFeedback(root, {
+    comments: 'New note.',
+    evalId: 1,
+    overall: [],
+    turns: []
+  });
+
+  const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  expect(feedback.reviews).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ comments: 'Old note.', eval_id: 2 }),
+      expect.objectContaining({ comments: 'New note.', eval_id: 1 })
+    ])
+  );
+});
+
+it('rejects preserving an invalid existing feedback turn', async () => {
+  await writeFile(
+    join(root, 'viewer_feedback.json'),
+    `${JSON.stringify(
+      {
+        reviews: [
+          {
+            comments: 'Old note.',
+            eval_id: 2,
+            turns: [
+              { expectations: [{ comment: 'Turn note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 0 }
+            ],
+            updated_at: '2026-05-26T12:00:00.000Z'
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    'utf-8'
+  );
+
+  await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
+    /Invalid viewer_feedback\.json/
+  );
+});
+
+it('rejects preserving invalid existing expectation feedback', async () => {
+  await writeFile(
+    join(root, 'viewer_feedback.json'),
+    `${JSON.stringify(
+      {
+        reviews: [
+          {
+            comments: 'Old note.',
+            eval_id: 2,
+            overall: [{ comment: '', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }],
+            updated_at: '2026-05-26T12:00:00.000Z'
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    'utf-8'
+  );
+
+  await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
+    /Invalid viewer_feedback\.json/
+  );
+});
+
 it('loads viewer feedback keyed by eval_id', async () => {
   await writeFile(
     join(root, 'viewer_feedback.json'),
@@ -350,8 +449,7 @@ it('loads viewer feedback keyed by eval_id', async () => {
           {
             comments: 'Already reviewed.',
             eval_id: 1,
-            overall: [{ comment: 'Existing first expectation note.' }],
-            turns: [],
+            overall: [{ comment: 'Existing first expectation note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }],
             updated_at: '2026-05-26T12:00:00.000Z'
           }
         ]
@@ -491,46 +589,7 @@ it('keeps overall expectation feedback empty when no review exists', async () =>
   expect(iteration.runs[0]?.feedback.overall).toEqual([{ comment: '', expectation_id: overallExpectationId }]);
 });
 
-it('normalizes string eval ids from current feedback artifacts', async () => {
-  await writeFile(
-    join(root, 'viewer_feedback.json'),
-    `${JSON.stringify(
-      {
-        reviews: [
-          {
-            comments: 'String id note.',
-            eval_id: '1',
-            turns: [
-              {
-                expectations: [
-                  {
-                    comment: 'String id expectation note.',
-                    expectation_id: SAMPLE_SKILL_EXPECTATION_ID
-                  }
-                ],
-                turn: 1
-              }
-            ],
-            updated_at: '2026-05-26T12:00:00.000Z'
-          }
-        ]
-      },
-      null,
-      2
-    )}\n`,
-    'utf-8'
-  );
-
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.feedback.comments).toBe('String id note.');
-  expect(iteration.runs[0]?.feedback.turns[0]?.expectations[0]).toEqual({
-    comment: 'String id expectation note.',
-    expectation_id: SAMPLE_SKILL_EXPECTATION_ID
-  });
-});
-
-it('ignores malformed string eval ids in current feedback artifacts', async () => {
+it('rejects malformed eval ids in current feedback artifacts', async () => {
   await writeFile(
     join(root, 'viewer_feedback.json'),
     `${JSON.stringify(
@@ -549,9 +608,7 @@ it('ignores malformed string eval ids in current feedback artifacts', async () =
     'utf-8'
   );
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.feedback.comments).toBe('');
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid viewer_feedback\.json/);
 });
 
 it('updates existing viewer feedback entries by eval_id', async () => {
@@ -563,8 +620,12 @@ it('updates existing viewer feedback entries by eval_id', async () => {
           {
             comments: 'Old note.',
             eval_id: 1,
-            overall: [],
-            turns: [{ expectations: [{ comment: 'Old expectation note.' }], turn: 1 }],
+            turns: [
+              {
+                expectations: [{ comment: 'Old expectation note.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }],
+                turn: 1
+              }
+            ],
             updated_at: '2026-05-26T12:00:00.000Z'
           }
         ]
@@ -603,27 +664,26 @@ it('updates existing viewer feedback entries by eval_id', async () => {
   expect(feedback.reviews[0]).not.toHaveProperty('review_state');
 });
 
-it('handles fallback metadata, missing comparisons, and unknown statuses', async () => {
+it('rejects manifest artifacts that do not match the schema', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
-  delete manifest.skill_name;
-  delete manifest.provider;
-  delete manifest.model;
-  delete manifest.effort;
-  manifest.runs = [manifest.runs[0]];
   manifest.runs[0].status = 'queued';
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
+});
+
+it('maps non-success run statuses from valid manifests to failed runs', async () => {
+  const manifestPath = join(root, 'run_manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
+  manifest.runs = [manifest.runs[0]];
+  manifest.runs[0].status = 'error';
+  manifest.runs[0].error = 'executor timed out';
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
   const iteration = await loadIteration(root);
 
-  expect(iteration.summary).toMatchObject({
-    effort: 'high',
-    model: 'gpt-5',
-    provider: 'codex',
-    skillName: 'conventional-commit-message'
-  });
-  expect(iteration.runs[0]?.comparisons.baseline).toBeUndefined();
-  expect(iteration.runs[0]?.status).toBe('success');
+  expect(iteration.runs[0]?.status).toBe('failed');
 });
 
 it('rejects malformed turn artifact entries', async () => {
@@ -633,7 +693,7 @@ it('rejects malformed turn artifact entries', async () => {
     'utf-8'
   );
 
-  await expect(loadIteration(root)).rejects.toThrow(/Missing response\.md/);
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_artifacts\.json/);
 });
 
 it('loads previous iteration comparisons from numbered iteration directories', async () => {
@@ -680,72 +740,52 @@ it('surfaces incomplete previous iteration comparison artifacts', async () => {
 });
 
 it('rejects run artifacts without turn entries', async () => {
-  await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
-    JSON.stringify({ summary: { pass_rate: 1 }, eval_feedback: { overall: 'No expectations.' } }),
-    'utf-8'
-  );
   await writeFile(join(root, 'eval-1', 'skill', 'run_artifacts.json'), JSON.stringify({ artifacts: {} }), 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/no runs to review|Missing response\.md/i);
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_artifacts\.json/);
 });
 
-it('does not synthesize expectation rows from metadata when grading has no expectation results', async () => {
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
-    JSON.stringify({ summary: { pass_rate: 0 } }),
-    'utf-8'
-  );
-
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.expectations).toEqual([]);
-  expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
-  expect(iteration.runs[0]?.feedback.turns).toEqual([]);
-});
-
-it('keeps turn expectations empty when grading has no expectation results', async () => {
-  await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
-    JSON.stringify({ summary: { pass_rate: 0 } }),
-    'utf-8'
-  );
-
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.expectations).toEqual([]);
-  expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
-});
-
-it('handles grader turn entries without expectation arrays', async () => {
+it('keeps expectations empty when grading has no expectation results', async () => {
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({
-      results: {
-        turns: [{ turn: 1 }]
-      },
-      summary: { pass_rate: 1 }
+      executive_summary: 'No expectations were graded.',
+      results: { overall_expectations: [], turns: [] },
+      summary: { failed: 0, pass_rate: 1, passed: 0, total: 0 }
     }),
     'utf-8'
   );
 
   const iteration = await loadIteration(root);
 
+  expect(iteration.runs[0]?.expectations).toEqual([]);
   expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
 });
 
-it('treats omitted manifest statuses as success when artifacts are valid', async () => {
+it('rejects grader turn entries without expectation arrays', async () => {
+  await writeFile(
+    join(root, 'eval-1', 'skill', 'grading.json'),
+    JSON.stringify({
+      executive_summary: 'Malformed turn.',
+      results: {
+        turns: [{ turn: 1 }]
+      },
+      summary: { failed: 0, pass_rate: 1, passed: 0, total: 0 }
+    }),
+    'utf-8'
+  );
+
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
+});
+
+it('rejects omitted manifest statuses', async () => {
   const manifestPath = join(root, 'run_manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
   delete manifest.runs[0].status;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.status).toBe('success');
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
 });
 
 it('rejects a result root that points at a file', async () => {
@@ -757,7 +797,7 @@ it('rejects a result root that points at a file', async () => {
 it('rejects an empty iteration when the manifest has no run array', async () => {
   await writeFile(join(root, 'run_manifest.json'), JSON.stringify({ iteration: 1 }), 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/no runs to review/i);
+  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/i);
 });
 
 it('rejects a directory that is neither an iteration root nor an evaluation workspace', async () => {

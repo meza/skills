@@ -1,6 +1,5 @@
 """Coordinate prepared eval execution and write run-level artifacts."""
 
-import json
 import sys
 import threading
 import time
@@ -11,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .artifact_validation import write_json_artifact
 from .eval_definitions import EvalDefinition, write_eval_metadata
 from .eval_job import ActiveProcessRegistry, EvalJobRun, run_single_job
 from .run_layout import RUN_TYPES
@@ -105,7 +105,7 @@ class EvalProgress:
                 for summary in stable_run_summaries(self.summaries)
             ],
         }
-        self.path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
+        write_json_artifact(self.path, progress, "progress.schema.json")
 
 
 @dataclass
@@ -319,7 +319,7 @@ class EvalRun:
             "runs": stable_run_summaries(summaries),
         }
         manifest_path = iteration_dir / "run_manifest.json"
-        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        write_json_artifact(manifest_path, manifest, "run-manifest.schema.json")
         return manifest
 
     def print_final_summary(

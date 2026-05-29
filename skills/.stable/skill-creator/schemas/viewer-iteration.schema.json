@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-skills.local/skill-creator/viewer-iteration.schema.json",
+  "title": "Eval Viewer Iteration Directory Contract",
+  "description": "Schema inventory for the files that make up a viewer iteration. Cross-file path existence and matching are enforced by the artifact validation code, not JSON Schema alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_manifest",
+    "eval_metadata",
+    "run_artifacts",
+    "grading",
+    "timing"
+  ],
+  "properties": {
+    "run_manifest": {
+      "$ref": "https://agent-skills.local/skill-creator/run-manifest.schema.json"
+    },
+    "aggregated_results": {
+      "$ref": "https://agent-skills.local/skill-creator/aggregated-results.schema.json"
+    },
+    "eval_metadata": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agent-skills.local/skill-creator/eval-metadata.schema.json"
+      }
+    },
+    "run_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agent-skills.local/skill-creator/run-artifacts.schema.json"
+      }
+    },
+    "grading": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agent-skills.local/skill-creator/grading.schema.json"
+      }
+    },
+    "timing": {
+      "type": "array",
+      "items": {
+        "$ref": "https://agent-skills.local/skill-creator/timing.schema.json"
+      }
+    },
+    "viewer_feedback": {
+      "$ref": "https://agent-skills.local/skill-creator/viewer-feedback.schema.json"
+    }
+  }
+}

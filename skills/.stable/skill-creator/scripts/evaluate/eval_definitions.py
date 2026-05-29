@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from .artifact_validation import (
+    ArtifactValidationError,
+    validate_artifact,
+    write_json_artifact,
+)
 from .run_layout import RUN_TYPES, SKILL_RUN_TYPE
 
 SUPPORTED_EVAL_SCHEMA_VERSION = 1
@@ -148,6 +153,15 @@ def validate_evals_data_or_exit(evals_data: dict) -> None:
 
     for eval_index, eval_def in enumerate(evals_list, start=1):
         validate_eval_definition_or_exit(eval_def, eval_index)
+    validate_evals_schema_or_exit(evals_data)
+
+
+def validate_evals_schema_or_exit(evals_data: dict) -> None:
+    try:
+        validate_artifact(evals_data, "evals.schema.json", "evals.json")
+    except ArtifactValidationError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
 
 
 def validate_schema_version_or_exit(evals_data: object) -> None:
@@ -287,7 +301,8 @@ def write_eval_metadata(iteration_dir: Path, evals_list: list[dict]) -> None:
         eval_dir.mkdir(parents=True, exist_ok=True)
 
         metadata = eval_definition.to_metadata()
-        (eval_dir / "eval_metadata.json").write_text(
-            json.dumps(metadata, indent=2),
-            encoding="utf-8",
+        write_json_artifact(
+            eval_dir / "eval_metadata.json",
+            metadata,
+            "eval-metadata.schema.json",
         )

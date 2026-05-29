@@ -17,16 +17,17 @@ import type {
   TurnExpectationView,
   TurnView
 } from '../shared/viewModel.js';
+import { validateArtifactSchema } from './artifactSchemas.js';
 
 interface ManifestRun {
   cost_usd?: number;
-  duration_seconds?: number;
+  duration_ms?: number;
   error?: string;
-  eval_id?: number | string;
+  eval_id: number;
   eval_name?: string;
-  run_type?: string;
+  run_type: string;
   session_id?: string;
-  status?: string;
+  status: string;
   total_tokens?: number;
 }
 
@@ -50,7 +51,7 @@ interface RunFilePaths {
 }
 
 function objectValue(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return value as Record<string, unknown>;
 }
 
 /**
@@ -79,10 +80,15 @@ export async function assertResultRoot(resultRoot: string): Promise<void> {
  */
 export async function loadIteration(resultRoot: string): Promise<IterationView> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
-  const manifest = await readJson(join(resolvedRoot, 'run_manifest.json'));
-  const aggregated = await readOptionalJson(join(resolvedRoot, 'aggregated_results.json'));
+  const manifest = await readRequiredJson(join(resolvedRoot, 'run_manifest.json'), 'run_manifest.json', {
+    schemaName: 'run-manifest.schema.json'
+  });
+  await readOptionalJson(join(resolvedRoot, 'aggregated_results.json'), {
+    artifact: 'aggregated_results.json',
+    schemaName: 'aggregated-results.schema.json'
+  });
   const feedback = await readFeedback(resolvedRoot);
-  const manifestRuns = Array.isArray(manifest.runs) ? (manifest.runs as ManifestRun[]) : [];
+  const manifestRuns = manifest.runs as ManifestRun[];
   const runs = await Promise.all(manifestRuns.map((run) => loadRun(resolvedRoot, run, feedback)));
   if (runs.length === 0) {
     throw new Error('Evaluation results contain no runs to review.');
@@ -92,12 +98,12 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
     feedbackPath: feedbackPath(resolvedRoot),
     runs: await loadComparisonsForRuns(runs, resolvedRoot),
     summary: {
-      effort: textValue(manifest.effort ?? objectValue(aggregated?.metadata).effort, 'default'),
+      effort: textValue(manifest.effort, 'default'),
       iteration: numberValue(manifest.iteration, 0),
-      model: textValue(manifest.model ?? objectValue(aggregated?.metadata).model, 'default'),
-      provider: textValue(manifest.provider ?? objectValue(aggregated?.metadata).provider, 'unknown'),
+      model: textValue(manifest.model, 'default'),
+      provider: textValue(manifest.provider, 'unknown'),
       runCount: runs.length,
-      skillName: textValue(manifest.skill_name ?? objectValue(aggregated?.metadata).skill_name, 'unknown skill')
+      skillName: textValue(manifest.skill_name, 'unknown skill')
     }
   };
 }
@@ -132,6 +138,7 @@ export async function saveFeedback(resultRoot: string, feedback: FeedbackInput):
     if (existingIndex >= 0) {
       artifact.reviews.splice(existingIndex, 1);
     }
+    await validateArtifactSchema('viewer-feedback.schema.json', artifact);
     await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
     return saved;
   }
@@ -140,6 +147,7 @@ export async function saveFeedback(resultRoot: string, feedback: FeedbackInput):
   } else {
     artifact.reviews.push(saved);
   }
+  await validateArtifactSchema('viewer-feedback.schema.json', artifact);
   await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
   return saved;
 }
@@ -162,8 +170,8 @@ export async function readArtifactText(resultRoot: string, artifactPath: string)
 }
 
 async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: FeedbackArtifact): Promise<RunView> {
-  const evalId = numberValue(manifestRun.eval_id, 0);
-  const runType = textValue(manifestRun.run_type, 'unknown');
+  const evalId = manifestRun.eval_id;
+  const runType = manifestRun.run_type;
   const evalDir = join(resultRoot, `eval-${evalId}`);
   const runTypeDir = join(evalDir, runType);
   const filePaths = runFilePaths(runTypeDir);
@@ -171,10 +179,7 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   const artifactRoot = objectValue(artifacts.artifacts);
   const metadataTurns = metadataTurnsFrom(metadata);
   const gradedTurns = gradedTurnExpectations(grading);
-  const turns = await loadTurns(metadataTurns, artifactRoot.turns, gradedTurns);
-  if (turns.length === 0) {
-    throw new Error('Missing response.md');
-  }
+  const turns = await loadTurns(metadataTurns, artifactRoot.turns as unknown[], gradedTurns);
   const expectations = expectationsFrom(grading);
   const issues: ArtifactIssue[] = [];
   const review = feedback.reviews.find((candidate) => candidate.eval_id === evalId);
@@ -183,13 +188,10 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   return {
     artifactPaths: artifactPaths(artifactRoot, filePaths),
     comparisons: {},
-    durationSeconds: numberValue(timing.total_duration_seconds ?? manifestRun.duration_seconds, 0),
+    durationSeconds: numberValue(timing.total_duration_seconds, 0),
     evalId,
-    evalName: textValue(
-      metadata?.eval_name ?? objectValue(metadata?.eval).eval_name ?? manifestRun.eval_name,
-      `eval-${evalId}`
-    ),
-    executiveSummary: textValue(grading.executive_summary ?? objectValue(grading.eval_feedback).overall, ''),
+    evalName: textValue(metadata.eval_name, `eval-${evalId}`),
+    executiveSummary: textValue(grading.executive_summary, ''),
     expectations,
     finalResponse: (turns[turns.length - 1] as TurnView).response,
     issues,
@@ -198,7 +200,7 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
     feedback: runFeedback,
     runType,
     status: statusFor(manifestRun),
-    tokenCount: numberValue(timing.total_tokens ?? manifestRun.total_tokens, 0),
+    tokenCount: numberValue(timing.total_tokens, 0),
     turns,
     userComments: runFeedback.comments,
     workingDirectory: textValue(artifactRoot.working_dir_path, '')
@@ -220,14 +222,16 @@ async function readRunArtifacts(
 ): Promise<{
   artifacts: Record<string, unknown>;
   grading: Record<string, unknown>;
-  metadata: Record<string, unknown> | undefined;
+  metadata: Record<string, unknown>;
   timing: Record<string, unknown>;
 }> {
   const [metadata, grading, artifacts, timing] = await Promise.all([
-    readOptionalJson(join(evalDir, 'eval_metadata.json')),
-    readRequiredJson(filePaths.grading, 'grading.json'),
-    readRequiredJson(filePaths.artifacts, 'run_artifacts.json'),
-    readRequiredJson(filePaths.timing, 'timing.json'),
+    readRequiredJson(join(evalDir, 'eval_metadata.json'), 'eval_metadata.json', {
+      schemaName: 'eval-metadata.schema.json'
+    }),
+    readRequiredJson(filePaths.grading, 'grading.json', { schemaName: 'grading.schema.json' }),
+    readRequiredJson(filePaths.artifacts, 'run_artifacts.json', { schemaName: 'run-artifacts.schema.json' }),
+    readRequiredJson(filePaths.timing, 'timing.json', { schemaName: 'timing.schema.json' }),
     readRequiredText(filePaths.rawOutput, 'raw_output.jsonl')
   ]);
 
@@ -251,17 +255,15 @@ function artifactPaths(artifactRoot: Record<string, unknown>, filePaths: RunFile
 }
 
 async function loadTurns(
-  metadataTurns: unknown,
-  artifactTurns: unknown,
+  metadataTurns: unknown[],
+  artifactTurns: unknown[],
   gradedTurns: Map<number, TurnExpectationView[]>
 ): Promise<TurnView[]> {
-  const turns = Array.isArray(artifactTurns) ? artifactTurns : [];
-  const metadata = Array.isArray(metadataTurns) ? metadataTurns : [];
   return Promise.all(
-    turns.map(async (turn, index) => {
+    artifactTurns.map(async (turn, index) => {
       const turnRecord = objectValue(turn);
       const turnNumber = numberValue(turnRecord.turn, index + 1);
-      const prompt = textValue(objectValue(metadata[index]).prompt, '');
+      const prompt = textValue(objectValue(metadataTurns[index]).prompt, '');
       const responsePath = textValue(turnRecord.response_path, '');
       const transcriptPath = textValue(turnRecord.transcript_path, '');
       const response = await readRequiredText(responsePath, 'response.md');
@@ -344,8 +346,8 @@ async function loadPreviousRunComparisonTarget(
   }
   try {
     const [grading, timing, response] = await Promise.all([
-      readJson(join(runTypeDir, 'grading.json')),
-      readJson(join(runTypeDir, 'timing.json')),
+      readJson(join(runTypeDir, 'grading.json'), 'grading.schema.json'),
+      readJson(join(runTypeDir, 'timing.json'), 'timing.schema.json'),
       readFile(join(runTypeDir, 'turn-1', 'outputs', 'response.md'), 'utf-8')
     ]);
     return {
@@ -384,7 +386,7 @@ async function loadPreviousRunComparisonTarget(
 
 function expectationsFrom(grading: Record<string, unknown> | undefined): ExpectationView[] {
   const nestedResults = objectValue(grading?.results);
-  const nestedOverall = Array.isArray(nestedResults.overall_expectations) ? nestedResults.overall_expectations : [];
+  const nestedOverall = nestedResults.overall_expectations as unknown[];
   const overall = nestedOverall.map(overallExpectationFrom);
   const turnResults = [...gradedTurnExpectations(grading).values()].flat();
   return [...overall, ...turnResults];
@@ -392,14 +394,11 @@ function expectationsFrom(grading: Record<string, unknown> | undefined): Expecta
 
 function gradedTurnExpectations(grading: Record<string, unknown> | undefined): Map<number, TurnExpectationView[]> {
   const result = new Map<number, TurnExpectationView[]>();
-  const turns = objectValue(grading?.results).turns;
-  if (!Array.isArray(turns)) {
-    return result;
-  }
+  const turns = objectValue(grading?.results).turns as unknown[];
   for (const turn of turns) {
     const turnRecord = objectValue(turn);
     const turnNumber = numberValue(turnRecord.turn, result.size + 1);
-    const expectations = Array.isArray(turnRecord.expectations) ? turnRecord.expectations : [];
+    const expectations = turnRecord.expectations as unknown[];
     result.set(
       turnNumber,
       expectations.map((expectation) => turnExpectationFrom(expectation, turnNumber))
@@ -408,9 +407,8 @@ function gradedTurnExpectations(grading: Record<string, unknown> | undefined): M
   return result;
 }
 
-function metadataTurnsFrom(metadata: Record<string, unknown> | undefined): unknown {
-  const nestedEval = objectValue(metadata?.eval);
-  return metadata?.turns ?? nestedEval.turns;
+function metadataTurnsFrom(metadata: Record<string, unknown>): unknown[] {
+  return metadata.turns as unknown[];
 }
 
 function overallExpectationFrom(item: unknown): OverallExpectationView {
@@ -436,30 +434,54 @@ function turnExpectationFrom(item: unknown, turn: number): TurnExpectationView {
   };
 }
 
-async function readRequiredJson(path: string, artifact: string): Promise<Record<string, unknown>> {
+async function readRequiredJson(
+  path: string,
+  artifact: string,
+  options?: { schemaName?: string }
+): Promise<Record<string, unknown>> {
   try {
-    return await readJson(path);
+    return await readJson(path, options?.schemaName);
   } catch (error) {
-    throw new Error(error instanceof SyntaxError ? `Invalid ${artifact}` : `Missing ${artifact}`);
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid ${artifact}`);
+    }
+    if (error instanceof ArtifactSchemaError) {
+      throw new Error(`Invalid ${artifact}: ${error.message}`);
+    }
+    throw new Error(`Missing ${artifact}`);
   }
 }
 
-async function readJson(path: string): Promise<Record<string, unknown>> {
-  return JSON.parse(await readFile(path, 'utf-8')) as Record<string, unknown>;
+async function readJson(path: string, schemaName?: string): Promise<Record<string, unknown>> {
+  const value = JSON.parse(await readFile(path, 'utf-8')) as Record<string, unknown>;
+  if (schemaName) {
+    try {
+      await validateArtifactSchema(schemaName, value);
+    } catch (error) {
+      throw new ArtifactSchemaError((error as Error).message);
+    }
+  }
+  return value;
 }
 
-async function readOptionalJson(path: string): Promise<Record<string, unknown> | undefined> {
+async function readOptionalJson(
+  path: string,
+  options?: { artifact: string; schemaName: string }
+): Promise<Record<string, unknown> | undefined> {
   try {
-    return await readJson(path);
-  } catch {
+    return await readJson(path, options?.schemaName);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid ${options?.artifact}`);
+    }
+    if (error instanceof ArtifactSchemaError) {
+      throw new Error(`Invalid ${options?.artifact}: ${error.message}`);
+    }
     return undefined;
   }
 }
 
 async function readRequiredText(path: string, artifact: string): Promise<string> {
-  if (!path) {
-    throw new Error(`Missing ${artifact}`);
-  }
   try {
     return await readFile(path, 'utf-8');
   } catch {
@@ -468,7 +490,10 @@ async function readRequiredText(path: string, artifact: string): Promise<string>
 }
 
 async function readFeedback(resultRoot: string): Promise<FeedbackArtifact> {
-  const existing = await readOptionalJson(feedbackPath(resultRoot));
+  const existing = await readOptionalJson(feedbackPath(resultRoot), {
+    artifact: 'viewer_feedback.json',
+    schemaName: 'viewer-feedback.schema.json'
+  });
   const reviews = Array.isArray(existing?.reviews) ? existing.reviews.map((review) => feedbackReviewFrom(review)) : [];
   return {
     reviews
@@ -487,13 +512,23 @@ function firstTurnPath(artifactRoot: Record<string, unknown>, key: 'response_pat
 
 function feedbackReviewFrom(value: unknown): FeedbackReview {
   const record = objectValue(value);
-  return {
-    comments: textValue(record.comments, '') || undefined,
+  const review: FeedbackReview = {
     eval_id: numberValue(record.eval_id, 0),
-    overall: feedbackExpectationsFrom(record.overall),
-    turns: feedbackTurnsFrom(record.turns),
     updated_at: textValue(record.updated_at, '')
   };
+  const comments = textValue(record.comments, '');
+  const overall = feedbackExpectationsFrom(record.overall);
+  const turns = feedbackTurnsFrom(record.turns);
+  if (comments) {
+    review.comments = comments;
+  }
+  if (overall.length > 0) {
+    review.overall = overall;
+  }
+  if (turns.length > 0) {
+    review.turns = turns;
+  }
+  return review;
 }
 
 function feedbackForExpectations(expectations: ExpectationView[], review: FeedbackReview | undefined): RunFeedbackView {
@@ -612,10 +647,10 @@ function iterationNumber(path: string): number {
 
 function statusFor(manifestRun: ManifestRun): RunStatus {
   const status = manifestRun.status;
-  if (status === 'failed' || status === 'exception' || status === 'success') {
+  if (status === 'success' || status === 'exception') {
     return status;
   }
-  return 'success';
+  return 'failed';
 }
 
 function existsSync(path: string): boolean {
@@ -627,17 +662,12 @@ function existsSync(path: string): boolean {
   }
 }
 
-function numberValue(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-  return fallback;
+function numberValue(value: unknown, _fallback: number): number {
+  return value as number;
 }
 
 function textValue(value: unknown, fallback: string): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
 }
+
+class ArtifactSchemaError extends Error {}

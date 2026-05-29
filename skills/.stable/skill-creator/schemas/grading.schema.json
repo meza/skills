@@ -9,7 +9,7 @@
     "expectation_result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["text", "passed", "evidence"],
+      "required": ["id", "text", "passed", "evidence"],
       "properties": {
         "id": {
           "type": "string",

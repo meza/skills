@@ -60,11 +60,14 @@ it('rejects startup when the result root has no runs to review', async () => {
     join(emptyRoot, 'run_manifest.json'),
     JSON.stringify({
       effort: 'high',
+      eval_definitions_path: join(emptyRoot, 'evals', 'evals.json'),
       iteration: 1,
       model: 'gpt-5',
       provider: 'codex',
       runs: [],
-      skill_name: 'empty'
+      skill_name: 'empty',
+      timestamp: '2026-05-25T10:00:00Z',
+      total_elapsed_seconds: 0
     }),
     'utf-8'
   );

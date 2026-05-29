@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-skills.local/skill-creator/progress.schema.json",
+  "title": "Skill Creator Eval Progress",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total",
+    "completed",
+    "succeeded",
+    "failed",
+    "running",
+    "elapsed_seconds",
+    "cost_usd",
+    "completed_runs"
+  ],
+  "properties": {
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "succeeded": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "running": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "elapsed_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "completed_runs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

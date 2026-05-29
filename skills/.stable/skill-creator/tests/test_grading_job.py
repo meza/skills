@@ -349,6 +349,10 @@ class GradingJobTests(unittest.TestCase):
                 "id",
                 grader_output_schema["$defs"]["expectation_result"]["properties"],
             )
+            self.assertNotIn(
+                "id",
+                grader_output_schema["$defs"]["expectation_result"]["required"],
+            )
 
     def test_run_rejects_provider_json_that_fails_grading_validation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -421,7 +425,7 @@ class GradingJobTests(unittest.TestCase):
                 ),
             ):
                 GradingJob(
-                    eval_def={"id": 1, "turns": []},
+                    eval_def={"id": 1, "turns": [{"prompt": "Do it"}]},
                     run_type="skill",
                     run_type_dir=run_type_dir,
                     skill_name="sample-skill",
@@ -455,7 +459,7 @@ class GradingJobTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "grader failed"),
             ):
                 GradingJob(
-                    eval_def={"id": 1, "turns": []},
+                    eval_def={"id": 1, "turns": [{"prompt": "Do it"}]},
                     run_type="skill",
                     run_type_dir=run_type_dir,
                     skill_name="sample-skill",

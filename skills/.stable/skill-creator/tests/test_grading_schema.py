@@ -58,6 +58,31 @@ class GradingSchemaTests(unittest.TestCase):
         with self.assertRaises(jsonschema.ValidationError):
             jsonschema.validate(payload, schema)
 
+    def test_schema_rejects_expectation_without_id(self):
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+        payload = {
+            "executive_summary": "The run satisfied the evaluated expectations.",
+            "results": {
+                "overall_expectations": [
+                    {
+                        "text": "It does the thing",
+                        "passed": True,
+                        "evidence": "The response includes the required output.",
+                    }
+                ],
+                "turns": [],
+            },
+            "summary": {
+                "passed": 1,
+                "failed": 0,
+                "total": 1,
+                "pass_rate": 1.0,
+            },
+        }
+
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(payload, schema)
+
     def test_schema_rejects_flat_expectations(self):
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         payload = {

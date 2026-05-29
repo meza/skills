@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .artifact_validation import write_json_artifact
+
 
 def calculate_stats(values: list[float]) -> dict:
     values = [value for value in values if value is not None]
@@ -46,7 +48,11 @@ class GradingResultAggregator:
     def aggregate(self) -> dict:
         aggregated = self.aggregated_results()
         json_path = self.iteration_dir / "aggregated_results.json"
-        json_path.write_text(json.dumps(aggregated, indent=2), encoding="utf-8")
+        write_json_artifact(
+            json_path,
+            aggregated,
+            "aggregated-results.schema.json",
+        )
         return {
             "json_path": str(json_path),
         }

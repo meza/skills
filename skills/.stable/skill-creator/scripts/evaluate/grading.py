@@ -3,11 +3,15 @@
 import json
 import os
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import jsonschema
-
+from .artifact_validation import (
+    load_schema,
+    validate_with_schema,
+    write_json_artifact,
+)
 from .eval_job import ActiveProcessRegistry, run_with_timeout
 from .providers import Provider
 
@@ -128,36 +132,51 @@ class GradingJob:
 
         result = self.provider.parse_output(process_result.stdout, prompt)
         grading_data = json.loads(result.response)
-        self.validate_grading_data(grading_data)
+        self.validate_grader_output(grading_data)
         add_grading_expectation_ids(
             grading_data,
             eval_id=self.eval_id,
             run_type=self.run_type,
         )
-        (self.run_type_dir / "grading.json").write_text(
-            json.dumps(grading_data, indent=2),
-            encoding="utf-8",
+        write_json_artifact(
+            self.run_type_dir / "grading.json",
+            grading_data,
+            "grading.schema.json",
         )
 
     def write_run_artifacts_manifest(self) -> None:
-        (self.run_type_dir / "run_artifacts.json").write_text(
-            json.dumps(self.run_result(), indent=2),
-            encoding="utf-8",
+        write_json_artifact(
+            self.run_type_dir / "run_artifacts.json",
+            self.run_result(),
+            "run-artifacts.schema.json",
         )
 
-    def validate_grading_data(self, grading_data: object) -> None:
-        schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
+    def validate_grader_output(self, grading_data: object) -> None:
         try:
-            jsonschema.validate(grading_data, schema)
-        except jsonschema.ValidationError as error:
-            raise RuntimeError(f"Invalid grading output: {error.message}") from error
+            validate_with_schema(
+                grading_data,
+                self.grader_output_schema(),
+                "grader output",
+            )
+        except Exception as error:
+            raise RuntimeError(f"Invalid grading output: {error}") from error
 
     def write_grader_output_schema(self) -> Path:
-        schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
-        schema["$defs"]["expectation_result"]["properties"].pop("id", None)
+        schema = self.grader_output_schema()
         path = self.run_type_dir / "grader_output_schema.json"
         path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
         return path
+
+    def grader_output_schema(self) -> dict:
+        schema = deepcopy(load_schema(self.schema_path.name))
+        expectation_result = schema["$defs"]["expectation_result"]
+        expectation_result["properties"].pop("id", None)
+        expectation_result["required"] = [
+            field_name
+            for field_name in expectation_result["required"]
+            if field_name != "id"
+        ]
+        return schema
 
     @property
     def eval_id(self) -> int:

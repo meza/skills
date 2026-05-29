@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from .artifact_validation import write_json_artifact
 from .eval_definitions import (
     EvalDefinition,
     EvalTurn,
@@ -404,9 +405,10 @@ class RunArtifactWriter:
             self.run_transcript(),
             encoding="utf-8",
         )
-        (self.run_type_dir / "timing.json").write_text(
-            json.dumps(self.timing, indent=2),
-            encoding="utf-8",
+        write_json_artifact(
+            self.run_type_dir / "timing.json",
+            self.timing,
+            "timing.schema.json",
         )
         self.write_raw_output()
 
