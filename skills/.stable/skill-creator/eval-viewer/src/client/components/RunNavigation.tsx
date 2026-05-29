@@ -27,7 +27,9 @@ export function RunNavigation({
   return (
     <aside className="side-nav">
       <div className="brand-block">
-        <span className="material-symbols-outlined brand-icon">list_alt</span>
+        <span aria-hidden="true" className="material-symbols-outlined brand-icon">
+          list_alt
+        </span>
         <div>
           <span className="eyebrow">Platform</span>
           <strong>Codex</strong>

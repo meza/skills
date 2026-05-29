@@ -21,20 +21,34 @@ export function RunSummary({
           <h2>{run.evalName}</h2>
         </div>
         <div className="run-pager">
-          <button disabled={selectedIndex === 0} onClick={() => selectRunAt(-1)} type="button">
-            <span className="material-symbols-outlined">chevron_left</span>
+          <button
+            aria-label="Previous eval"
+            disabled={selectedIndex === 0}
+            onClick={() => selectRunAt(-1)}
+            type="button">
+            <span aria-hidden="true" className="material-symbols-outlined">
+              chevron_left
+            </span>
           </button>
           <span>
             <strong>{selectedIndex + 1}</strong> / {reviewRunCount}
           </span>
-          <button disabled={selectedIndex >= reviewRunCount - 1} onClick={() => selectRunAt(1)} type="button">
-            <span className="material-symbols-outlined">chevron_right</span>
+          <button
+            aria-label="Next eval"
+            disabled={selectedIndex >= reviewRunCount - 1}
+            onClick={() => selectRunAt(1)}
+            type="button">
+            <span aria-hidden="true" className="material-symbols-outlined">
+              chevron_right
+            </span>
           </button>
         </div>
       </section>
       <section className="summary-card">
         <div className="card-title">
-          <span className="material-symbols-outlined">auto_awesome</span>
+          <span aria-hidden="true" className="material-symbols-outlined">
+            auto_awesome
+          </span>
           <h3>Executive Summary</h3>
         </div>
         <p>{run.executiveSummary || 'No executive summary was provided.'}</p>

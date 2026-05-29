@@ -154,15 +154,15 @@ it('moves through runs with the prototype pager controls', async () => {
   });
   renderApp({ initialIteration: view });
 
-  await user.click(screen.getByRole('button', { name: /chevron_right/i }));
+  await user.click(screen.getByRole('button', { name: 'Next eval' }));
 
   expect(screen.getByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).toBeInTheDocument();
 
-  await user.click(screen.getByRole('button', { name: /chevron_left/i }));
+  await user.click(screen.getByRole('button', { name: 'Previous eval' }));
 
   expect(screen.getByText('feat!: support signing key rotation')).toBeInTheDocument();
 
-  await user.click(screen.getByRole('button', { name: /chevron_right/i }));
+  await user.click(screen.getByRole('button', { name: 'Next eval' }));
   await user.click(screen.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }));
 
   expect(
@@ -285,7 +285,7 @@ it('keeps the current run when a pager control has no target', async () => {
   view.runs = [view.runs[0] as (typeof view.runs)[number]];
   renderApp({ initialIteration: view });
 
-  await user.click(screen.getByRole('button', { name: /chevron_right/i }));
+  await user.click(screen.getByRole('button', { name: 'Next eval' }));
 
   expect(screen.getByText('feat!: support signing key rotation')).toBeInTheDocument();
   expect(screen.getAllByText('N/A')).toHaveLength(2);

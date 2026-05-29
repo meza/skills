@@ -121,7 +121,9 @@ function ExpectationCardHeader({
   return (
     <>
       <div className="status-icon">
-        <span className="material-symbols-outlined">{expectation.passed ? 'check' : 'close'}</span>
+        <span aria-hidden="true" className="material-symbols-outlined">
+          {expectation.passed ? 'check' : 'close'}
+        </span>
       </div>
       <div>
         <p className="expectation-text">{expectation.text}</p>

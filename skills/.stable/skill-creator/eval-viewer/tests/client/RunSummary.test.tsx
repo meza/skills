@@ -20,8 +20,8 @@ it('renders eval identity, summary copy, metrics, and pager state', async () => 
   expect(screen.getByText('100%')).toBeInTheDocument();
   expect(screen.getAllByText('+100%')).toHaveLength(2);
 
-  expect(screen.getByRole('button', { name: /chevron_left/i })).toBeDisabled();
-  await user.click(screen.getByRole('button', { name: /chevron_right/i }));
+  expect(screen.getByRole('button', { name: 'Previous eval' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Next eval' }));
   expect(selectRunAt).toHaveBeenCalledWith(1);
 });
 
@@ -36,5 +36,5 @@ it('renders fallback summary and disables the final pager control', () => {
   );
 
   expect(screen.getByText('No executive summary was provided.')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /chevron_right/i })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Next eval' })).toBeDisabled();
 });

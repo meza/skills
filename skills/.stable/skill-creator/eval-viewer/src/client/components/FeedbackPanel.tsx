@@ -25,7 +25,9 @@ export function FeedbackPanel({
       <section className="feedback">
         <div>
           <div className="card-title">
-            <span className="material-symbols-outlined">rate_review</span>
+            <span aria-hidden="true" className="material-symbols-outlined">
+              rate_review
+            </span>
             <h3>Feedback</h3>
           </div>
         </div>
@@ -40,8 +42,16 @@ export function FeedbackPanel({
             value={draft.comments}
           />
         </div>
-        {saveState === 'saved' ? <p className="save-message">Saved</p> : null}
-        {saveState === 'error' ? <p className="save-message error">{saveError ?? 'Could not save feedback.'}</p> : null}
+        {saveState === 'saved' ? (
+          <p className="save-message" role="status">
+            Saved
+          </p>
+        ) : null}
+        {saveState === 'error' ? (
+          <p className="save-message error" role="alert">
+            {saveError ?? 'Could not save feedback.'}
+          </p>
+        ) : null}
       </section>
       <div className="review-actions">
         <button

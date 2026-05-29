@@ -15,11 +15,15 @@ export function TranscriptPanel({ run }: { run: RunView }) {
                 <span />
               </div>
               <div className="message prompt">
-                <span className="material-symbols-outlined">person</span>
+                <span aria-hidden="true" className="material-symbols-outlined">
+                  person
+                </span>
                 <p>{turn.prompt}</p>
               </div>
               <div className="message response">
-                <span className="material-symbols-outlined">bolt</span>
+                <span aria-hidden="true" className="material-symbols-outlined">
+                  bolt
+                </span>
                 <p>{turn.response || run.finalResponse}</p>
               </div>
               <details className="raw-context">
@@ -36,7 +40,9 @@ export function TranscriptPanel({ run }: { run: RunView }) {
               <span />
             </div>
             <div className="message response">
-              <span className="material-symbols-outlined">bolt</span>
+              <span aria-hidden="true" className="material-symbols-outlined">
+                bolt
+              </span>
               <p>{run.finalResponse || 'No response artifact was available.'}</p>
             </div>
           </article>

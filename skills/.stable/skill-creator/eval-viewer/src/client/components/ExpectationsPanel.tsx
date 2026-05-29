@@ -40,7 +40,9 @@ export function ExpectationsPanel({
       <div className="section-heading">
         <div className="expectation-heading-main">
           <div>
-            <span className="material-symbols-outlined">verified</span>
+            <span aria-hidden="true" className="material-symbols-outlined">
+              verified
+            </span>
             <h3>Expectations Breakdown</h3>
           </div>
           <div aria-label="Expectation result source" className="result-toggle">

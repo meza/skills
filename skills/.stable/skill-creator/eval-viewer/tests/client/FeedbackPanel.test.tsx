@@ -31,7 +31,7 @@ it('renders workflow actions and reports save state', async () => {
 
   expect(onPrevious).toHaveBeenCalledTimes(1);
   expect(onPrimaryAction).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('Saved')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Saved');
 });
 
 it('updates draft comments and reports save failures', async () => {
@@ -61,7 +61,9 @@ it('updates draft comments and reports save failures', async () => {
   expect(updatedDraft?.comments).toBe('Needs a follow-up.');
   expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
-  expect(screen.getByText('Could not save feedback: 500 from /api/feedback/1. Disk is full.')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Could not save feedback: 500 from /api/feedback/1. Disk is full.'
+  );
 });
 
 it('uses a default save failure message when no details are provided', () => {
@@ -82,5 +84,5 @@ it('uses a default save failure message when no details are provided', () => {
     />
   );
 
-  expect(screen.getByText('Could not save feedback.')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('Could not save feedback.');
 });
