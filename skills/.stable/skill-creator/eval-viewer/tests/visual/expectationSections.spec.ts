@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, readFeedbackArtifact, resetFeedbackArtifact, showPassingRuns } from './helpers.js';
+import {
+  expectHoverStyleChange,
+  expectNoHorizontalOverflow,
+  readFeedbackArtifact,
+  resetFeedbackArtifact,
+  showPassingRuns
+} from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -12,8 +18,7 @@ test('expectation section heading shows result toggle hover glow', async ({ page
 
   const sectionHeading = page.locator('.section-heading').first();
   await expect(sectionHeading).toBeVisible();
-  await sectionHeading.getByRole('button', { name: 'skill' }).hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, sectionHeading.getByRole('button', { name: 'skill' }), 'color');
   await expectNoHorizontalOverflow(page);
 
   await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-toggle-hover-state.png');
@@ -26,8 +31,7 @@ test('expectation section heading shows active result toggle hover glow', async 
 
   const sectionHeading = page.locator('.section-heading').first();
   await expect(sectionHeading).toBeVisible();
-  await sectionHeading.getByRole('button', { name: 'baseline' }).hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, sectionHeading.getByRole('button', { name: 'baseline' }), 'box-shadow');
   await expectNoHorizontalOverflow(page);
 
   await expect(sectionHeading).toHaveScreenshot('viewer-expectation-section-heading-active-toggle-hover-state.png');
@@ -74,8 +78,7 @@ test('passing turn section heading previews the open treatment on hover', async 
 
   const heading = page.getByRole('button', { name: /Turn 2 3\/3 expectations passed/i });
   await expect(heading).toBeVisible();
-  await heading.hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, heading, 'background-size');
 
   await expect(heading).toHaveScreenshot('viewer-passing-turn-section-heading-hover-state.png');
 });
@@ -109,8 +112,7 @@ test('failing turn section heading previews the open treatment on hover', async 
   const heading = page.getByRole('button', { name: /Turn 1 2\/3 expectations passed/i });
   await heading.click();
   await expect(heading).toHaveAttribute('aria-expanded', 'false');
-  await heading.hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, heading, 'background-size');
 
   await expect(heading).toHaveScreenshot('viewer-failing-turn-section-heading-hover-state.png');
 });

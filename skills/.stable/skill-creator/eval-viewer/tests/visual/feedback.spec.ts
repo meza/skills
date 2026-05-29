@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  expectHoverStyleChange,
   expectNoHorizontalOverflow,
   openExpectationFeedback,
   readFeedbackArtifact,
@@ -17,8 +18,7 @@ test('feedback hover state gives the review rail a neon glow', async ({ page }) 
 
   const feedback = page.locator('.feedback');
   await feedback.scrollIntoViewIfNeeded();
-  await feedback.hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, feedback, 'background-color');
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-feedback-hover-state.png', {

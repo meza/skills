@@ -121,11 +121,26 @@ export async function expectRunHeaderLayout(page: Page) {
 }
 
 export async function expectInteractiveHoverStates(page: Page) {
-  await expectHoverChange(page, '.filters .filter-pass', 'background-color');
-  await expectHoverChange(page, '.run-list .run-link:first-child', 'background-color');
-  await expectOptionalHoverChange(page, '.run-pager button:not(:disabled)', 'background-color');
-  await expectHoverChange(page, '.finalize-button', 'filter');
+  await expectHoverStyleChange(page, page.locator('.filters .filter-pass'), 'background-color');
+  await expectHoverStyleChange(page, page.locator('.run-list .run-link:first-child'), 'background-color');
+  await expectOptionalHoverStyleChange(page, '.run-pager button:not(:disabled)', 'background-color');
+  await expectHoverStyleChange(page, page.locator('.finalize-button'), 'filter');
   await page.mouse.move(0, 0);
+}
+
+export async function expectHoverStyleChange(page: Page, locator: Locator, property: string, pseudoElement?: string) {
+  await page.mouse.move(0, 0);
+  const before = await readComputedStyle(locator, property, pseudoElement);
+
+  await locator.hover();
+  await expect.poll(() => readComputedStyle(locator, property, pseudoElement)).not.toBe(before);
+}
+
+export async function readComputedStyle(locator: Locator, property: string, pseudoElement?: string) {
+  return locator.evaluate(
+    (node, { cssProperty, pseudo }) => getComputedStyle(node, pseudo).getPropertyValue(cssProperty),
+    { cssProperty: property, pseudo: pseudoElement }
+  );
 }
 
 export async function expectNoHorizontalOverflow(page: Page) {
@@ -199,26 +214,9 @@ export async function readFeedbackArtifact() {
   };
 }
 
-async function expectHoverChange(page: Page, selector: string, property: string) {
-  const element = page.locator(selector).first();
-  await page.mouse.move(0, 0);
-  await page.waitForTimeout(200);
-  const before = await element.evaluate(
-    (node, styleProperty) => getComputedStyle(node).getPropertyValue(styleProperty),
-    property
-  );
-  await element.hover();
-  await page.waitForTimeout(200);
-  const after = await element.evaluate(
-    (node, styleProperty) => getComputedStyle(node).getPropertyValue(styleProperty),
-    property
-  );
-  expect(after).not.toBe(before);
-}
-
-async function expectOptionalHoverChange(page: Page, selector: string, property: string) {
+async function expectOptionalHoverStyleChange(page: Page, selector: string, property: string) {
   if ((await page.locator(selector).count()) === 0) {
     return;
   }
-  await expectHoverChange(page, selector, property);
+  await expectHoverStyleChange(page, page.locator(selector).first(), property);
 }

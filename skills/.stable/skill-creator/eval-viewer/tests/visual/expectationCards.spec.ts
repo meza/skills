@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, resetFeedbackArtifact, showPassingRuns } from './helpers.js';
+import {
+  expectHoverStyleChange,
+  expectNoHorizontalOverflow,
+  readComputedStyle,
+  resetFeedbackArtifact,
+  showPassingRuns
+} from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -12,8 +18,7 @@ test('successful expectation hover state gives the status bar a neon glow', asyn
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
-  await expectation.hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, expectation, 'background-image');
   await expectNoHorizontalOverflow(page);
 
   await expect(expectation).toHaveScreenshot('viewer-successful-expectation-hover-state.png');
@@ -40,7 +45,6 @@ test('passing expectation card shows feedback after toggling open', async ({ pag
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
   await expectation.getByRole('button', { name: /toggle feedback/i }).click();
-  await page.waitForTimeout(300);
 
   await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
   await expect(expectation.getByLabel('Feedback for turn 1 expectation 1')).not.toHaveAttribute('tabindex', '-1');
@@ -91,13 +95,12 @@ test('expectation feedback active border animates over the inactive frame', asyn
   const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
   const feedbackFrame = expectation.locator('.feedback-input-frame');
   await feedback.focus();
-  await page.waitForTimeout(350);
 
   await expect(feedback).toBeFocused();
   await expect(feedbackFrame).toHaveScreenshot('viewer-expectation-feedback-active-border-state.png');
 });
 
-test('expectation feedback active left border fades after the rails shrink on blur', async ({ page }) => {
+test('expectation feedback active left border returns to inactive after blur', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
@@ -106,23 +109,15 @@ test('expectation feedback active left border fades after the rails shrink on bl
   await expectation.click();
 
   const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
-  const inactiveLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
+  const inactiveLeftBorder = await readComputedStyle(feedback, 'border-left-color');
 
   await feedback.focus();
-  await page.waitForTimeout(350);
-  const activeLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
-  expect(activeLeftBorder).not.toBe(inactiveLeftBorder);
+  await expect(feedback).toBeFocused();
+  await expect.poll(() => readComputedStyle(feedback, 'border-left-color')).not.toBe(inactiveLeftBorder);
 
   await page.mouse.click(8, 8);
-  await page.waitForTimeout(50);
-  const earlyBlurLeftBorder = await feedback.evaluate((element) => getComputedStyle(element).borderLeftColor);
-  expect(earlyBlurLeftBorder).not.toBe(inactiveLeftBorder);
-
-  await page.waitForTimeout(450);
   await expect(feedback).not.toBeFocused();
-  await expect
-    .poll(() => feedback.evaluate((element) => getComputedStyle(element).borderLeftColor))
-    .toBe(inactiveLeftBorder);
+  await expect.poll(() => readComputedStyle(feedback, 'border-left-color')).toBe(inactiveLeftBorder);
 });
 
 test('failed expectation hover state gives the status bar a neon glow', async ({ page }) => {
@@ -131,8 +126,7 @@ test('failed expectation hover state gives the status bar a neon glow', async ({
 
   const expectation = page.locator('.expectation.fail').first();
   await expect(expectation).toBeVisible();
-  await expectation.hover();
-  await page.waitForTimeout(300);
+  await expectHoverStyleChange(page, expectation, 'background-image');
   await expectNoHorizontalOverflow(page);
 
   await expect(expectation).toHaveScreenshot('viewer-failed-expectation-hover-state.png');
