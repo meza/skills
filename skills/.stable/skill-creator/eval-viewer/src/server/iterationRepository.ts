@@ -8,10 +8,12 @@ import type {
   FeedbackInput,
   FeedbackTurnView,
   IterationView,
+  OverallExpectationView,
   RunComparisonView,
   RunFeedbackView,
   RunStatus,
   RunView,
+  TurnExpectationView,
   TurnView
 } from '../shared/viewModel.js';
 
@@ -198,7 +200,7 @@ async function loadTurns(
   metadataTurns: unknown,
   artifactTurns: unknown,
   configDir: string,
-  gradedTurns: Map<number, ExpectationView[]>
+  gradedTurns: Map<number, TurnExpectationView[]>
 ): Promise<TurnView[]> {
   const turns = Array.isArray(artifactTurns) ? artifactTurns : [];
   const metadata = Array.isArray(metadataTurns) ? metadataTurns : [];
@@ -305,7 +307,7 @@ function expectationsFrom(grading: Record<string, unknown> | undefined, metadata
   const graded = Array.isArray(grading?.expectations) ? grading.expectations : [];
   const nestedResults = objectValue(grading?.results);
   const nestedOverall = Array.isArray(nestedResults.overall_expectations) ? nestedResults.overall_expectations : [];
-  const overall = [...graded, ...nestedOverall].map((item) => expectationFrom(item, 'overall'));
+  const overall = [...graded, ...nestedOverall].map(overallExpectationFrom);
   const turnResults = [...gradedTurnExpectations(grading).values()].flat();
   if (overall.length > 0 || turnResults.length > 0) {
     return [...overall, ...turnResults];
@@ -314,8 +316,8 @@ function expectationsFrom(grading: Record<string, unknown> | undefined, metadata
   return [...overall, ...metadata.flatMap((turn, index) => turnExpectations(turn, index + 1))];
 }
 
-function gradedTurnExpectations(grading: Record<string, unknown> | undefined): Map<number, ExpectationView[]> {
-  const result = new Map<number, ExpectationView[]>();
+function gradedTurnExpectations(grading: Record<string, unknown> | undefined): Map<number, TurnExpectationView[]> {
+  const result = new Map<number, TurnExpectationView[]>();
   const turns = objectValue(grading?.results).turns;
   if (!Array.isArray(turns)) {
     return result;
@@ -326,10 +328,7 @@ function gradedTurnExpectations(grading: Record<string, unknown> | undefined): M
     const expectations = Array.isArray(turnRecord.expectations) ? turnRecord.expectations : [];
     result.set(
       turnNumber,
-      expectations.map((expectation) => ({
-        ...expectationFrom(expectation, 'turn'),
-        turn: turnNumber
-      }))
+      expectations.map((expectation) => turnExpectationFrom(expectation, turnNumber))
     );
   }
   return result;
@@ -340,7 +339,7 @@ function metadataTurnsFrom(metadata: Record<string, unknown> | undefined): unkno
   return metadata?.turns ?? nestedEval.turns;
 }
 
-function turnExpectations(turn: unknown, turnNumber: number): ExpectationView[] {
+function turnExpectations(turn: unknown, turnNumber: number): TurnExpectationView[] {
   const expectations = Array.isArray((turn as Record<string, unknown> | undefined)?.expectations)
     ? ((turn as Record<string, unknown>).expectations as unknown[])
     : [];
@@ -353,14 +352,26 @@ function turnExpectations(turn: unknown, turnNumber: number): ExpectationView[] 
   }));
 }
 
-function expectationFrom(item: unknown, scope: 'overall' | 'turn'): ExpectationView {
+function overallExpectationFrom(item: unknown): OverallExpectationView {
   const record = item as Record<string, unknown>;
   return {
     evidence: textValue(record.evidence, ''),
     id: textValue(record.id, '') || undefined,
     passed: Boolean(record.passed),
-    scope,
+    scope: 'overall',
     text: textValue(record.text, '')
+  };
+}
+
+function turnExpectationFrom(item: unknown, turn: number): TurnExpectationView {
+  const record = item as Record<string, unknown>;
+  return {
+    evidence: textValue(record.evidence, ''),
+    id: textValue(record.id, '') || undefined,
+    passed: Boolean(record.passed),
+    scope: 'turn',
+    text: textValue(record.text, ''),
+    turn
   };
 }
 
@@ -481,7 +492,7 @@ function turnFeedbackShape(expectations: ExpectationView[]): FeedbackTurnView[] 
     if (expectation.scope !== 'turn') {
       continue;
     }
-    const turn = expectation.turn as number;
+    const turn = expectation.turn;
     turnMap.set(turn, [...(turnMap.get(turn) ?? []), { comment: '', expectation_id: expectation.id }]);
   }
   return [...turnMap.entries()].map(([turn, expectationFeedback]) => ({

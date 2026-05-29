@@ -63,7 +63,7 @@ export function ExpectationSection({
             expectation={expectation}
             expectations={expectations}
             index={index}
-            key={expectation.id ?? `${expectation.scope}-${expectation.turn ?? 0}-${expectation.text}`}
+            key={expectation.id ?? expectationKey(expectation)}
             resultLabel={resultLabel}
             updateDraft={updateDraft}
           />
@@ -81,6 +81,12 @@ function expectationComparison(
     (candidate) =>
       candidate.text === expectation.text &&
       candidate.scope === expectation.scope &&
-      candidate.turn === expectation.turn
+      (expectation.scope === 'overall' || (candidate.scope === 'turn' && candidate.turn === expectation.turn))
   );
+}
+
+function expectationKey(expectation: ExpectationView): string {
+  return expectation.scope === 'overall'
+    ? `${expectation.scope}-${expectation.text}`
+    : `${expectation.scope}-${expectation.turn}-${expectation.text}`;
 }

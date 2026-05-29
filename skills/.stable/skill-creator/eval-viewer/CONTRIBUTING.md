@@ -64,6 +64,23 @@ interaction and visual correctness should be covered with Playwright.
 
 Playwright visual tests must cover all states of the application.
 
+## Updating playwright snapshots
+
+Before you update snapshots, make sure that the failures aren't due to a change in the application.
+It is always more likely that they've caught a bug in the application than the screenshots being flaky.
+
+### Command to use
+
+The ONLY command to update Playwright snapshots is:
+
+```bash
+npm run test:visual:update
+```
+
+This might take a while, so be patient.
+
+The `:local` and `:docker` variants of the command are purely internal helpers. They are not to be called directly.
+
 ## CSS Authoring
 
 The viewer uses CSS Modules for component styles. A component that needs

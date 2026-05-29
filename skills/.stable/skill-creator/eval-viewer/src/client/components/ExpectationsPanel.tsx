@@ -105,7 +105,7 @@ function turnExpectationGroups(
 ): Array<{ expectations: ExpectationView[]; turn: number }> {
   const turns = new Map<number, ExpectationView[]>();
   for (const expectation of expectations) {
-    if (expectation.scope !== 'turn' || expectation.turn === undefined) {
+    if (expectation.scope !== 'turn') {
       continue;
     }
     turns.set(expectation.turn, [...(turns.get(expectation.turn) ?? []), expectation]);

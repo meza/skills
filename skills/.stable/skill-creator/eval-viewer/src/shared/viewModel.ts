@@ -15,14 +15,23 @@ export interface ArtifactIssue {
     | 'missing_transcript';
 }
 
-export interface ExpectationView {
+interface ExpectationViewBase {
   evidence: string;
   id?: string;
   passed: boolean;
-  scope: 'overall' | 'turn';
   text: string;
-  turn?: number;
 }
+
+export interface OverallExpectationView extends ExpectationViewBase {
+  scope: 'overall';
+}
+
+export interface TurnExpectationView extends ExpectationViewBase {
+  scope: 'turn';
+  turn: number;
+}
+
+export type ExpectationView = OverallExpectationView | TurnExpectationView;
 
 export interface TurnView {
   expectations: ExpectationView[];

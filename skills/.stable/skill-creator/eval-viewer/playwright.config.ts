@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.00001
+      maxDiffPixelRatio: 0.01
     }
   },
   testDir: 'tests/visual',

@@ -768,6 +768,44 @@ it('loads flat grader expectations without expectation ids as unreviewable expec
   expect(iteration.runs[0]?.feedback.overall).toEqual([{ comment: '' }]);
 });
 
+it('loads turn grader expectations without expectation ids as unreviewable expectation feedback', async () => {
+  await writeFile(
+    join(root, 'eval-1', 'skill', 'grading.json'),
+    JSON.stringify({
+      results: {
+        overall_expectations: [],
+        turns: [
+          {
+            expectations: [
+              {
+                evidence: 'Turn evidence.',
+                passed: true,
+                text: 'Turn expectation.'
+              }
+            ],
+            turn: 1
+          }
+        ]
+      },
+      summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
+    }),
+    'utf-8'
+  );
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.expectations).toEqual([
+    {
+      evidence: 'Turn evidence.',
+      passed: true,
+      scope: 'turn',
+      text: 'Turn expectation.',
+      turn: 1
+    }
+  ]);
+  expect(iteration.runs[0]?.feedback.turns).toEqual([{ expectations: [{ comment: '' }], turn: 1 }]);
+});
+
 it('handles grader turn entries without expectation arrays', async () => {
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),

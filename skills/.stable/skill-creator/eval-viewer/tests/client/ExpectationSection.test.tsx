@@ -117,3 +117,58 @@ it('marks a section as failing unless every expectation passes', () => {
 
   expect(heading.closest('.expectation-section')).toHaveClass('fail');
 });
+
+it('renders overall expectations without ids', () => {
+  render(
+    <ExpectationSection
+      allowFeedback={false}
+      comparisonExpectations={[]}
+      comparisonLabel="Baseline"
+      draft={{ comments: '', overall: [{ comment: '' }], turns: [] }}
+      expectations={[
+        {
+          evidence: '',
+          passed: true,
+          scope: 'overall',
+          text: 'The run satisfies the overall requirement.'
+        }
+      ]}
+      isOpen
+      label="Overall"
+      onToggle={() => undefined}
+      resultLabel="Run"
+      updateDraft={() => undefined}
+      variant="overall"
+    />
+  );
+
+  expect(screen.getByText('The run satisfies the overall requirement.')).toBeInTheDocument();
+});
+
+it('renders turn expectations without ids', () => {
+  render(
+    <ExpectationSection
+      allowFeedback={false}
+      comparisonExpectations={[]}
+      comparisonLabel="Baseline"
+      draft={{ comments: '', overall: [], turns: [{ expectations: [{ comment: '' }], turn: 2 }] }}
+      expectations={[
+        {
+          evidence: '',
+          passed: true,
+          scope: 'turn',
+          text: 'The turn satisfies its requirement.',
+          turn: 2
+        }
+      ]}
+      isOpen
+      label="Turn 2"
+      onToggle={() => undefined}
+      resultLabel="Run"
+      updateDraft={() => undefined}
+      variant="turn"
+    />
+  );
+
+  expect(screen.getByText('The turn satisfies its requirement.')).toBeInTheDocument();
+});
