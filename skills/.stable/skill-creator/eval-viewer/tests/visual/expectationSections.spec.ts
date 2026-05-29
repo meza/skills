@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, readFeedbackArtifact, resetFeedbackArtifact } from './helpers.js';
+import { expectNoHorizontalOverflow, readFeedbackArtifact, resetFeedbackArtifact, showPassingRuns } from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -35,7 +35,7 @@ test('expectation section heading shows active result toggle hover glow', async 
 
 test('overall expectation heading follows the grouped section treatment', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
 
   const heading = page.getByRole('button', { name: /Overall Expectations 4\/4 expectations passed/i });
@@ -47,7 +47,7 @@ test('overall expectation heading follows the grouped section treatment', async 
 
 test('passing turn section heading renders the open state', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const heading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
   await expect(heading).toBeVisible();
@@ -59,7 +59,7 @@ test('passing turn section heading renders the open state', async ({ page }) => 
 
 test('passing turn section heading renders the closed state', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const heading = page.getByRole('button', { name: /Turn 2 3\/3 expectations passed/i });
   await expect(heading).toBeVisible();
@@ -70,7 +70,7 @@ test('passing turn section heading renders the closed state', async ({ page }) =
 
 test('passing turn section heading previews the open treatment on hover', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const heading = page.getByRole('button', { name: /Turn 2 3\/3 expectations passed/i });
   await expect(heading).toBeVisible();
@@ -117,7 +117,7 @@ test('failing turn section heading previews the open treatment on hover', async 
 
 test('collapsed turn section heading keeps expectations hidden', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const heading = page.getByRole('button', { name: /Turn 2 3\/3 expectations passed/i });
   const body = page.locator('#turn-turn-2-expectations');
@@ -173,7 +173,7 @@ test('turn section state resets when moving between evals', async ({ page }) => 
 
 test('passing turn section opens by default when saved feedback exists', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const heading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
   await heading.click();
@@ -203,7 +203,7 @@ test('passing turn section opens by default when saved feedback exists', async (
     });
 
   await page.reload();
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   const reloadedHeading = page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i });
   await expect(reloadedHeading).toHaveAttribute('aria-expanded', 'true');

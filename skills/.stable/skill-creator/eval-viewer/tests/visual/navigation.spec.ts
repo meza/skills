@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, resetFeedbackArtifact, scrollContentToTop } from './helpers.js';
+import {
+  expectNoHorizontalOverflow,
+  passingSkillRuns,
+  resetFeedbackArtifact,
+  scrollContentToTop,
+  showPassingRuns
+} from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -8,9 +14,7 @@ test.beforeEach(async () => {
 test('default state shows all evals when every eval passed', async ({ page }) => {
   const response = await page.request.get('/api/iteration');
   const iteration = await response.json();
-  const passingRuns = iteration.runs.filter(
-    (run: { passRate: number; runType: string }) => run.runType === 'skill' && run.passRate === 1
-  );
+  const passingRuns = passingSkillRuns(iteration);
   await page.route('**/api/iteration', async (route) => {
     await route.fulfill({
       body: JSON.stringify({
@@ -60,7 +64,7 @@ test('baseline expectation toggle shows baseline grading results', async ({ page
 
 test('pass filter state shows only successful evals', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   await expect(page.getByRole('button', { name: 'pass', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();

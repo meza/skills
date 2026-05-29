@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, resetFeedbackArtifact } from './helpers.js';
+import { expectNoHorizontalOverflow, resetFeedbackArtifact, showPassingRuns } from './helpers.js';
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -7,7 +7,7 @@ test.beforeEach(async () => {
 
 test('successful expectation hover state gives the status bar a neon glow', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
@@ -21,7 +21,7 @@ test('successful expectation hover state gives the status bar a neon glow', asyn
 
 test('passing expectation card starts with feedback collapsed', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
@@ -34,7 +34,7 @@ test('passing expectation card starts with feedback collapsed', async ({ page })
 
 test('passing expectation card shows feedback after toggling open', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
@@ -65,7 +65,7 @@ test('expectation card surface toggles feedback outside of the header', async ({
 
 test('expectation feedback textarea keeps the card open while editing', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
@@ -82,7 +82,7 @@ test('expectation feedback textarea keeps the card open while editing', async ({
 
 test('expectation feedback active border animates over the inactive frame', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();
@@ -99,7 +99,7 @@ test('expectation feedback active border animates over the inactive frame', asyn
 
 test('expectation feedback active left border fades after the rails shrink on blur', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
 
   const expectation = page.locator('.expectation.pass').first();

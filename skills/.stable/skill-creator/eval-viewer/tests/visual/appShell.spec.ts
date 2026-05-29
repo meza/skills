@@ -6,7 +6,8 @@ import {
   expectResponsiveSingleColumnLayout,
   expectRunHeaderLayout,
   resetFeedbackArtifact,
-  scrollContentToTop
+  scrollContentToTop,
+  showPassingRuns
 } from './helpers.js';
 
 test.beforeEach(async () => {
@@ -53,7 +54,7 @@ test('failed expectation state composes evidence with the full page', async ({ p
 
 test('long eval title keeps pager readable', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
 
   await expect(page.locator('.run-pager > span')).toHaveText('2 / 2');
@@ -65,7 +66,7 @@ test('long eval title keeps pager readable', async ({ page }) => {
 
 test('overall-heavy breakdown stays readable in the full page view', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
   await page.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }).click();
 
   await expect(page.getByText('8/8 requirements passed')).toBeVisible();
@@ -82,7 +83,7 @@ test('overall-heavy breakdown stays readable in the full page view', async ({ pa
 test('mobile success state keeps controls visible and contained', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'pass', exact: true }).click();
+  await showPassingRuns(page);
 
   await expect(page.getByRole('heading', { name: /skill evaluation/i })).toBeVisible();
   await expect(page.getByRole('button', { name: 'all' })).toBeVisible();
