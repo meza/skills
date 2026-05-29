@@ -11,6 +11,7 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
     "strict": true,
     "target": "ES2024",
     "types": ["node", "vitest/globals"]

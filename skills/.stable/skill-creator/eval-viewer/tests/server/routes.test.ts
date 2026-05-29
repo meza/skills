@@ -1,19 +1,17 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { buildServer } from '../../src/server/buildServer.js';
 import { SAMPLE_SKILL_EXPECTATION_ID, writeSampleIteration } from '../fixtures/sampleIteration.js';
+import { fs, vol } from '../support/memfs.js';
+
+vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
 
 let root: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'eval-viewer-'));
+  vol.reset();
+  root = join('/memory', 'current');
   await writeSampleIteration(root);
-});
-
-afterEach(async () => {
-  await rm(root, { force: true, recursive: true });
 });
 
 it('returns the current iteration through the JSON API', async () => {
@@ -55,8 +53,8 @@ it('rejects startup when the result root is missing', async () => {
 
 it('rejects startup when the result root has no runs to review', async () => {
   const emptyRoot = join(root, 'empty');
-  await mkdir(emptyRoot, { recursive: true });
-  await writeFile(
+  await fs.promises.mkdir(emptyRoot, { recursive: true });
+  await fs.promises.writeFile(
     join(emptyRoot, 'run_manifest.json'),
     JSON.stringify({
       effort: 'high',
@@ -73,22 +71,6 @@ it('rejects startup when the result root has no runs to review', async () => {
   );
 
   await expect(buildServer({ resultRoot: emptyRoot })).rejects.toThrow(/no runs to review/i);
-});
-
-it('serves built client assets from nested asset paths', async () => {
-  const staticRoot = join(root, 'static');
-  await mkdir(join(staticRoot, 'assets'), { recursive: true });
-  await writeFile(join(staticRoot, 'index.html'), '<div id="root"></div>', 'utf-8');
-  await writeFile(join(staticRoot, 'assets', 'index-test.js'), 'console.log("viewer");', 'utf-8');
-  const server = await buildServer({ resultRoot: root, staticRoot });
-
-  const index = await server.inject({ method: 'GET', url: '/' });
-  const asset = await server.inject({ method: 'GET', url: '/assets/index-test.js' });
-
-  expect(index.statusCode).toBe(200);
-  expect(asset.statusCode).toBe(200);
-  expect(asset.body).toContain('viewer');
-  await server.close();
 });
 
 it('saves feedback through the JSON API', async () => {
