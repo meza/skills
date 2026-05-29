@@ -21,7 +21,7 @@ export function isPassingRun(run: RunView): boolean {
 }
 
 export function reviewStatusLabel(run: RunView): 'fail' | 'success' {
-  return run.passRate === 1 ? 'success' : 'fail';
+  return isPassingRun(run) ? 'success' : 'fail';
 }
 
 export function defaultReviewFilter(runs: RunView[]): RunFilter {
