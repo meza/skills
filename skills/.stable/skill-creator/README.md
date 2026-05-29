@@ -2,27 +2,23 @@
 
 Skill Creator provides a repeatable workflow for developing skills through eval-driven iteration.
 
-The workflow runs realistic prompts against a skill, compares runs with and without that skill, grades the outputs, aggregates benchmark results, and opens a viewer for human review.
+The workflow runs realistic prompts against a skill, compares runs with and without that skill, grades the outputs, aggregates results, and opens a viewer for human review.
 
 ## Workflow
 
 Use this sequence for each iteration:
 
-1. Run the evals with `evaluate_skill.py`.
-2. Grade each run and write `grading.json`.
-3. Validate grader output with `validate_grading.py`.
-4. Aggregate results with `aggregate_benchmark.py`.
-5. Open the review UI with `serve_viewer.py`.
-
-`evaluate_skill.py` is the only eval-running command. Fixture preparation and eval execution are internal application steps. Do not call `prepare_fixture.py` or `run_skill_evals.py` directly.
+1. Run the evals with `evaluate_skill.py` as defined below.
+2. Open the eval viewer UI in the `eval-viewer` folder with `npm run serve -- <path-to-iteration>`.
 
 ## Inputs
 
 A skill under test needs a `SKILL.md` file and an eval definition at `evals/evals.json`.
 
 `evals/evals.json` defines the skill name, test prompts, optional expectations,
-optional eval files, and optional fixture sources. The file must declare
-`"schema_version": 1` so incompatible eval definition shapes fail at load time.
+optional eval files, and optional fixture sources. New eval definitions should
+declare `"schema_version": 1`; missing schema versions are treated as legacy
+schema v1.
 
 ```json
 {
@@ -74,13 +70,16 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 
 By default, the runner executes both the skill run and the baseline run. Use `--skip-baseline` when you only want to run the skill-enabled eval.
 
-Use a run root under the current workspace so generated artifacts stay contained to the session. Each invocation creates a fresh prepared run root under `--run-root`, then writes result artifacts under:
+Use a run root outside any Git workspace. The evaluator rejects `--run-root`
+paths that sit inside a Git workspace so generated artifacts cannot inherit
+repository state. Each invocation writes result artifacts under:
 
 ```text
-<prepared-run-root>/results/iteration-1/
+<run-root>/<skill-name>/results/iteration-1/
 ```
 
-The final command output includes the prepared run root and the run manifest summary.
+The final command output includes the prepared run root, run manifest summary,
+and aggregation summary.
 
 ## Result Layout
 
@@ -88,6 +87,8 @@ Every iteration follows this structure:
 
 ```text
 iteration-N/
+├── run_manifest.json
+├── aggregated_results.json
 └── eval-<ID>/
     ├── eval_metadata.json
     ├── skill/
@@ -99,18 +100,24 @@ iteration-N/
     │   │   └── outputs/
     │   │       ├── response.md
     │   │       └── transcript.md
+    │   ├── grader_output_schema.json
     │   ├── grading.json
     │   ├── raw_output.jsonl
+    │   ├── run_artifacts.json
     │   └── timing.json
     └── baseline/
         ├── turn-1/
         ├── turn-2/
+        ├── grader_output_schema.json
         ├── grading.json
         ├── raw_output.jsonl
+        ├── run_artifacts.json
         └── timing.json
 ```
 
-`eval_metadata.json` is shared by both run types for one eval. `grading.json`, `timing.json`, and `raw_output.jsonl` live under the run type directory.
+`eval_metadata.json` is shared by both run types for one eval. `grading.json`,
+`timing.json`, `raw_output.jsonl`, and `run_artifacts.json` live under the run
+type directory.
 
 ## Multi-Turn Evals
 
@@ -194,72 +201,43 @@ Fixture copies are isolated per eval and per run type. Changes made by a `skill`
 
 The handoff between preparation and execution is an in-memory `PreparedRun` dataclass. There is no prepared manifest file between those steps.
 
-`run_manifest.json` still exists as a result artifact under the iteration directory. It summarizes completed runs, execution statuses, timings, costs, model, and effort.
+`run_manifest.json` exists as a result artifact under the iteration directory.
+It summarizes completed runs, execution statuses, timings, costs, model, and
+effort.
 
-## Grade Results
+## Grading And Aggregation
 
-Each run needs a `grading.json` file at the run type directory level:
+`evaluate_skill.py` grades successful run types as part of the eval run. Each
+completed run type gets a `grading.json` file at:
 
 ```text
 iteration-N/eval-<ID>/<run-type>/grading.json
 ```
 
-Validate every grading file before aggregating:
+`grading.json` includes expectation results, summary counts, pass rate, and eval
+feedback. The evaluator validates grader output before writing the artifact.
 
-```bash
-python <skill-creator-path>/scripts/validate_grading.py \
-  <prepared-run-root>/results/iteration-1/eval-<ID>/<run-type>/grading.json
+After grading, `evaluate_skill.py` aggregates the iteration and writes:
+
+```text
+iteration-N/aggregated_results.json
 ```
-
-`grading.json` must include expectation results, summary counts, pass rate, and eval feedback.
-
-## Aggregate Results
-
-After all grading files validate, aggregate the iteration:
-
-```bash
-python <skill-creator-path>/scripts/aggregate_benchmark.py \
-  <prepared-run-root>/results/iteration-1 \
-  --skill-name <skill-name>
-```
-
-This writes `benchmark.json` and `benchmark.md` into the iteration directory.
 
 ## Review Results
 
 Open the viewer after grading and aggregation:
 
 ```bash
-python <skill-creator-path>/scripts/serve_viewer.py start \
-  <prepared-run-root>/results/iteration-1 \
-  --skill-name <skill-name> \
-  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json
-```
-
-For later iterations, include the previous iteration so the viewer can show comparisons:
-
-```bash
-python <skill-creator-path>/scripts/serve_viewer.py start \
-  <prepared-run-root>/results/iteration-1 \
-  --skill-name <skill-name> \
-  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json \
-  --previous-workspace <previous-prepared-run-root>/results/iteration-1
-```
-
-In headless environments, write a static viewer file instead of starting a server:
-
-```bash
-python <skill-creator-path>/scripts/serve_viewer.py start \
-  <prepared-run-root>/results/iteration-1 \
-  --skill-name <skill-name> \
-  --benchmark <prepared-run-root>/results/iteration-1/benchmark.json \
-  --static <path-to-output-html> \
-  --no-open
+cd <skill-creator-path>/eval-viewer
+npm install
+npm run serve -- <run-root>/<skill-name>/results/iteration-1
 ```
 
 ## Isolation
 
-Every `evaluate_skill.py` invocation creates a new prepared run root. Each eval gets separate `skill` and `baseline` working directories.
+Every `evaluate_skill.py` invocation writes to the next results iteration and
+creates fresh invocation workdirs under the skill run root. Each eval gets
+separate `skill` and `baseline` working directories.
 
 `skill` receives a copied version of the skill under test in the provider-specific discovery location. `baseline` does not receive the skill.
 
