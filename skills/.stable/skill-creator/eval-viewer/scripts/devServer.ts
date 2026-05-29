@@ -4,9 +4,10 @@ import { buildServer } from '../src/server/buildServer.js';
 import { DEFAULT_PORT } from '../src/server/main.js';
 
 const apiPort = DEFAULT_PORT + 1;
+const logFilePath = resolve('eval-viewer.dev.log');
 const resultRoot = resolve(process.argv[2] ?? '.tmp/visual-fixture');
 
-const api = await buildServer({ resultRoot });
+const api = await buildServer({ logFilePath, resultRoot });
 await api.listen({ host: '127.0.0.1', port: apiPort });
 
 const vite = await createServer({

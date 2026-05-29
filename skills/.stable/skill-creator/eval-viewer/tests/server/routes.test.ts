@@ -121,6 +121,22 @@ it('defaults omitted feedback fields through the JSON API', async () => {
   await server.close();
 });
 
+it('returns feedback save failures as JSON errors', async () => {
+  const server = await buildServer({ resultRoot: root });
+
+  const response = await server.inject({
+    method: 'PUT',
+    url: '/api/feedback/1',
+    payload: {
+      turns: 'invalid'
+    }
+  });
+
+  expect(response.statusCode).toBe(500);
+  expect(response.json()).toEqual({ error: 'turns.flatMap is not a function' });
+  await server.close();
+});
+
 it('serves artifact text only from inside the result root', async () => {
   const server = await buildServer({ resultRoot: root });
   const artifactPath = join(root, 'eval-1', 'skill', 'raw_output.jsonl');

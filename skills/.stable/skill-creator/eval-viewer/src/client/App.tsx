@@ -12,6 +12,7 @@ import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from './runFil
 
 type FeedbackDraft = RunFeedbackView;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+type SaveErrors = Record<string, string>;
 type SaveStates = Record<string, SaveState>;
 type EvalTransitionState = 'idle' | 'exiting' | 'entering';
 type SaveFeedback = (feedback: FeedbackInput) => Promise<unknown>;
@@ -111,6 +112,7 @@ export function App({
                 await workflow.saveSelectedRun();
               }}
               primaryActionLabel={primaryActionLabel}
+              saveError={workflow.saveError}
               saveState={workflow.saveState}
               updateDraft={workflow.updateFeedbackDraft}
             />
@@ -168,6 +170,7 @@ function useFeedbackWorkflow({
     feedbackDraft: draftStore.feedbackDraft,
     moveToVisibleRun,
     saveSelectedRun,
+    saveError: persistence.saveErrorFor(selectedRunKey),
     saveState: persistence.saveStateFor(selectedRunKey),
     updateFeedbackDraft
   };
@@ -198,6 +201,7 @@ function useFeedbackDraftStore(selectedRunKey: string, selectedRun: RunView) {
 }
 
 function useFeedbackPersistence(saveFeedback: SaveFeedback) {
+  const [saveErrors, setSaveErrors] = useState<SaveErrors>({});
   const [saveStates, setSaveStates] = useState<SaveStates>({});
   const saveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
 
@@ -217,22 +221,33 @@ function useFeedbackPersistence(saveFeedback: SaveFeedback) {
     return saveStates[key] ?? 'idle';
   }
 
+  function saveErrorFor(key: string): string {
+    return saveErrors[key] ?? 'Could not save feedback.';
+  }
+
   async function persistDraft(key: string, run: RunView, draft: FeedbackDraft): Promise<boolean> {
     setSaveStates((current) => ({ ...current, [key]: 'saving' }));
+    setSaveErrors((current) => ({ ...current, [key]: '' }));
     try {
       await saveFeedback(feedbackInput(run, draft));
       setSaveStates((current) => ({ ...current, [key]: 'saved' }));
       return true;
-    } catch {
+    } catch (error) {
+      setSaveErrors((current) => ({ ...current, [key]: errorMessage(error) }));
       setSaveStates((current) => ({ ...current, [key]: 'error' }));
       return false;
     }
   }
 
   return {
+    saveErrorFor,
     saveDraft,
     saveStateFor
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim() ? error.message : 'Could not save feedback.';
 }
 
 function useFeedbackAutosave(

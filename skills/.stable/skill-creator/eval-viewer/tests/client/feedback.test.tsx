@@ -311,6 +311,20 @@ it('stays on the current eval when the save before navigation fails', async () =
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
 
   expect(screen.getByRole('heading', { name: 'breaking-change-returns-full-message-when-needed' })).toBeInTheDocument();
+  expect(await screen.findByText('write failed')).toBeInTheDocument();
+});
+
+it('shows the default save error when the thrown value has no message', async () => {
+  const user = userEvent.setup();
+  renderApp({
+    autosaveDelayMs: 50_000,
+    saveFeedback: vi.fn(async () => {
+      throw '';
+    })
+  });
+
+  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+
   expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
 });
 
@@ -319,7 +333,7 @@ it('persists feedback through the default server API and reports failures', asyn
   const fetcher = vi
     .fn()
     .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
-    .mockResolvedValueOnce(new Response('', { status: 500 }));
+    .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Invalid viewer_feedback.json' }), { status: 500 }));
   vi.stubGlobal('fetch', fetcher);
 
   renderApp({ autosaveDelayMs: 50_000 });
@@ -342,6 +356,8 @@ it('persists feedback through the default server API and reports failures', asyn
   fireEvent.change(screen.getByLabelText('Review comments'), { target: { value: 'Needs another pass.' } });
   await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
 
-  expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
+  expect(
+    await screen.findByText('Could not save feedback: 500 from /api/feedback/1. Invalid viewer_feedback.json')
+  ).toBeInTheDocument();
   vi.unstubAllGlobals();
 });

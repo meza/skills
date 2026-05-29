@@ -49,6 +49,10 @@ export async function buildServer(options: ServerOptions) {
     } catch (error) {
       const message = (error as Error).message;
       const statusCode = message.includes('inside the result root') ? 403 : 404;
+      request.log.warn(
+        { artifactPath: request.query.path, error: message, resultRoot: options.resultRoot, statusCode },
+        'artifact_read_failed'
+      );
       return reply.code(statusCode).send({ error: message });
     }
   });
@@ -62,8 +66,17 @@ export async function buildServer(options: ServerOptions) {
       overall: request.body.overall ?? [],
       turns: request.body.turns ?? []
     };
-    const saved = await saveFeedback(options.resultRoot, feedback);
-    return reply.send(saved);
+    try {
+      const saved = await saveFeedback(options.resultRoot, feedback);
+      return reply.send(saved);
+    } catch (error) {
+      const message = (error as Error).message;
+      request.log.error(
+        { error: message, evalId: feedback.evalId, resultRoot: options.resultRoot },
+        'feedback_save_failed'
+      );
+      return reply.code(500).send({ error: message });
+    }
   });
 
   server.register(fastifyStatic, {

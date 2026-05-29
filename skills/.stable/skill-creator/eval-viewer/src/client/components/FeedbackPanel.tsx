@@ -7,6 +7,7 @@ export function FeedbackPanel({
   onPrevious,
   onPrimaryAction,
   primaryActionLabel,
+  saveError,
   saveState,
   updateDraft
 }: {
@@ -15,6 +16,7 @@ export function FeedbackPanel({
   onPrevious: () => void;
   onPrimaryAction: () => void;
   primaryActionLabel: string;
+  saveError?: string;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   updateDraft: FeedbackDraftUpdater;
 }) {
@@ -39,7 +41,7 @@ export function FeedbackPanel({
           />
         </div>
         {saveState === 'saved' ? <p className="save-message">Saved</p> : null}
-        {saveState === 'error' ? <p className="save-message error">Could not save feedback.</p> : null}
+        {saveState === 'error' ? <p className="save-message error">{saveError ?? 'Could not save feedback.'}</p> : null}
       </section>
       <div className="review-actions">
         <button

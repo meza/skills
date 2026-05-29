@@ -51,6 +51,7 @@ it('updates draft comments and reports save failures', async () => {
       onPrevious={vi.fn()}
       onPrimaryAction={vi.fn()}
       primaryActionLabel="Complete feedback for iteration"
+      saveError="Could not save feedback: 500 from /api/feedback/1. Disk is full."
       saveState="error"
       updateDraft={updateDraft}
     />
@@ -60,5 +61,26 @@ it('updates draft comments and reports save failures', async () => {
   expect(updatedDraft?.comments).toBe('Needs a follow-up.');
   expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
+  expect(screen.getByText('Could not save feedback: 500 from /api/feedback/1. Disk is full.')).toBeInTheDocument();
+});
+
+it('uses a default save failure message when no details are provided', () => {
+  const run = iterationView().runs[0];
+  if (!run) {
+    throw new Error('Expected a run for the feedback fixture.');
+  }
+
+  render(
+    <FeedbackPanel
+      draft={run.feedback}
+      hasPrevious={false}
+      onPrevious={vi.fn()}
+      onPrimaryAction={vi.fn()}
+      primaryActionLabel="Complete feedback for iteration"
+      saveState="error"
+      updateDraft={() => undefined}
+    />
+  );
+
   expect(screen.getByText('Could not save feedback.')).toBeInTheDocument();
 });

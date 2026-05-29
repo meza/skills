@@ -1,7 +1,8 @@
 import type { FeedbackInput } from '../shared/viewModel.js';
 
 export async function saveFeedbackToServer(feedback: FeedbackInput): Promise<unknown> {
-  const response = await fetch(`/api/feedback/${feedback.evalId}`, {
+  const endpoint = `/api/feedback/${feedback.evalId}`;
+  const response = await fetch(endpoint, {
     body: JSON.stringify({
       comments: feedback.comments,
       overall: feedback.overall,
@@ -13,7 +14,25 @@ export async function saveFeedbackToServer(feedback: FeedbackInput): Promise<unk
     method: 'PUT'
   });
   if (!response.ok) {
-    throw new Error('Could not save feedback.');
+    throw new Error(await feedbackSaveErrorMessage(response, endpoint));
   }
   return response.json();
+}
+
+async function feedbackSaveErrorMessage(response: Response, endpoint: string): Promise<string> {
+  const details = await responseErrorDetails(response);
+  return details
+    ? `Could not save feedback: ${response.status} from ${endpoint}. ${details}`
+    : `Could not save feedback: ${response.status} from ${endpoint}.`;
+}
+
+async function responseErrorDetails(response: Response): Promise<string> {
+  const fallback = response.statusText.trim();
+  try {
+    const body = (await response.clone().json()) as { error?: unknown };
+    return typeof body.error === 'string' && body.error.trim() ? body.error.trim() : fallback;
+  } catch {
+    const text = (await response.text()).trim();
+    return text || fallback;
+  }
 }
