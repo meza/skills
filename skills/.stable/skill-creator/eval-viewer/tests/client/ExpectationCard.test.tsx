@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationCard } from '../../src/client/components/ExpectationCard.js';
@@ -19,7 +19,7 @@ const draft: RunFeedbackView = {
   turns: [{ expectations: [{ comment: '', expectation_id: expectation.id }], turn: 1 }]
 };
 
-it('renders expectation text as body copy with the status badge', () => {
+it('shows expectation result and comparison status', () => {
   render(
     <ExpectationCard
       allowFeedback
@@ -35,12 +35,11 @@ it('renders expectation text as body copy with the status badge', () => {
   );
 
   const expectationText = screen.getByText('The response uses a breaking-change marker.');
-  const card = expectationText.closest('article');
 
-  expect(expectationText.tagName).toBe('P');
-  expect(expectationText).toHaveClass('expectation-text');
-  expect(card).toHaveClass('expectation', 'pass');
-  expect(within(card as HTMLElement).getByText('Baseline: FAIL')).toBeInTheDocument();
+  expect(expectationText).toBeInTheDocument();
+  expect(
+    screen.getByText((_, element) => element?.textContent?.replace(/\s+/gu, ' ').trim() === 'PASS | Baseline: FAIL')
+  ).toBeInTheDocument();
 });
 
 it('toggles passing expectation feedback from the card button', async () => {
@@ -60,17 +59,16 @@ it('toggles passing expectation feedback from the card button', async () => {
   );
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
-  const feedbackArea = feedback.closest('.inline-feedback');
   const toggle = screen.getByRole('button', {
     name: /Toggle feedback for The response uses a breaking-change marker/i
   });
 
-  expect(feedbackArea).toHaveAttribute('aria-hidden', 'true');
+  expect(feedback).toHaveAttribute('tabIndex', '-1');
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
   await user.click(toggle);
 
-  expect(feedbackArea).toHaveAttribute('aria-hidden', 'false');
+  expect(feedback).not.toHaveAttribute('tabIndex');
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
 });
 
@@ -91,13 +89,13 @@ it('toggles expectation feedback from the card surface', async () => {
   );
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
-  const card = screen.getByText('The response uses a breaking-change marker.').closest('article');
+  const expectationText = screen.getByText('The response uses a breaking-change marker.');
 
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'true');
+  expect(feedback).toHaveAttribute('tabIndex', '-1');
 
-  await user.click(card as HTMLElement);
+  await user.click(expectationText);
 
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(feedback).not.toHaveAttribute('tabIndex');
 });
 
 it('keeps feedback open when interacting with the textarea', async () => {
@@ -117,12 +115,15 @@ it('keeps feedback open when interacting with the textarea', async () => {
   );
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+  const toggle = screen.getByRole('button', {
+    name: /Toggle feedback for The response uses a breaking-change marker/i
+  });
 
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
   await user.click(feedback);
 
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
 });
 
 it('records feedback through the draft updater', async () => {
@@ -166,7 +167,10 @@ it('opens feedback by default when the expectation already has feedback', () => 
   );
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
+  const toggle = screen.getByRole('button', {
+    name: /Toggle feedback for The response uses a breaking-change marker/i
+  });
 
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(feedback).toHaveValue('Existing note.');
 });

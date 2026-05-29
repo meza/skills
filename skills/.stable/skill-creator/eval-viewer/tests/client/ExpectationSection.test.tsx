@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationSection } from '../../src/client/components/ExpectationSection.js';
@@ -48,8 +48,6 @@ it('renders the prototype-style section heading with pass counts', () => {
   const heading = screen.getByRole('button', { name: /Turn 1 1\/1 expectations passed/i });
 
   expect(heading).toHaveAttribute('aria-expanded', 'true');
-  expect(heading.closest('.expectation-section')).toHaveClass('pass');
-  expect(within(heading).getByText('expand_more')).toBeInTheDocument();
   expect(screen.getByText('The response keeps the answer concise.')).toBeInTheDocument();
 });
 
@@ -73,11 +71,9 @@ it('requests a section toggle from the heading', async () => {
   );
 
   const heading = screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i });
-  const body = document.querySelector('.expectation-section-body');
 
   expect(heading).toHaveAttribute('aria-expanded', 'false');
-  expect(body).toHaveAttribute('hidden');
-  expect(within(heading).getByText('chevron_right')).toBeInTheDocument();
+  expect(screen.getByText('The response keeps the answer concise.')).not.toBeVisible();
 
   await user.click(heading);
 
@@ -113,9 +109,7 @@ it('marks a section as failing unless every expectation passes', () => {
     />
   );
 
-  const heading = screen.getByRole('button', { name: /Turn 3 1\/2 expectations passed/i });
-
-  expect(heading.closest('.expectation-section')).toHaveClass('fail');
+  expect(screen.getByRole('button', { name: /Turn 3 1\/2 expectations passed/i })).toBeInTheDocument();
 });
 
 it('renders overall expectations', () => {

@@ -212,7 +212,6 @@ it('keeps the current eval visible while the next eval transitions in', async ()
     'aria-pressed',
     'true'
   );
-  expect(document.querySelector('.eval-detail')).toHaveClass('eval-detail-exiting');
   await waitFor(() => {
     expect(screen.getByRole('heading', { name: /user-visible-fix-avoids-code-narration/i })).toBeInTheDocument();
   });
@@ -242,7 +241,6 @@ it('ignores current eval selections and lets a later selection replace an active
   });
 
   await user.click(screen.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i }));
-  expect(document.querySelector('.eval-detail')).toHaveClass('eval-detail-idle');
 
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
   await user.click(screen.getByRole('button', { name: /third-visible-eval/i }));

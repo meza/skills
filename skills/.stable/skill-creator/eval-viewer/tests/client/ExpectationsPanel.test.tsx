@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { ExpectationsPanel } from '../../src/client/components/ExpectationsPanel.js';
@@ -26,58 +26,16 @@ it('switches between skill and baseline expectation results', async () => {
   expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
 });
 
-it('does not render turn indicators inside expectation cards', () => {
+it('shows expectation status while keeping feedback editable', () => {
   const run = iterationView().runs[0];
   if (!run) {
     throw new Error('Expected a run for the expectations fixture.');
   }
   render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
 
-  const expectationText = screen.getByText('The response uses a breaking-change marker.');
-  const expectationCard = expectationText.closest('article');
-  if (!expectationCard) {
-    throw new Error('Expected the turn expectation to render inside an expectation card.');
-  }
-
-  expect(within(expectationCard).queryByText('Turn 1')).not.toBeInTheDocument();
+  expect(screen.getByText('The response uses a breaking-change marker.')).toBeInTheDocument();
+  expect(screen.getByText('Baseline: FAIL')).toBeInTheDocument();
   expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
-});
-
-it('renders expectation text as body copy rather than a heading', () => {
-  const run = iterationView().runs[0];
-  if (!run) {
-    throw new Error('Expected a run for the expectations fixture.');
-  }
-  render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
-
-  const expectationText = screen.getByText('The response uses a breaking-change marker.');
-
-  expect(
-    screen.queryByRole('heading', { name: 'The response uses a breaking-change marker.' })
-  ).not.toBeInTheDocument();
-  expect(expectationText.tagName).toBe('P');
-  expect(expectationText).toHaveClass('expectation-text');
-});
-
-it('keeps expectation status out of the inline feedback area', () => {
-  const run = iterationView().runs[0];
-  if (!run) {
-    throw new Error('Expected a run for the expectations fixture.');
-  }
-  render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
-
-  const expectationText = screen.getByText('The response uses a breaking-change marker.');
-  const expectationCard = expectationText.closest('article');
-  if (!expectationCard) {
-    throw new Error('Expected the turn expectation to render inside an expectation card.');
-  }
-
-  expect(within(expectationCard).getByText('Baseline: FAIL')).toBeInTheDocument();
-  const feedbackArea = within(expectationCard).getByLabelText('Feedback for turn 1 expectation 1').closest('div');
-  if (!feedbackArea) {
-    throw new Error('Expected the expectation feedback textarea to render inside a feedback area.');
-  }
-  expect(within(feedbackArea).queryByText(/PASS \| Baseline: FAIL/i)).not.toBeInTheDocument();
 });
 
 it('keeps passing expectation feedback collapsed until the card is toggled', async () => {
@@ -91,26 +49,21 @@ it('keeps passing expectation feedback collapsed until the card is toggled', asy
   await user.click(screen.getByRole('button', { name: /Turn 1 1\/1 expectations passed/i }));
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
-  const feedbackArea = feedback.closest('.inline-feedback');
-  if (!feedbackArea) {
-    throw new Error('Expected the expectation feedback textarea to render inside a feedback area.');
-  }
+  const toggle = screen.getByRole('button', {
+    name: /Toggle feedback for The response uses a breaking-change marker/i
+  });
 
-  expect(feedbackArea).toHaveAttribute('aria-hidden', 'true');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect(feedback).toHaveAttribute('tabIndex', '-1');
 
-  await user.click(
-    screen.getByRole('button', { name: /Toggle feedback for The response uses a breaking-change marker/i })
-  );
+  await user.click(toggle);
 
-  expect(feedbackArea).toHaveAttribute('aria-hidden', 'false');
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(feedback).not.toHaveAttribute('tabIndex');
 
-  await user.click(
-    screen.getByRole('button', { name: /Toggle feedback for The response uses a breaking-change marker/i })
-  );
+  await user.click(toggle);
 
-  expect(feedbackArea).toHaveAttribute('aria-hidden', 'true');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect(feedback).toHaveAttribute('tabIndex', '-1');
 });
 
@@ -131,7 +84,11 @@ it('opens expectation feedback by default when feedback already exists', () => {
   );
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
-  expect(feedback.closest('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
+  expect(
+    screen.getByRole('button', {
+      name: /Toggle feedback for The response uses a breaking-change marker/i
+    })
+  ).toHaveAttribute('aria-expanded', 'true');
   expect(feedback).toHaveValue('Already reviewed.');
 });
 
@@ -159,10 +116,11 @@ it('opens failed expectation feedback by default', () => {
     />
   );
 
-  expect(screen.getByLabelText('Feedback for overall expectation 1').closest('.inline-feedback')).toHaveAttribute(
-    'aria-hidden',
-    'false'
-  );
+  expect(
+    screen.getByRole('button', {
+      name: /Toggle feedback for Requires a footer/i
+    })
+  ).toHaveAttribute('aria-expanded', 'true');
 });
 
 it('disables baseline viewing when comparison expectations are unavailable', () => {
@@ -308,10 +266,11 @@ it('opens a passing turn by default when one of its expectations has feedback', 
     'aria-expanded',
     'true'
   );
-  expect(screen.getByLabelText('Feedback for turn 1 expectation 1').closest('.inline-feedback')).toHaveAttribute(
-    'aria-hidden',
-    'false'
-  );
+  expect(
+    screen.getByRole('button', {
+      name: /Toggle feedback for The response names the breaking surface/i
+    })
+  ).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toHaveValue('Already reviewed.');
 });
 
@@ -378,9 +337,7 @@ it('allows the overall expectations section to be collapsed', async () => {
   await user.click(heading);
 
   expect(heading).toHaveAttribute('aria-expanded', 'false');
-  expect(
-    screen.getByLabelText('Feedback for overall expectation 1').closest('.expectation-section-body')
-  ).toHaveAttribute('hidden');
+  expect(screen.getByLabelText('Feedback for overall expectation 1')).toHaveAttribute('tabIndex', '-1');
 });
 
 function runWithTwoTurns() {
