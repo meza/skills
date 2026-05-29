@@ -63,6 +63,40 @@ it('cancels pending autosaves when the app unmounts', () => {
   vi.useRealTimers();
 });
 
+it('saves the latest draft after an in-flight autosave finishes', async () => {
+  const user = userEvent.setup();
+  let finishAutosave: (value: unknown) => void = () => undefined;
+  const autosave = new Promise((resolve) => {
+    finishAutosave = resolve;
+  });
+  const saveFeedback = vi.fn().mockReturnValueOnce(autosave).mockResolvedValue({ ok: true });
+  renderApp({ autosaveDelayMs: 0, saveFeedback });
+
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Autosaved draft.' }
+  });
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenCalledTimes(1);
+  });
+
+  fireEvent.change(screen.getByLabelText('Review comments'), {
+    target: { value: 'Manual draft.' }
+  });
+  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+  expect(saveFeedback).toHaveBeenCalledTimes(1);
+
+  finishAutosave({ ok: true });
+
+  await waitFor(() => {
+    expect(saveFeedback).toHaveBeenLastCalledWith({
+      comments: 'Manual draft.',
+      evalId: 1,
+      overall: [],
+      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+    });
+  });
+});
+
 it('records overall expectation feedback by grading order', async () => {
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   const view = iterationView();

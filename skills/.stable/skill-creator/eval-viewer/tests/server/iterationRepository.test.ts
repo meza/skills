@@ -388,6 +388,31 @@ it('preserves existing comment-only feedback reviews', async () => {
   );
 });
 
+it('preserves concurrent feedback saves for different evals', async () => {
+  await Promise.all([
+    saveFeedback(root, {
+      comments: 'First eval note.',
+      evalId: 1,
+      overall: [],
+      turns: []
+    }),
+    saveFeedback(root, {
+      comments: 'Second eval note.',
+      evalId: 2,
+      overall: [],
+      turns: []
+    })
+  ]);
+
+  const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
+  expect(feedback.reviews).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ comments: 'First eval note.', eval_id: 1 }),
+      expect.objectContaining({ comments: 'Second eval note.', eval_id: 2 })
+    ])
+  );
+});
+
 it('rejects preserving an invalid existing feedback turn', async () => {
   await writeFile(
     join(root, 'viewer_feedback.json'),

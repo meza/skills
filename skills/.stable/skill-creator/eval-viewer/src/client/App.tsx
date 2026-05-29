@@ -199,9 +199,25 @@ function useFeedbackDraftStore(selectedRunKey: string, selectedRun: RunView) {
 
 function useFeedbackPersistence(saveFeedback: SaveFeedback) {
   const [saveStates, setSaveStates] = useState<SaveStates>({});
+  const saveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
 
   async function saveDraft(run: RunView, draft: FeedbackDraft): Promise<boolean> {
     const key = runKey(run);
+    const previousSave = saveQueuesRef.current[key] ?? Promise.resolve(true);
+    const queuedSave = previousSave.then(() => persistDraft(key, run, draft));
+    saveQueuesRef.current[key] = queuedSave;
+    const saved = await queuedSave;
+    if (saveQueuesRef.current[key] === queuedSave) {
+      delete saveQueuesRef.current[key];
+    }
+    return saved;
+  }
+
+  function saveStateFor(key: string): SaveState {
+    return saveStates[key] ?? 'idle';
+  }
+
+  async function persistDraft(key: string, run: RunView, draft: FeedbackDraft): Promise<boolean> {
     setSaveStates((current) => ({ ...current, [key]: 'saving' }));
     try {
       await saveFeedback(feedbackInput(run, draft));
@@ -211,10 +227,6 @@ function useFeedbackPersistence(saveFeedback: SaveFeedback) {
       setSaveStates((current) => ({ ...current, [key]: 'error' }));
       return false;
     }
-  }
-
-  function saveStateFor(key: string): SaveState {
-    return saveStates[key] ?? 'idle';
   }
 
   return {

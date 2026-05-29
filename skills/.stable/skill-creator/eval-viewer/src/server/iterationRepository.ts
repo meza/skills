@@ -43,6 +43,8 @@ interface FeedbackReview {
   updated_at: string;
 }
 
+const feedbackWriteQueues = new Map<string, Promise<unknown>>();
+
 interface RunFilePaths {
   artifacts: string;
   grading: string;
@@ -116,6 +118,10 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
  */
 export async function saveFeedback(resultRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
   const resolvedRoot = await resolveResultRoot(resultRoot);
+  return queueFeedbackWrite(resolvedRoot, () => saveFeedbackNow(resolvedRoot, feedback));
+}
+
+async function saveFeedbackNow(resolvedRoot: string, feedback: FeedbackInput): Promise<FeedbackReview> {
   const artifact = await readFeedback(resolvedRoot);
   const comments = feedback.comments.trim();
   const overall = filledFeedbackExpectations(feedback.overall);
@@ -150,6 +156,19 @@ export async function saveFeedback(resultRoot: string, feedback: FeedbackInput):
   await validateArtifactSchema('viewer-feedback.schema.json', artifact);
   await writeFile(feedbackPath(resolvedRoot), `${JSON.stringify(artifact, null, 2)}\n`, 'utf-8');
   return saved;
+}
+
+async function queueFeedbackWrite<T>(resolvedRoot: string, writeFeedback: () => Promise<T>): Promise<T> {
+  const previousWrite = feedbackWriteQueues.get(resolvedRoot) ?? Promise.resolve();
+  const queuedWrite = previousWrite.then(writeFeedback, writeFeedback);
+  feedbackWriteQueues.set(resolvedRoot, queuedWrite);
+  try {
+    return await queuedWrite;
+  } finally {
+    if (feedbackWriteQueues.get(resolvedRoot) === queuedWrite) {
+      feedbackWriteQueues.delete(resolvedRoot);
+    }
+  }
 }
 
 /**
