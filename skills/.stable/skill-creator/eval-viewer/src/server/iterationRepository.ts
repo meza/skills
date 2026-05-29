@@ -174,7 +174,7 @@ async function loadRun(resultRoot: string, manifestRun: ManifestRun, feedback: F
   const metadataTurns = metadataTurnsFrom(metadata);
   const gradedTurns = gradedTurnExpectations(gradingResult.value);
   const turns = await loadTurns(metadataTurns, artifactRoot.turns, runTypeDir, gradedTurns);
-  const expectations = expectationsFrom(gradingResult.value, metadataTurns);
+  const expectations = expectationsFrom(gradingResult.value);
   const issues = runIssues(filePaths, gradingResult, turns, timing, manifestRun);
   const review = feedback.reviews.find((candidate) => candidate.eval_id === evalId);
   const runFeedback = feedbackForExpectations(expectations, review);
@@ -295,7 +295,7 @@ async function loadTurns(
       const response = await readOptionalText(responsePath);
       const transcript = await readOptionalText(transcriptPath);
       return {
-        expectations: gradedTurns.get(turnNumber) ?? turnExpectations(metadata[index], turnNumber),
+        expectations: gradedTurns.get(turnNumber) ?? [],
         prompt,
         response,
         transcript
@@ -410,17 +410,12 @@ async function loadPreviousRunComparisonTarget(
   }
 }
 
-function expectationsFrom(grading: Record<string, unknown> | undefined, metadataTurns: unknown): ExpectationView[] {
-  const graded = Array.isArray(grading?.expectations) ? grading.expectations : [];
+function expectationsFrom(grading: Record<string, unknown> | undefined): ExpectationView[] {
   const nestedResults = objectValue(grading?.results);
   const nestedOverall = Array.isArray(nestedResults.overall_expectations) ? nestedResults.overall_expectations : [];
-  const overall = [...graded, ...nestedOverall].map(overallExpectationFrom);
+  const overall = nestedOverall.map(overallExpectationFrom);
   const turnResults = [...gradedTurnExpectations(grading).values()].flat();
-  if (overall.length > 0 || turnResults.length > 0) {
-    return [...overall, ...turnResults];
-  }
-  const metadata = Array.isArray(metadataTurns) ? metadataTurns : [];
-  return [...overall, ...metadata.flatMap((turn, index) => turnExpectations(turn, index + 1))];
+  return [...overall, ...turnResults];
 }
 
 function gradedTurnExpectations(grading: Record<string, unknown> | undefined): Map<number, TurnExpectationView[]> {
@@ -446,24 +441,11 @@ function metadataTurnsFrom(metadata: Record<string, unknown> | undefined): unkno
   return metadata?.turns ?? nestedEval.turns;
 }
 
-function turnExpectations(turn: unknown, turnNumber: number): TurnExpectationView[] {
-  const expectations = Array.isArray((turn as Record<string, unknown> | undefined)?.expectations)
-    ? ((turn as Record<string, unknown>).expectations as unknown[])
-    : [];
-  return expectations.map((text) => ({
-    evidence: '',
-    passed: false,
-    scope: 'turn',
-    text: textValue(text, ''),
-    turn: turnNumber
-  }));
-}
-
 function overallExpectationFrom(item: unknown): OverallExpectationView {
   const record = item as Record<string, unknown>;
   return {
     evidence: textValue(record.evidence, ''),
-    id: textValue(record.id, '') || undefined,
+    id: textValue(record.id, ''),
     passed: Boolean(record.passed),
     scope: 'overall',
     text: textValue(record.text, '')
@@ -474,7 +456,7 @@ function turnExpectationFrom(item: unknown, turn: number): TurnExpectationView {
   const record = item as Record<string, unknown>;
   return {
     evidence: textValue(record.evidence, ''),
-    id: textValue(record.id, '') || undefined,
+    id: textValue(record.id, ''),
     passed: Boolean(record.passed),
     scope: 'turn',
     text: textValue(record.text, ''),
@@ -597,7 +579,7 @@ function feedbackExpectationFrom(value: unknown): FeedbackExpectationView {
   const record = objectValue(value);
   return {
     comment: textValue(record.comment, ''),
-    expectation_id: textValue(record.expectation_id, '') || undefined
+    expectation_id: textValue(record.expectation_id, '')
   };
 }
 
@@ -624,14 +606,14 @@ function feedbackForExpectation(
   _expectationIndex: number
 ): FeedbackExpectationView {
   const expectationId = feedbackExpectationId(expectation);
-  const matched = expectationId ? feedback?.find((candidate) => candidate.expectation_id === expectationId) : undefined;
+  const matched = feedback?.find((candidate) => candidate.expectation_id === expectationId);
   return {
     comment: matched?.comment ?? '',
     expectation_id: expectationId
   };
 }
 
-function feedbackExpectationId(expectation: ExpectationView | FeedbackExpectationView): string | undefined {
+function feedbackExpectationId(expectation: ExpectationView | FeedbackExpectationView): string {
   return 'comment' in expectation ? expectation.expectation_id : expectation.id;
 }
 

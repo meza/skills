@@ -37,6 +37,7 @@ export const demoIteration: IterationView = {
       expectations: [
         {
           evidence: 'The final answer starts with feat!: and names the signing key rotation.',
+          id: 'demo-skill-overall-1',
           passed: true,
           scope: 'overall',
           text: 'Uses a breaking-change commit message when required'
@@ -45,8 +46,8 @@ export const demoIteration: IterationView = {
       finalResponse: 'feat!: support signing key rotation',
       feedback: {
         comments: '',
-        overall: [{ comment: '' }],
-        turns: [{ expectations: [{ comment: '' }], turn: 1 }]
+        overall: [{ comment: '', expectation_id: 'demo-skill-overall-1' }],
+        turns: [{ expectations: [{ comment: '', expectation_id: 'demo-skill-turn-1' }], turn: 1 }]
       },
       issues: [],
       passRate: 1,
@@ -57,6 +58,7 @@ export const demoIteration: IterationView = {
           expectations: [
             {
               evidence: 'The answer starts with feat!:',
+              id: 'demo-skill-turn-1',
               passed: true,
               scope: 'turn',
               text: 'The response uses a breaking-change marker.',
@@ -86,6 +88,7 @@ export const demoIteration: IterationView = {
       expectations: [
         {
           evidence: 'The answer uses fix: and omits the breaking-change impact.',
+          id: 'demo-baseline-overall-1',
           passed: false,
           scope: 'overall',
           text: 'Uses a breaking-change commit message when required'
@@ -94,7 +97,7 @@ export const demoIteration: IterationView = {
       finalResponse: 'fix: update auth signing',
       feedback: {
         comments: '',
-        overall: [{ comment: '' }],
+        overall: [{ comment: '', expectation_id: 'demo-baseline-overall-1' }],
         turns: []
       },
       issues: [],

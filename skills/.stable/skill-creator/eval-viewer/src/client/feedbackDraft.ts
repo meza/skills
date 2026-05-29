@@ -77,12 +77,9 @@ export function updateExpectationComment(
 }
 
 function feedbackComment(
-  feedback: Array<{ comment: string; expectation_id?: string }> | undefined,
-  expectationId: string | undefined,
+  feedback: Array<{ comment: string; expectation_id: string }> | undefined,
+  expectationId: string,
   _index: number
 ): string {
-  if (expectationId) {
-    return feedback?.find((candidate) => candidate.expectation_id === expectationId)?.comment ?? '';
-  }
-  return '';
+  return feedback?.find((candidate) => candidate.expectation_id === expectationId)?.comment ?? '';
 }

@@ -335,7 +335,26 @@ async function writeBrokenRun(root: string): Promise<void> {
       ]
     }
   });
-  await writeFile(join(root, 'eval-4', 'skill', 'grading.json'), '{', 'utf-8');
+  await writeJson(join(root, 'eval-4', 'skill', 'grading.json'), {
+    executive_summary: '',
+    results: {
+      overall_expectations: [],
+      turns: [
+        {
+          expectations: [
+            {
+              evidence: '',
+              id: 'f6d486b0-d59a-54d1-a52d-492857258631',
+              passed: false,
+              text: 'The failed run still appears for review.'
+            }
+          ],
+          turn: 1
+        }
+      ]
+    },
+    summary: { failed: 1, pass_rate: 0, passed: 0, total: 1 }
+  });
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {

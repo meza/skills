@@ -63,7 +63,7 @@ export function ExpectationSection({
             expectation={expectation}
             expectations={expectations}
             index={index}
-            key={expectation.id ?? expectationKey(expectation)}
+            key={expectation.id}
             resultLabel={resultLabel}
             updateDraft={updateDraft}
           />
@@ -83,10 +83,4 @@ function expectationComparison(
       candidate.scope === expectation.scope &&
       (expectation.scope === 'overall' || (candidate.scope === 'turn' && candidate.turn === expectation.turn))
   );
-}
-
-function expectationKey(expectation: ExpectationView): string {
-  return expectation.scope === 'overall'
-    ? `${expectation.scope}-${expectation.text}`
-    : `${expectation.scope}-${expectation.turn}-${expectation.text}`;
 }

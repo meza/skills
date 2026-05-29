@@ -17,7 +17,7 @@ export interface ArtifactIssue {
 
 interface ExpectationViewBase {
   evidence: string;
-  id?: string;
+  id: string;
   passed: boolean;
   text: string;
 }
@@ -82,7 +82,7 @@ export interface RunView {
 
 export interface FeedbackExpectationView {
   comment: string;
-  expectation_id?: string;
+  expectation_id: string;
 }
 
 export interface FeedbackTurnView {

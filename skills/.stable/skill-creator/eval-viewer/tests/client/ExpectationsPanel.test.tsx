@@ -123,7 +123,7 @@ it('opens expectation feedback by default when feedback already exists', () => {
     <ExpectationsPanel
       draft={{
         ...run.feedback,
-        turns: [{ expectations: [{ comment: 'Already reviewed.', expectation_id: run.expectations[0]?.id }], turn: 1 }]
+        turns: [{ expectations: [{ comment: 'Already reviewed.', expectation_id: run.expectations[0]!.id }], turn: 1 }]
       }}
       run={run}
       updateDraft={() => undefined}
@@ -142,12 +142,13 @@ it('opens failed expectation feedback by default', () => {
   }
   render(
     <ExpectationsPanel
-      draft={{ ...run.feedback, overall: [{ comment: '' }] }}
+      draft={{ ...run.feedback, overall: [{ comment: '', expectation_id: 'footer-overall-expectation' }] }}
       run={{
         ...run,
         expectations: [
           {
             evidence: 'The response missed the required footer.',
+            id: 'footer-overall-expectation',
             passed: false,
             scope: 'overall',
             text: 'Requires a footer.'
@@ -183,18 +184,26 @@ it('renders failed expectation evidence and empty evidence copy', () => {
 
   render(
     <ExpectationsPanel
-      draft={{ ...run.feedback, overall: [{ comment: '' }, { comment: '' }] }}
+      draft={{
+        ...run.feedback,
+        overall: [
+          { comment: '', expectation_id: 'footer-evidence-overall-expectation' },
+          { comment: '', expectation_id: 'recorded-evidence-overall-expectation' }
+        ]
+      }}
       run={{
         ...run,
         expectations: [
           {
             evidence: 'The response missed the required footer.',
+            id: 'footer-evidence-overall-expectation',
             passed: false,
             scope: 'overall',
             text: 'Requires a footer.'
           },
           {
             evidence: '',
+            id: 'recorded-evidence-overall-expectation',
             passed: false,
             scope: 'overall',
             text: 'Requires recorded evidence.'

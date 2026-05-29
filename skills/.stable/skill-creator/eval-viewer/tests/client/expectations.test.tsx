@@ -46,6 +46,7 @@ it('renders failed expectations and missing final responses', () => {
   failedRun.expectations = [
     {
       evidence: 'The answer uses fix: and omits the breaking-change impact.',
+      id: 'failed-overall-expectation',
       passed: false,
       scope: 'overall',
       text: 'Uses a breaking-change commit message when required'
@@ -57,6 +58,7 @@ it('renders failed expectations and missing final responses', () => {
     expectations: [
       {
         evidence: 'Baseline also missed the breaking-change impact.',
+        id: 'baseline-failed-overall-expectation',
         passed: false,
         scope: 'overall',
         text: 'Uses a breaking-change commit message when required'
@@ -85,6 +87,7 @@ it('shows explicit missing evidence copy for failed expectations', () => {
   run.expectations = [
     {
       evidence: '',
+      id: 'missing-evidence-overall-expectation',
       passed: false,
       scope: 'overall',
       text: 'Requires evidence to explain failure.'
@@ -105,6 +108,7 @@ it('omits empty baseline evidence while keeping skill evidence', () => {
   run.expectations = [
     {
       evidence: 'The response missed the required breaking-change footer.',
+      id: 'skill-evidence-overall-expectation',
       passed: false,
       scope: 'overall',
       text: 'Requires the breaking-change footer.'

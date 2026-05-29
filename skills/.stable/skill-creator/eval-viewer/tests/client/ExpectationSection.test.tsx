@@ -118,16 +118,25 @@ it('marks a section as failing unless every expectation passes', () => {
   expect(heading.closest('.expectation-section')).toHaveClass('fail');
 });
 
-it('renders overall expectations without ids', () => {
+it('renders overall expectations', () => {
   render(
     <ExpectationSection
       allowFeedback={false}
-      comparisonExpectations={[]}
+      comparisonExpectations={[
+        {
+          evidence: '',
+          id: 'baseline-overall-expectation',
+          passed: true,
+          scope: 'overall',
+          text: 'The run satisfies the overall requirement.'
+        }
+      ]}
       comparisonLabel="Baseline"
-      draft={{ comments: '', overall: [{ comment: '' }], turns: [] }}
+      draft={{ comments: '', overall: [{ comment: '', expectation_id: 'overall-expectation' }], turns: [] }}
       expectations={[
         {
           evidence: '',
+          id: 'overall-expectation',
           passed: true,
           scope: 'overall',
           text: 'The run satisfies the overall requirement.'
@@ -143,18 +152,24 @@ it('renders overall expectations without ids', () => {
   );
 
   expect(screen.getByText('The run satisfies the overall requirement.')).toBeInTheDocument();
+  expect(screen.getByText('Baseline: PASS')).toBeInTheDocument();
 });
 
-it('renders turn expectations without ids', () => {
+it('renders turn expectations', () => {
   render(
     <ExpectationSection
       allowFeedback={false}
       comparisonExpectations={[]}
       comparisonLabel="Baseline"
-      draft={{ comments: '', overall: [], turns: [{ expectations: [{ comment: '' }], turn: 2 }] }}
+      draft={{
+        comments: '',
+        overall: [],
+        turns: [{ expectations: [{ comment: '', expectation_id: 'turn-expectation' }], turn: 2 }]
+      }}
       expectations={[
         {
           evidence: '',
+          id: 'turn-expectation',
           passed: true,
           scope: 'turn',
           text: 'The turn satisfies its requirement.',

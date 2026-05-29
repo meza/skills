@@ -342,8 +342,8 @@ it('does not write a review entry when all feedback fields are blank', async () 
   await saveFeedback(root, {
     comments: '',
     evalId: 1,
-    overall: [{ comment: '' }],
-    turns: [{ expectations: [{ comment: '' }], turn: 1 }]
+    overall: [{ comment: '', expectation_id: 'blank-overall-expectation' }],
+    turns: [{ expectations: [{ comment: '', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
   });
 
   const feedback = JSON.parse(await readFile(join(root, 'viewer_feedback.json'), 'utf-8'));
@@ -735,7 +735,7 @@ it('handles grading and metadata without expectation arrays', async () => {
   expect(iteration.runs[0]?.artifactPaths.response).toBe('');
 });
 
-it('falls back to metadata turn expectations when grading has no expectation results', async () => {
+it('does not synthesize expectation rows from metadata when grading has no expectation results', async () => {
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),
     JSON.stringify({ summary: { pass_rate: 0 } }),
@@ -744,19 +744,12 @@ it('falls back to metadata turn expectations when grading has no expectation res
 
   const iteration = await loadIteration(root);
 
-  expect(iteration.runs[0]?.expectations).toEqual([
-    {
-      evidence: '',
-      passed: false,
-      scope: 'turn',
-      text: 'The response uses a breaking-change marker.',
-      turn: 1
-    }
-  ]);
-  expect(iteration.runs[0]?.feedback.turns).toEqual([{ expectations: [{ comment: '' }], turn: 1 }]);
+  expect(iteration.runs[0]?.expectations).toEqual([]);
+  expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
+  expect(iteration.runs[0]?.feedback.turns).toEqual([]);
 });
 
-it('handles missing metadata turn entries when falling back for expectations', async () => {
+it('keeps turn expectations empty when grading has no expectation results', async () => {
   await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
   await writeFile(
     join(root, 'eval-1', 'skill', 'grading.json'),
@@ -766,74 +759,8 @@ it('handles missing metadata turn entries when falling back for expectations', a
 
   const iteration = await loadIteration(root);
 
+  expect(iteration.runs[0]?.expectations).toEqual([]);
   expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
-});
-
-it('loads flat grader expectations without expectation ids as unreviewable expectation feedback', async () => {
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
-    JSON.stringify({
-      expectations: [
-        {
-          evidence: 'Flat evidence.',
-          passed: true,
-          text: 'Flat expectation.'
-        }
-      ],
-      summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
-    }),
-    'utf-8'
-  );
-
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.expectations).toEqual([
-    {
-      evidence: 'Flat evidence.',
-      passed: true,
-      scope: 'overall',
-      text: 'Flat expectation.'
-    }
-  ]);
-  expect(iteration.runs[0]?.feedback.overall).toEqual([{ comment: '' }]);
-});
-
-it('loads turn grader expectations without expectation ids as unreviewable expectation feedback', async () => {
-  await writeFile(
-    join(root, 'eval-1', 'skill', 'grading.json'),
-    JSON.stringify({
-      results: {
-        overall_expectations: [],
-        turns: [
-          {
-            expectations: [
-              {
-                evidence: 'Turn evidence.',
-                passed: true,
-                text: 'Turn expectation.'
-              }
-            ],
-            turn: 1
-          }
-        ]
-      },
-      summary: { failed: 0, pass_rate: 1, passed: 1, total: 1 }
-    }),
-    'utf-8'
-  );
-
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]?.expectations).toEqual([
-    {
-      evidence: 'Turn evidence.',
-      passed: true,
-      scope: 'turn',
-      text: 'Turn expectation.',
-      turn: 1
-    }
-  ]);
-  expect(iteration.runs[0]?.feedback.turns).toEqual([{ expectations: [{ comment: '' }], turn: 1 }]);
 });
 
 it('handles grader turn entries without expectation arrays', async () => {
