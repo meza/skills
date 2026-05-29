@@ -1,4 +1,4 @@
-import { accessSync, constants, readFileSync } from 'node:fs';
+import { accessSync, constants } from 'node:fs';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { feedbackTurnShape } from '../shared/feedbackModel.js';
@@ -92,7 +92,7 @@ export async function loadIteration(resultRoot: string): Promise<IterationView> 
 
   return {
     feedbackPath: feedbackPath(resolvedRoot),
-    runs: addComparisons(runs, resolvedRoot),
+    runs: await loadComparisonsForRuns(runs, resolvedRoot),
     summary: {
       effort: textValue(manifest.effort ?? objectValue(aggregated?.metadata).effort, 'default'),
       iteration: numberValue(manifest.iteration, 0),
@@ -304,21 +304,25 @@ async function loadTurns(
   );
 }
 
-function addComparisons(runs: RunView[], resultRoot: string): RunView[] {
-  return runs.map((run) => {
-    const baselineTarget = runs.find(
-      (candidate) => candidate.evalId === run.evalId && candidate.runType === 'baseline'
-    );
-    const baseline = run.runType === 'skill' ? comparisonAgainst(run, baselineTarget) : undefined;
-    return {
-      ...run,
-      comparisons: {
-        baseline,
-        previousIteration: previousIterationComparison(run, resultRoot)
-      },
-      issues: run.issues
-    };
-  });
+async function loadComparisonsForRuns(runs: RunView[], resultRoot: string): Promise<RunView[]> {
+  return Promise.all(
+    runs.map(async (run) => {
+      const previousIteration = await loadPreviousIterationComparison(run, resultRoot);
+      const issues = previousIteration.issue ? [...run.issues, previousIteration.issue] : run.issues;
+      const baselineTarget = runs.find(
+        (candidate) => candidate.evalId === run.evalId && candidate.runType === 'baseline'
+      );
+      const baseline = run.runType === 'skill' ? comparisonAgainst(run, baselineTarget) : undefined;
+      return {
+        ...run,
+        comparisons: {
+          baseline,
+          previousIteration: previousIteration.comparison
+        },
+        issues
+      };
+    })
+  );
 }
 
 function comparisonAgainst(current: RunView, target: RunView | undefined): RunComparisonView | undefined {
@@ -335,7 +339,10 @@ function comparisonAgainst(current: RunView, target: RunView | undefined): RunCo
   };
 }
 
-function previousIterationComparison(current: RunView, resultRoot: string): RunComparisonView | undefined {
+async function loadPreviousIterationComparison(
+  current: RunView,
+  resultRoot: string
+): Promise<{ comparison?: RunComparisonView; issue?: ArtifactIssue }> {
   const parent = dirname(resultRoot);
   const currentName = basename(resultRoot);
   const currentNumber = Number(currentName.replace('iteration-', ''));
@@ -343,38 +350,63 @@ function previousIterationComparison(current: RunView, resultRoot: string): RunC
     Number.isFinite(currentNumber) && currentNumber > 0
       ? join(parent, `iteration-${currentNumber - 1}`)
       : join(resultRoot, 'iteration-0');
-  const previousRun = previousRunCache(previousRoot, current.evalId, current.runType);
-  if (!previousRun) {
-    return undefined;
+  const previousRun = await loadPreviousRunComparisonTarget(previousRoot, current.evalId, current.runType);
+  if (!previousRun.run) {
+    return previousRun.issue ? { issue: previousRun.issue } : {};
   }
-  return comparisonAgainst(current, previousRun);
+  return {
+    comparison: comparisonAgainst(current, previousRun.run)
+  };
 }
 
-function previousRunCache(previousRoot: string, evalId: number, runType: string): RunView | undefined {
+async function loadPreviousRunComparisonTarget(
+  previousRoot: string,
+  evalId: number,
+  runType: string
+): Promise<{ run?: RunView; issue?: ArtifactIssue }> {
   const runTypeDir = join(previousRoot, `eval-${evalId}`, runType);
   try {
-    const grading = readJsonSync(join(runTypeDir, 'grading.json'));
-    const timing = readJsonSync(join(runTypeDir, 'timing.json'));
-    const response = readTextSync(join(runTypeDir, 'turn-1', 'outputs', 'response.md'));
-    return {
-      artifactPaths: {},
-      comparisons: {},
-      durationSeconds: numberValue(timing.total_duration_seconds, 0),
-      evalId,
-      evalName: `eval-${evalId}`,
-      executiveSummary: '',
-      expectations: [],
-      finalResponse: response,
-      feedback: emptyRunFeedback(),
-      issues: [],
-      passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
-      runType,
-      status: 'success',
-      tokenCount: numberValue(timing.total_tokens, 0),
-      turns: []
-    };
+    await stat(runTypeDir);
   } catch {
-    return undefined;
+    return {};
+  }
+  try {
+    const [grading, timing, response] = await Promise.all([
+      readJson(join(runTypeDir, 'grading.json')),
+      readJson(join(runTypeDir, 'timing.json')),
+      readFile(join(runTypeDir, 'turn-1', 'outputs', 'response.md'), 'utf-8')
+    ]);
+    return {
+      run: {
+        artifactPaths: {},
+        comparisons: {},
+        durationSeconds: numberValue(timing.total_duration_seconds, 0),
+        evalId,
+        evalName: `eval-${evalId}`,
+        executiveSummary: '',
+        expectations: [],
+        finalResponse: response,
+        feedback: emptyRunFeedback(),
+        issues: [],
+        passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
+        runType,
+        status: 'success',
+        tokenCount: numberValue(timing.total_tokens, 0),
+        turns: []
+      }
+    };
+  } catch (error) {
+    return {
+      issue: {
+        artifact: runTypeDir,
+        message:
+          error instanceof SyntaxError
+            ? 'Invalid previous iteration comparison target'
+            : 'Missing previous iteration comparison target',
+        severity: 'warning',
+        state: 'missing_comparison_target'
+      }
+    };
   }
 }
 
@@ -493,14 +525,6 @@ async function readOptionalText(path: string): Promise<string> {
   } catch {
     return '';
   }
-}
-
-function readJsonSync(path: string): Record<string, unknown> {
-  return JSON.parse(readTextSync(path)) as Record<string, unknown>;
-}
-
-function readTextSync(path: string): string {
-  return readFileSync(path, 'utf-8');
 }
 
 async function readFeedback(resultRoot: string): Promise<FeedbackArtifact> {

@@ -690,6 +690,36 @@ it('loads previous iteration comparisons from numbered iteration directories', a
   });
 });
 
+it('surfaces malformed previous iteration comparison artifacts', async () => {
+  await writeFile(join(root, 'iteration-0', 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.comparisons.previousIteration).toBeUndefined();
+  expect(iteration.runs[0]?.issues).toContainEqual(
+    expect.objectContaining({
+      message: 'Invalid previous iteration comparison target',
+      severity: 'warning',
+      state: 'missing_comparison_target'
+    })
+  );
+});
+
+it('surfaces incomplete previous iteration comparison artifacts', async () => {
+  await rm(join(root, 'iteration-0', 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.comparisons.previousIteration).toBeUndefined();
+  expect(iteration.runs[0]?.issues).toContainEqual(
+    expect.objectContaining({
+      message: 'Missing previous iteration comparison target',
+      severity: 'warning',
+      state: 'missing_comparison_target'
+    })
+  );
+});
+
 it('handles grading and metadata without expectation arrays', async () => {
   await writeFile(join(root, 'eval-1', 'eval_metadata.json'), JSON.stringify({ eval_id: 1 }), 'utf-8');
   await writeFile(
