@@ -13,6 +13,11 @@ import {
 } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
+const ALL_FILTER_BUTTON_PATTERN = /^all$/i;
+const COMPLETE_FEEDBACK_BUTTON_PATTERN = /complete feedback for iteration/i;
+const FAIL_FILTER_BUTTON_PATTERN = /^fail$/i;
+const TURN_TWO_FULL_PASS_HEADING_PATTERN = /Turn 2 1\/1 expectations passed/i;
+
 it('autosaves reviewer feedback with expectation ids', async () => {
   const saveFeedback = vi.fn(async () => ({
     comments: 'Ready for the next iteration.'
@@ -90,7 +95,7 @@ it('saves the latest draft after an in-flight autosave finishes', async () => {
   fireEvent.change(screen.getByLabelText('Review comments'), {
     target: { value: 'Manual draft.' }
   });
-  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
   expect(saveFeedback).toHaveBeenCalledTimes(1);
 
   finishAutosave({ ok: true });
@@ -206,7 +211,7 @@ it('keeps turn expectation feedback aligned across turn and expectation position
   fireEvent.change(screen.getByLabelText('Feedback for turn 1 expectation 2'), {
     target: { value: 'Second expectation note.' }
   });
-  await user.click(screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i }));
+  await user.click(screen.getByRole('button', { name: TURN_TWO_FULL_PASS_HEADING_PATTERN }));
   fireEvent.change(screen.getByLabelText('Feedback for turn 2 expectation 1'), {
     target: { value: 'Later turn note.' }
   });
@@ -245,7 +250,7 @@ it('saves before advancing through the visible eval queue', async () => {
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
 
-  await user.click(screen.getByRole('button', { name: /^all$/i }));
+  await user.click(screen.getByRole('button', { name: ALL_FILTER_BUTTON_PATTERN }));
   fireEvent.change(screen.getByLabelText('Review comments'), {
     target: { value: 'Move through the queue.' }
   });
@@ -275,7 +280,7 @@ it('moves to the previous visible eval after saving current feedback', async () 
   const saveFeedback = vi.fn(async () => ({ ok: true }));
   renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback });
 
-  await user.click(screen.getByRole('button', { name: /^all$/i }));
+  await user.click(screen.getByRole('button', { name: ALL_FILTER_BUTTON_PATTERN }));
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
   fireEvent.change(screen.getByLabelText('Review comments'), {
     target: { value: 'Back-check this eval.' }
@@ -338,7 +343,7 @@ it('uses the filtered nav visibility as the next queue', async () => {
   ];
   renderApp({ autosaveDelayMs: 50_000, initialIteration: view, saveFeedback: vi.fn(async () => ({ ok: true })) });
 
-  await user.click(screen.getByRole('button', { name: /^fail$/i }));
+  await user.click(screen.getByRole('button', { name: FAIL_FILTER_BUTTON_PATTERN }));
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
 
   expect(screen.getByRole('heading', { name: 'second-failing-visible-eval' })).toBeInTheDocument();
@@ -372,7 +377,7 @@ it('shows the default save error when the thrown value has no message', async ()
     saveFeedback: vi.fn(() => Promise.reject(''))
   });
 
-  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
 
   expect(await screen.findByText('Could not save feedback.')).toBeInTheDocument();
 });
@@ -387,7 +392,7 @@ it('persists feedback through the default server API and reports failures', asyn
 
   renderApp({ autosaveDelayMs: 50_000 });
 
-  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
 
   expect(fetcher).toHaveBeenCalledWith('/api/feedback/1?iteration=4', {
     body: JSON.stringify({
@@ -403,7 +408,7 @@ it('persists feedback through the default server API and reports failures', asyn
   expect(await screen.findByText('Saved')).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText('Review comments'), { target: { value: 'Needs another pass.' } });
-  await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
 
   expect(
     await screen.findByText(

@@ -12,6 +12,9 @@ import {
 } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
+const BREAKING_CHANGE_RUN_PATTERN = /breaking-change-returns-full-message-when-needed/i;
+const CHECK_NEWER_ITERATION_BUTTON_PATTERN = /check for newer iteration/i;
+const SKILL_EVALUATION_HEADING_PATTERN = /skill evaluation/i;
 const STATUS_MESSAGE_DISMISS_DELAY_MS = 3_200;
 
 function createFakeIterationEventSource() {
@@ -28,22 +31,19 @@ function createFakeIterationEventSource() {
 it('renders run details, comparisons, artifacts, and feedback state', () => {
   renderApp();
 
-  expect(screen.getByRole('heading', { name: /skill evaluation/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: SKILL_EVALUATION_HEADING_PATTERN })).toBeInTheDocument();
   expect(screen.getByText('codex / gpt-5 / high')).toBeInTheDocument();
   expect(screen.getByText('Working Directory')).toBeInTheDocument();
   expect(screen.getByText('F:/workdirs/eval-1')).toBeInTheDocument();
   expect(screen.getByText('Provider UUID')).toBeInTheDocument();
   expect(screen.getByText('019e64c2-2d87-7a21-a12c-d569bab5c067')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /breaking-change-returns-full-message-when-needed/i })).toHaveAttribute(
-    'aria-pressed',
-    'true'
-  );
+  expect(screen.getByRole('button', { name: BREAKING_CHANGE_RUN_PATTERN })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('Pass Rate')).toBeInTheDocument();
   expect(screen.getByText('100%')).toBeInTheDocument();
   expect(screen.getByText('vs Baseline')).toBeInTheDocument();
   expect(screen.getByText('vs Last Iteration')).toBeInTheDocument();
   expect(screen.getByLabelText('Iteration')).toHaveValue('4');
-  expect(screen.getByRole('button', { name: /check for newer iteration/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: CHECK_NEWER_ITERATION_BUTTON_PATTERN })).toBeInTheDocument();
   expect(screen.getAllByText('+100%')).toHaveLength(2);
   expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
   expect(screen.getByText('feat!: support signing key rotation')).toBeInTheDocument();
@@ -181,7 +181,7 @@ it('refreshes to a newer latest iteration when one exists', async () => {
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
 
-  await user.click(screen.getByRole('button', { name: /check for newer iteration/i }));
+  await user.click(screen.getByRole('button', { name: CHECK_NEWER_ITERATION_BUTTON_PATTERN }));
 
   await waitFor(() => {
     expect(screen.getByText('Newer iteration summary.')).toBeInTheDocument();
@@ -200,7 +200,7 @@ it('reports when refresh finds a newer iteration that fails to load', async () =
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
 
-  await user.click(screen.getByRole('button', { name: /check for newer iteration/i }));
+  await user.click(screen.getByRole('button', { name: CHECK_NEWER_ITERATION_BUTTON_PATTERN }));
 
   expect(await screen.findByText('Could not load latest iteration.')).toBeInTheDocument();
   expect(loadIteration).toHaveBeenCalledWith(NEWER_ITERATION);
@@ -270,7 +270,7 @@ it('does not refresh to a newer iteration when saving the active run fails', asy
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
 
-  await user.click(screen.getByRole('button', { name: /check for newer iteration/i }));
+  await user.click(screen.getByRole('button', { name: CHECK_NEWER_ITERATION_BUTTON_PATTERN }));
 
   await screen.findByText('write failed');
   expect(loadIteration).not.toHaveBeenCalled();
@@ -286,7 +286,7 @@ it('reports when refresh finds no newer iteration', async () => {
     }))
   });
 
-  fireEvent.click(screen.getByRole('button', { name: /check for newer iteration/i }));
+  fireEvent.click(screen.getByRole('button', { name: CHECK_NEWER_ITERATION_BUTTON_PATTERN }));
   await act(async () => {
     await Promise.resolve();
   });

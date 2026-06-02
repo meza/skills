@@ -4,20 +4,23 @@ import { expect, it } from 'vitest';
 import { iterationView } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
+const FAIL_STATUS_TEXT_PATTERN = /FAIL/;
+const PASS_STATUS_TEXT_PATTERN = /PASS/;
+
 it('switches the expectations breakdown between skill and baseline results', async () => {
   const user = userEvent.setup();
   renderApp();
 
   expect(screen.getByRole('button', { name: 'skill' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('1/1 requirements passed')).toBeInTheDocument();
-  expect(screen.getAllByText(/PASS/)[0]).toHaveTextContent('Baseline: FAIL');
+  expect(screen.getAllByText(PASS_STATUS_TEXT_PATTERN)[0]).toHaveTextContent('Baseline: FAIL');
   expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: 'baseline' }));
 
   expect(screen.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('0/1 requirements passed')).toBeInTheDocument();
-  expect(screen.getAllByText(/FAIL/)[0]).toHaveTextContent('Skill: PASS');
+  expect(screen.getAllByText(FAIL_STATUS_TEXT_PATTERN)[0]).toHaveTextContent('Skill: PASS');
   expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
   expect(screen.getByText('The answer uses fix: and omits the breaking-change impact.')).toBeInTheDocument();
   expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
@@ -73,7 +76,7 @@ it('renders failed expectations and missing final responses', () => {
 
   renderApp({ initialIteration: view });
 
-  expect(screen.getAllByText(/FAIL/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(FAIL_STATUS_TEXT_PATTERN).length).toBeGreaterThan(0);
   expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
   expect(screen.getByText('No response artifact was available.')).toBeInTheDocument();
 });
