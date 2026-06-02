@@ -293,7 +293,9 @@ function useIterationStatus() {
 
   useEffect(
     () => () => {
-      clearIterationStatusTimeout();
+      if (iterationStatusTimeout.current) {
+        clearTimeout(iterationStatusTimeout.current);
+      }
     },
     []
   );

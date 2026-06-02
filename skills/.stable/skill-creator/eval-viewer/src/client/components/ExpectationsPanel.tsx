@@ -1,6 +1,6 @@
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react';
 import { ExpectationSection } from './ExpectationSection.js';
 
 type ExpectationResultMode = 'skill' | 'baseline';
@@ -21,6 +21,8 @@ export function ExpectationsPanel({
   const [sectionOpenState, setSectionOpenState] = useState<SectionOpenState>(() =>
     defaultSectionOpenState(run.expectations, draft)
   );
+  const latestDraftRef = useRef(draft);
+  latestDraftRef.current = draft;
   const baselineExpectations = run.comparisons.baseline?.expectations ?? [];
   const canShowBaseline = baselineExpectations.length > 0;
   const resultMode = requestedResultMode === 'baseline' && canShowBaseline ? 'baseline' : 'skill';
@@ -32,8 +34,8 @@ export function ExpectationsPanel({
 
   useEffect(() => {
     setRequestedResultMode('skill');
-    setSectionOpenState(defaultSectionOpenState(run.expectations, draft));
-  }, [run.evalId]);
+    setSectionOpenState(defaultSectionOpenState(run.expectations, latestDraftRef.current));
+  }, [run.expectations]);
 
   return (
     <section className='expectations'>
