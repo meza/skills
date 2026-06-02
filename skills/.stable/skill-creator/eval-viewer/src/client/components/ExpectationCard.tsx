@@ -190,7 +190,7 @@ function EvidenceBlock({ label, muted = false, text }: { label: string; muted?: 
   );
 }
 
-function expectationStatus(expectation: ExpectationView | undefined): string {
+function expectationStatus(expectation: ExpectationView | undefined): 'FAIL' | 'N/A' | 'PASS' {
   if (!expectation) {
     return 'N/A';
   }
