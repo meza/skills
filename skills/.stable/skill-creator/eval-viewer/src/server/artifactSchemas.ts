@@ -5,6 +5,8 @@ import { Ajv2020, type AnySchema, type ValidateFunction } from 'ajv/dist/2020.js
 
 const schemaRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../schemas');
 const schemaIdPrefix = 'https://agent-skills.local/skill-creator/';
+const dateTimeFormatPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+const uuidFormatPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 let validators: Promise<Map<string, ValidateFunction>> | undefined;
 
@@ -26,8 +28,8 @@ async function schemaValidators(): Promise<Map<string, ValidateFunction>> {
 
 async function loadSchemaValidators(): Promise<Map<string, ValidateFunction>> {
   const ajv = new Ajv2020({ allErrors: true });
-  ajv.addFormat('date-time', /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/);
-  ajv.addFormat('uuid', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  ajv.addFormat('date-time', dateTimeFormatPattern);
+  ajv.addFormat('uuid', uuidFormatPattern);
   const schemas = await readSchemas();
   for (const schema of schemas.values()) {
     ajv.addSchema(schema as AnySchema);
