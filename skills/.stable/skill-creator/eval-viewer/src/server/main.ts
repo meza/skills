@@ -4,6 +4,7 @@ import { buildServer } from './buildServer.js';
 
 export const DEFAULT_PORT = 4177;
 const LOG_FILE_NAME = 'eval-viewer.log';
+const LOG_FILE_EXTENSION_PATTERN = /\.log$/;
 const MIN_PORT = 1;
 const MAX_PORT = 65535;
 
@@ -69,7 +70,7 @@ async function rotateLogFiles(logFilePath: string): Promise<void> {
 }
 
 function rotatedLogPath(logFilePath: string, rotation: 1 | 2): string {
-  return logFilePath.replace(/\.log$/, `.${rotation}.log`);
+  return logFilePath.replace(LOG_FILE_EXTENSION_PATTERN, `.${rotation}.log`);
 }
 
 async function renameIfExists(source: string, target: string): Promise<void> {

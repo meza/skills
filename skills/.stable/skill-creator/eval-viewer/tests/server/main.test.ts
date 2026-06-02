@@ -3,10 +3,14 @@ import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } f
 import { fs, vol } from '../support/memfs.js';
 
 const CONFIGURED_VIEWER_PORT = 4123;
+const EVAL_VIEWER_LOG_PATH_PATTERN = /eval-viewer\.log$/;
+const EVAL_VIEWER_WORKSPACE_PATTERN = /eval-viewer$/;
+const PORT_RANGE_ERROR_PATTERN = /PORT must be an integer from 1 to 65535/;
+const USAGE_ERROR_PATTERN = /usage/i;
 
 describe('server entrypoint', () => {
   it('requires an evaluation workspace root argument', () => {
-    expect(() => workspaceRootFromArgs(['node', 'main.ts'])).toThrow(/usage/i);
+    expect(() => workspaceRootFromArgs(['node', 'main.ts'])).toThrow(USAGE_ERROR_PATTERN);
   });
 
   it('starts the server with the resolved workspace root and port', async () => {
@@ -23,8 +27,8 @@ describe('server entrypoint', () => {
     });
 
     expect(buildServer).toHaveBeenCalledWith({
-      logFilePath: expect.stringMatching(/eval-viewer\.log$/),
-      workspaceRoot: expect.stringMatching(/eval-viewer$/)
+      logFilePath: expect.stringMatching(EVAL_VIEWER_LOG_PATH_PATTERN),
+      workspaceRoot: expect.stringMatching(EVAL_VIEWER_WORKSPACE_PATTERN)
     });
     expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: 4123 });
   });
@@ -58,7 +62,7 @@ describe('server entrypoint', () => {
         buildServer,
         env: { PORT: port }
       })
-    ).rejects.toThrow(/PORT must be an integer from 1 to 65535/);
+    ).rejects.toThrow(PORT_RANGE_ERROR_PATTERN);
 
     expect(buildServer).not.toHaveBeenCalled();
   });
@@ -83,8 +87,8 @@ describe('server entrypoint', () => {
     await expect(fs.promises.readFile('/cwd/eval-viewer.1.log', 'utf-8')).resolves.toBe('current');
     await expect(fs.promises.readFile('/cwd/eval-viewer.2.log', 'utf-8')).resolves.toBe('previous');
     expect(buildServer).toHaveBeenCalledWith({
-      logFilePath: expect.stringMatching(/eval-viewer\.log$/),
-      workspaceRoot: expect.stringMatching(/eval-viewer$/)
+      logFilePath: expect.stringMatching(EVAL_VIEWER_LOG_PATH_PATTERN),
+      workspaceRoot: expect.stringMatching(EVAL_VIEWER_WORKSPACE_PATTERN)
     });
   });
 
