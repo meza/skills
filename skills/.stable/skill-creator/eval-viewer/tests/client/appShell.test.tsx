@@ -2,8 +2,17 @@ import type { IterationIndexView } from '../../src/shared/viewModel.js';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { iterationView } from './appFixture.js';
+import {
+  CURRENT_ITERATION,
+  DEFAULT_AVAILABLE_ITERATIONS,
+  iterationView,
+  NEWER_AVAILABLE_ITERATIONS,
+  NEWER_ITERATION,
+  OLDER_ITERATION
+} from './appFixture.js';
 import { renderApp } from './renderApp.js';
+
+const STATUS_MESSAGE_DISMISS_DELAY_MS = 3_200;
 
 function createFakeIterationEventSource() {
   const source = {
@@ -51,7 +60,7 @@ it('loads a selected older iteration from the iteration dropdown', async () => {
   olderIteration.summary = {
     ...olderIteration.summary,
     isLatest: false,
-    iteration: 3
+    iteration: OLDER_ITERATION
   };
   const run = olderIteration.runs[0];
   if (!run) {
@@ -67,7 +76,7 @@ it('loads a selected older iteration from the iteration dropdown', async () => {
   await waitFor(() => {
     expect(screen.getByText('Older iteration summary.')).toBeInTheDocument();
   });
-  expect(loadIteration).toHaveBeenCalledWith(3);
+  expect(loadIteration).toHaveBeenCalledWith(OLDER_ITERATION);
 });
 
 it('reports when a selected iteration fails to load', async () => {
@@ -101,7 +110,7 @@ it('saves feedback against the active iteration after switching iterations', asy
   olderIteration.summary = {
     ...olderIteration.summary,
     isLatest: false,
-    iteration: 3
+    iteration: OLDER_ITERATION
   };
   const loadIteration = vi.fn(async () => olderIteration);
   const saveFeedback = vi.fn(async () => ({ ok: true }));
@@ -110,13 +119,13 @@ it('saves feedback against the active iteration after switching iterations', asy
 
   await user.selectOptions(screen.getByLabelText('Iteration'), '3');
   await waitFor(() => {
-    expect(loadIteration).toHaveBeenCalledWith(3);
+    expect(loadIteration).toHaveBeenCalledWith(OLDER_ITERATION);
   });
   await user.type(screen.getByLabelText('Review comments'), 'Reviewed older iteration.');
   await user.click(screen.getByRole('button', { name: 'Complete feedback for iteration' }));
 
   await waitFor(() => {
-    expect(saveFeedback).toHaveBeenLastCalledWith(expect.any(Object), 3);
+    expect(saveFeedback).toHaveBeenLastCalledWith(expect.any(Object), OLDER_ITERATION);
   });
 });
 
@@ -126,7 +135,7 @@ it('does not carry unsaved feedback drafts across iterations', async () => {
   olderIteration.summary = {
     ...olderIteration.summary,
     isLatest: false,
-    iteration: 3
+    iteration: OLDER_ITERATION
   };
   const run = olderIteration.runs[0];
   if (!run) {
@@ -155,9 +164,9 @@ it('refreshes to a newer latest iteration when one exists', async () => {
   const newerIteration = iterationView();
   newerIteration.summary = {
     ...newerIteration.summary,
-    availableIterations: [1, 2, 3, 4, 5],
-    iteration: 5,
-    latestIteration: 5
+    availableIterations: [...NEWER_AVAILABLE_ITERATIONS],
+    iteration: NEWER_ITERATION,
+    latestIteration: NEWER_ITERATION
   };
   const run = newerIteration.runs[0];
   if (!run) {
@@ -165,7 +174,10 @@ it('refreshes to a newer latest iteration when one exists', async () => {
   }
   run.executiveSummary = 'Newer iteration summary.';
   const loadIteration = vi.fn(async () => newerIteration);
-  const loadIterationIndex = vi.fn(async () => ({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 }));
+  const loadIterationIndex = vi.fn(async () => ({
+    iterations: [...NEWER_AVAILABLE_ITERATIONS],
+    latestIteration: NEWER_ITERATION
+  }));
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
 
@@ -174,13 +186,16 @@ it('refreshes to a newer latest iteration when one exists', async () => {
   await waitFor(() => {
     expect(screen.getByText('Newer iteration summary.')).toBeInTheDocument();
   });
-  expect(loadIteration).toHaveBeenCalledWith(5);
+  expect(loadIteration).toHaveBeenCalledWith(NEWER_ITERATION);
 });
 
 it('reports when refresh finds a newer iteration that fails to load', async () => {
   const user = userEvent.setup();
   const loadIteration = vi.fn(() => Promise.reject(new Error('Could not load latest iteration.')));
-  const loadIterationIndex = vi.fn(async () => ({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 }));
+  const loadIterationIndex = vi.fn(async () => ({
+    iterations: [...NEWER_AVAILABLE_ITERATIONS],
+    latestIteration: NEWER_ITERATION
+  }));
   const saveFeedback = vi.fn(async () => ({ ok: true }));
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
@@ -188,7 +203,7 @@ it('reports when refresh finds a newer iteration that fails to load', async () =
   await user.click(screen.getByRole('button', { name: /check for newer iteration/i }));
 
   expect(await screen.findByText('Could not load latest iteration.')).toBeInTheDocument();
-  expect(loadIteration).toHaveBeenCalledWith(5);
+  expect(loadIteration).toHaveBeenCalledWith(NEWER_ITERATION);
   expect(screen.getByLabelText('Iteration')).toHaveValue('4');
 });
 
@@ -232,7 +247,7 @@ it('falls back to the lowest eval id when the selected eval is absent from the l
   loadedIteration.summary = {
     ...loadedIteration.summary,
     isLatest: false,
-    iteration: 3
+    iteration: OLDER_ITERATION
   };
   const loadIteration = vi.fn(async () => loadedIteration);
   const saveFeedback = vi.fn(async () => ({ ok: true }));
@@ -247,7 +262,10 @@ it('falls back to the lowest eval id when the selected eval is absent from the l
 it('does not refresh to a newer iteration when saving the active run fails', async () => {
   const user = userEvent.setup();
   const loadIteration = vi.fn(async () => iterationView());
-  const loadIterationIndex = vi.fn(async () => ({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 }));
+  const loadIterationIndex = vi.fn(async () => ({
+    iterations: [...NEWER_AVAILABLE_ITERATIONS],
+    latestIteration: NEWER_ITERATION
+  }));
   const saveFeedback = vi.fn(() => Promise.reject(new Error('write failed')));
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
@@ -262,7 +280,10 @@ it('reports when refresh finds no newer iteration', async () => {
   vi.useFakeTimers();
 
   renderApp({
-    loadIterationIndex: vi.fn(async () => ({ iterations: [1, 2, 3, 4], latestIteration: 4 }))
+    loadIterationIndex: vi.fn(async () => ({
+      iterations: [...DEFAULT_AVAILABLE_ITERATIONS],
+      latestIteration: CURRENT_ITERATION
+    }))
   });
 
   fireEvent.click(screen.getByRole('button', { name: /check for newer iteration/i }));
@@ -272,7 +293,7 @@ it('reports when refresh finds no newer iteration', async () => {
 
   expect(screen.getByRole('status')).toHaveTextContent('No newer iteration found');
   act(() => {
-    vi.advanceTimersByTime(3_200);
+    vi.advanceTimersByTime(STATUS_MESSAGE_DISMISS_DELAY_MS);
   });
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
   vi.useRealTimers();
@@ -284,7 +305,7 @@ it('prompts when the iteration event stream detects a newer iteration', () => {
   renderApp({ createIterationEventSource: () => source });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
 
   expect(screen.getByRole('dialog', { name: 'New iteration available' })).toBeInTheDocument();
@@ -301,7 +322,7 @@ it('keeps keyboard focus inside the new iteration prompt', async () => {
   renderApp({ createIterationEventSource: () => source });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
 
   const dialog = screen.getByRole('dialog', {
@@ -333,7 +354,7 @@ it('dismisses the new iteration prompt from the keyboard', async () => {
   renderApp({ createIterationEventSource: () => source });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
 
   expect(screen.getByRole('dialog', { name: 'New iteration available' })).toBeInTheDocument();
@@ -352,13 +373,13 @@ it('does not reopen a dismissed new iteration prompt for the same latest iterati
   renderApp({ createIterationEventSource: () => source });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
   fireEvent.click(screen.getByRole('button', { name: 'Keep current' }));
   expect(screen.queryByRole('dialog', { name: 'New iteration available' })).not.toBeInTheDocument();
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
 
   expect(screen.queryByRole('dialog', { name: 'New iteration available' })).not.toBeInTheDocument();
@@ -369,9 +390,9 @@ it('loads the latest iteration from the new iteration prompt', async () => {
   const newerIteration = iterationView();
   newerIteration.summary = {
     ...newerIteration.summary,
-    availableIterations: [1, 2, 3, 4, 5],
-    iteration: 5,
-    latestIteration: 5
+    availableIterations: [...NEWER_AVAILABLE_ITERATIONS],
+    iteration: NEWER_ITERATION,
+    latestIteration: NEWER_ITERATION
   };
   const run = newerIteration.runs[0];
   if (!run) {
@@ -384,7 +405,7 @@ it('loads the latest iteration from the new iteration prompt', async () => {
   renderApp({ createIterationEventSource: () => source, loadIteration, saveFeedback });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
   fireEvent.click(screen.getByRole('button', { name: 'View latest' }));
   await act(async () => {
@@ -392,7 +413,7 @@ it('loads the latest iteration from the new iteration prompt', async () => {
   });
 
   expect(screen.getByText('Loaded from prompt.')).toBeInTheDocument();
-  expect(loadIteration).toHaveBeenCalledWith(5);
+  expect(loadIteration).toHaveBeenCalledWith(NEWER_ITERATION);
 });
 
 it('keeps the new iteration prompt open when the latest iteration fails to load', async () => {
@@ -403,7 +424,7 @@ it('keeps the new iteration prompt open when the latest iteration fails to load'
   renderApp({ createIterationEventSource: () => source, loadIteration, saveFeedback });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
   fireEvent.click(screen.getByRole('button', { name: 'View latest' }));
   await act(async () => {
@@ -420,7 +441,7 @@ it('does not prompt when the iteration event stream reports no newer iteration',
   renderApp({ createIterationEventSource: () => source });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4], latestIteration: 4 });
+    source.emit({ iterations: [...DEFAULT_AVAILABLE_ITERATIONS], latestIteration: CURRENT_ITERATION });
   });
 
   expect(screen.queryByRole('dialog', { name: 'New iteration available' })).not.toBeInTheDocument();
@@ -434,7 +455,7 @@ it('keeps the new iteration prompt open when saving before load fails', async ()
   renderApp({ createIterationEventSource: () => source, loadIteration, saveFeedback });
 
   act(() => {
-    source.emit({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 });
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
   });
   fireEvent.click(screen.getByRole('button', { name: 'View latest' }));
   await act(async () => {

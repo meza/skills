@@ -5,17 +5,24 @@ export const OVERALL_EXPECTATION_ONE_ID = '10a375c5-12f4-5a15-b5bd-951f7d6204f1'
 export const OVERALL_EXPECTATION_TWO_ID = '6fcfb2db-03d1-5bd4-971e-8a10929a7de3';
 export const TURN_ONE_SECOND_EXPECTATION_ID = 'dc47174d-62a8-5820-bcb8-3a5cae2a10cb';
 export const TURN_TWO_EXPECTATION_ID = '38a7ce2c-0814-5e8b-8890-bc073e225d75';
+export const FIRST_ITERATION = 1;
+export const SECOND_ITERATION = 2;
+export const OLDER_ITERATION = 3;
+export const CURRENT_ITERATION = 4;
+export const NEWER_ITERATION = 5;
+export const DEFAULT_AVAILABLE_ITERATIONS = [FIRST_ITERATION, SECOND_ITERATION, OLDER_ITERATION, CURRENT_ITERATION];
+export const NEWER_AVAILABLE_ITERATIONS = [...DEFAULT_AVAILABLE_ITERATIONS, NEWER_ITERATION];
 
 export function iterationView(): IterationView {
   return {
     feedbackPath: 'F:/runs/viewer_feedback.json',
     runs: [skillRunView(), baselineRunView()],
     summary: {
-      availableIterations: [1, 2, 3, 4],
+      availableIterations: [...DEFAULT_AVAILABLE_ITERATIONS],
       effort: 'high',
       isLatest: true,
-      iteration: 4,
-      latestIteration: 4,
+      iteration: CURRENT_ITERATION,
+      latestIteration: CURRENT_ITERATION,
       model: 'gpt-5',
       provider: 'codex',
       runCount: 2,
