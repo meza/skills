@@ -5,6 +5,10 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { isPassingRun } from '../../src/client/runFilters.js';
 
 export const feedbackPath = resolve('.tmp', 'visual-fixture', 'results', 'iteration-3', 'viewer_feedback.json');
+const DESKTOP_TOP_BAR_HEIGHT_PX = 64;
+const DESKTOP_SIDEBAR_WIDTH_PX = 288;
+const MAX_RUN_HEADER_HEADING_HEIGHT_PX = 40;
+const MIN_RUN_PAGER_COUNT_WIDTH_PX = 72;
 
 export async function resetFeedbackArtifact() {
   await rm(feedbackPath, { force: true });
@@ -75,11 +79,11 @@ export async function expectDesktopLayout(page: Page) {
     };
   });
 
-  expect(layout.header.height).toBe(64);
+  expect(layout.header.height).toBe(DESKTOP_TOP_BAR_HEIGHT_PX);
   expect(layout.sidebar.left).toBe(0);
-  expect(layout.sidebar.top).toBeGreaterThanOrEqual(64);
-  expect(layout.sidebar.width).toBe(288);
-  expect(layout.content.left).toBeGreaterThanOrEqual(288);
+  expect(layout.sidebar.top).toBeGreaterThanOrEqual(DESKTOP_TOP_BAR_HEIGHT_PX);
+  expect(layout.sidebar.width).toBe(DESKTOP_SIDEBAR_WIDTH_PX);
+  expect(layout.content.left).toBeGreaterThanOrEqual(DESKTOP_SIDEBAR_WIDTH_PX);
   expect(layout.contentOverflowY).not.toMatch(/auto|scroll/u);
   expect(layout.sidebarOverflowY).not.toMatch(/auto|scroll/u);
   expect(layout.summary.top).toBeLessThan(layout.expectations.top);
@@ -113,9 +117,9 @@ export async function expectRunHeaderLayout(page: Page) {
     };
   });
 
-  expect(header.heading.height).toBeLessThanOrEqual(40);
+  expect(header.heading.height).toBeLessThanOrEqual(MAX_RUN_HEADER_HEADING_HEIGHT_PX);
   expect(header.heading.right).toBeLessThan(header.pager.left);
-  expect(header.pagerCount.width).toBeGreaterThanOrEqual(72);
+  expect(header.pagerCount.width).toBeGreaterThanOrEqual(MIN_RUN_PAGER_COUNT_WIDTH_PX);
   expect(header.pagerCountWhiteSpace).toBe('nowrap');
   expect(header.pager.right).toBeLessThanOrEqual(header.content.right);
 }

@@ -10,6 +10,8 @@ import {
   showPassingRuns
 } from './helpers.js';
 
+const OVERALL_HEAVY_EXPECTATION_COUNT = 4;
+
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
 });
@@ -72,7 +74,9 @@ test('overall-heavy breakdown stays readable in the full page view', async ({ pa
   await expect(page.getByText('8/8 requirements passed')).toBeVisible();
   await expect(page.getByRole('button', { name: /Overall Expectations 4\/4 expectations passed/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Turn 1 4\/4 expectations passed/i })).toBeVisible();
-  await expect(page.locator('#overall-overall-expectations-expectations .expectation')).toHaveCount(4);
+  await expect(page.locator('#overall-overall-expectations-expectations .expectation')).toHaveCount(
+    OVERALL_HEAVY_EXPECTATION_COUNT
+  );
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-overall-heavy-breakdown-state.png', {

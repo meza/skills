@@ -7,6 +7,9 @@ import {
   showPassingRuns
 } from './helpers.js';
 
+const PAGE_EDGE_BLUR_TARGET_X = 8;
+const PAGE_EDGE_BLUR_TARGET_Y = 8;
+
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
 });
@@ -115,7 +118,7 @@ test('expectation feedback active left border returns to inactive after blur', a
   await expect(feedback).toBeFocused();
   await expect.poll(() => readComputedStyle(feedback, 'border-left-color')).not.toBe(inactiveLeftBorder);
 
-  await page.mouse.click(8, 8);
+  await page.mouse.click(PAGE_EDGE_BLUR_TARGET_X, PAGE_EDGE_BLUR_TARGET_Y);
   await expect(feedback).not.toBeFocused();
   await expect.poll(() => readComputedStyle(feedback, 'border-left-color')).toBe(inactiveLeftBorder);
 });

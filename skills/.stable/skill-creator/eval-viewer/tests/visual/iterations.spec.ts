@@ -4,8 +4,12 @@ import { join, resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { expectNoHorizontalOverflow, resetFeedbackArtifact, scrollContentToTop } from './helpers.js';
 
+const OLDER_AVAILABLE_ITERATION = 2;
+const CURRENT_AVAILABLE_ITERATION = 3;
+const NEW_AVAILABLE_ITERATION = 4;
+const EVENT_STREAM_OK_STATUS = 200;
 const visualFixtureRoot = resolve('.tmp', 'visual-fixture');
-const createdIterationRoot = join(visualFixtureRoot, 'results', 'iteration-4');
+const createdIterationRoot = join(visualFixtureRoot, 'results', `iteration-${NEW_AVAILABLE_ITERATION}`);
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -54,46 +58,55 @@ test('refresh no-newer status is visible without shifting the header', async ({ 
 });
 
 test('new iteration prompt distinguishes current and latest iterations', async ({ page }) => {
-  await page.addInitScript(() => {
-    class FakeIterationEventSource {
-      static instances: FakeIterationEventSource[] = [];
-      onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  await page.addInitScript(
+    ({ currentAvailableIteration, olderAvailableIteration }) => {
+      class FakeIterationEventSource {
+        static instances: FakeIterationEventSource[] = [];
+        onmessage: ((event: MessageEvent<string>) => void) | null = null;
 
-      constructor(_url: string) {
-        FakeIterationEventSource.instances.push(this);
+        constructor(_url: string) {
+          FakeIterationEventSource.instances.push(this);
+        }
+
+        close() {
+          FakeIterationEventSource.instances = FakeIterationEventSource.instances.filter((source) => source !== this);
+        }
       }
 
-      close() {
-        FakeIterationEventSource.instances = FakeIterationEventSource.instances.filter((source) => source !== this);
-      }
+      const globalWindow = window as Window & {
+        __emitIterationIndex?: (latestIteration: IterationNumber) => void;
+        __iterationEventSourceCount?: () => number;
+        EventSource: typeof EventSource;
+      };
+      globalWindow.EventSource = FakeIterationEventSource as unknown as typeof EventSource;
+      globalWindow.__iterationEventSourceCount = () => FakeIterationEventSource.instances.length;
+      globalWindow.__emitIterationIndex = (latestIteration: IterationNumber) => {
+        for (const source of FakeIterationEventSource.instances) {
+          source.onmessage?.({
+            data: JSON.stringify({
+              iterations: [olderAvailableIteration, currentAvailableIteration, latestIteration],
+              latestIteration
+            })
+          } as MessageEvent<string>);
+        }
+      };
+    },
+    {
+      currentAvailableIteration: CURRENT_AVAILABLE_ITERATION,
+      olderAvailableIteration: OLDER_AVAILABLE_ITERATION
     }
-
-    const globalWindow = window as Window & {
-      __emitIterationIndex?: (latestIteration: IterationNumber) => void;
-      __iterationEventSourceCount?: () => number;
-      EventSource: typeof EventSource;
-    };
-    globalWindow.EventSource = FakeIterationEventSource as unknown as typeof EventSource;
-    globalWindow.__iterationEventSourceCount = () => FakeIterationEventSource.instances.length;
-    globalWindow.__emitIterationIndex = (latestIteration: IterationNumber) => {
-      for (const source of FakeIterationEventSource.instances) {
-        source.onmessage?.({
-          data: JSON.stringify({ iterations: [2, 3, latestIteration], latestIteration })
-        } as MessageEvent<string>);
-      }
-    };
-  });
+  );
   await page.goto('/');
   await page.waitForFunction(() => {
     const globalWindow = window as Window & { __iterationEventSourceCount?: () => number };
     return (globalWindow.__iterationEventSourceCount?.() ?? 0) > 0;
   });
 
-  await page.evaluate(() => {
+  await page.evaluate((latestIteration) => {
     (window as Window & { __emitIterationIndex?: (latestIteration: IterationNumber) => void }).__emitIterationIndex?.(
-      4
+      latestIteration
     );
-  });
+  }, NEW_AVAILABLE_ITERATION);
 
   const dialog = page.getByRole('dialog', { name: 'New iteration available' });
   await expect(dialog).toBeVisible();
@@ -109,12 +122,12 @@ test('new iteration prompt distinguishes current and latest iterations', async (
 
 test('real iteration event stream prompts and loads a newly written iteration', async ({ page }) => {
   const eventStreamResponse = page.waitForResponse(
-    (response) => response.url().endsWith('/api/iteration-events') && response.status() === 200
+    (response) => response.url().endsWith('/api/iteration-events') && response.status() === EVENT_STREAM_OK_STATUS
   );
   await page.goto('/');
   await eventStreamResponse;
 
-  await writeReadyIteration(4);
+  await writeReadyIteration(NEW_AVAILABLE_ITERATION);
 
   const dialog = page.getByRole('dialog', { name: 'New iteration available' });
   await expect(dialog).toBeVisible();
