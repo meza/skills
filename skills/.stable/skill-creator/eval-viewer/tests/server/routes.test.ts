@@ -19,6 +19,12 @@ vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeA
 let root: string;
 let iterationRoot: string;
 
+const HTTP_STATUS_OK = 200;
+const HTTP_STATUS_BAD_REQUEST = 400;
+const HTTP_STATUS_FORBIDDEN = 403;
+const HTTP_STATUS_NOT_FOUND = 404;
+const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
+
 function createAuditLogger() {
   const logger = {
     child: vi.fn(() => logger),
@@ -44,7 +50,7 @@ it('returns the current iteration through the JSON API', async () => {
   const server = await buildServer({ workspaceRoot: root });
   const response = await server.inject({ method: 'GET', url: '/api/iteration' });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.json()).toMatchObject({
     summary: {
       skillName: 'conventional-commit-message'
@@ -57,7 +63,7 @@ it('returns the available iterations through the JSON API', async () => {
   const server = await buildServer({ workspaceRoot: root });
   const response = await server.inject({ method: 'GET', url: '/api/iterations' });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.json()).toEqual({
     iterations: [0, 1],
     latestIteration: 1
@@ -100,7 +106,7 @@ it('opens the iteration event stream with an initial event and live updates', as
 
   expect(reply.hijack).toHaveBeenCalled();
   expect(reply.raw.writeHead).toHaveBeenCalledWith(
-    200,
+    HTTP_STATUS_OK,
     expect.objectContaining({ 'Content-Type': 'text/event-stream' })
   );
   expect(writtenChunks).toEqual([
@@ -128,7 +134,7 @@ it('routes iteration event stream requests to the workspace stream handler', asy
   await handler({} as never, reply as never);
 
   expect(reply.raw.writeHead).toHaveBeenCalledWith(
-    200,
+    HTTP_STATUS_OK,
     expect.objectContaining({ 'Content-Type': 'text/event-stream' })
   );
   expect(writtenChunks).toContain('data: {"iterations":[0,1],"latestIteration":1}\n\n');
@@ -142,7 +148,7 @@ it('serves the API when iteration filesystem watching is unavailable', async () 
   try {
     const response = await server.inject({ method: 'GET', url: '/api/iteration' });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(HTTP_STATUS_OK);
   } finally {
     await server.close();
     vi.mocked(watch).mockImplementation(() => ({ close: vi.fn() }) as never);
@@ -153,7 +159,7 @@ it('rejects invalid iteration query parameters', async () => {
   const server = await buildServer({ workspaceRoot: root });
   const response = await server.inject({ method: 'GET', url: '/api/iteration?iteration=abc' });
 
-  expect(response.statusCode).toBe(400);
+  expect(response.statusCode).toBe(HTTP_STATUS_BAD_REQUEST);
   expect(response.json()).toMatchObject({
     error: 'iteration must be a non-negative integer.'
   });
@@ -164,7 +170,7 @@ it('returns a clear not-found error when a requested iteration is unavailable', 
   const server = await buildServer({ workspaceRoot: root });
   const response = await server.inject({ method: 'GET', url: '/api/iteration?iteration=9' });
 
-  expect(response.statusCode).toBe(404);
+  expect(response.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   expect(response.json()).toMatchObject({
     error: expect.stringContaining('iteration-9 does not exist')
   });
@@ -177,7 +183,7 @@ it('keeps corrupted iteration artifacts on the server error path', async () => {
 
   const response = await server.inject({ method: 'GET', url: '/api/iteration?iteration=1' });
 
-  expect(response.statusCode).toBe(500);
+  expect(response.statusCode).toBe(HTTP_STATUS_INTERNAL_SERVER_ERROR);
   expect(response.json()).toMatchObject({
     error: 'Internal Server Error'
   });
@@ -203,12 +209,12 @@ it('returns an individual run through the JSON API', async () => {
     url: '/api/runs/9/skill'
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.json()).toMatchObject({
     runType: 'skill',
     evalId: 1
   });
-  expect(missing.statusCode).toBe(404);
+  expect(missing.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   await server.close();
 });
 
@@ -219,7 +225,7 @@ it('returns a clear not-found error when a requested run iteration is unavailabl
     url: '/api/runs/1/skill?iteration=9'
   });
 
-  expect(response.statusCode).toBe(404);
+  expect(response.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   expect(response.json()).toMatchObject({
     error: expect.stringContaining('iteration-9 does not exist')
   });
@@ -267,7 +273,7 @@ it('saves feedback through the JSON API', async () => {
     }
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.json()).toMatchObject({
     turns: [{ expectations: [{ comment: 'Turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }]
   });
@@ -289,7 +295,7 @@ it('records an audit log when feedback is saved through the JSON API', async () 
     }
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(logger.info).toHaveBeenCalledWith(
     expect.objectContaining({
       evalId: 1,
@@ -314,7 +320,7 @@ it('saves feedback to the requested active iteration through the JSON API', asyn
     }
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   await expect(
     fs.promises.readFile(join(root, 'results', 'iteration-1', 'viewer_feedback.json'), 'utf-8')
   ).resolves.toContain('Selected iteration feedback.');
@@ -332,7 +338,7 @@ it('defaults omitted feedback fields through the JSON API', async () => {
     payload: {}
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.json()).toMatchObject({
     eval_id: 1,
     updated_at: expect.any(String)
@@ -352,7 +358,7 @@ it('requires an explicit feedback iteration through the JSON API', async () => {
     payload: {}
   });
 
-  expect(response.statusCode).toBe(400);
+  expect(response.statusCode).toBe(HTTP_STATUS_BAD_REQUEST);
   expect(response.json()).toEqual({ error: 'iteration query parameter is required.' });
   await server.close();
 });
@@ -365,7 +371,7 @@ it('returns a clear not-found error when a feedback iteration is unavailable', a
     payload: {}
   });
 
-  expect(response.statusCode).toBe(404);
+  expect(response.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   expect(response.json()).toMatchObject({
     error: expect.stringContaining('iteration-9 does not exist')
   });
@@ -380,7 +386,7 @@ it('rejects malformed feedback iteration query parameters', async () => {
     payload: {}
   });
 
-  expect(response.statusCode).toBe(400);
+  expect(response.statusCode).toBe(HTTP_STATUS_BAD_REQUEST);
   expect(response.json()).toEqual({ error: 'iteration must be a non-negative integer.' });
   await server.close();
 });
@@ -397,7 +403,7 @@ it('returns feedback save failures as JSON errors', async () => {
     }
   });
 
-  expect(response.statusCode).toBe(500);
+  expect(response.statusCode).toBe(HTTP_STATUS_INTERNAL_SERVER_ERROR);
   expect(response.json()).toEqual({ error: 'turns.flatMap is not a function' });
   expect(logger.error).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -424,9 +430,9 @@ it('serves artifact text only from inside the active iteration root', async () =
     url: `/api/artifacts?iteration=1&path=${encodeURIComponent(join(root, '..', 'outside.txt'))}`
   });
 
-  expect(response.statusCode).toBe(200);
+  expect(response.statusCode).toBe(HTTP_STATUS_OK);
   expect(response.body).toContain('"type":"final"');
-  expect(rejected.statusCode).toBe(403);
+  expect(rejected.statusCode).toBe(HTTP_STATUS_FORBIDDEN);
   expect(logger.info).toHaveBeenCalledWith(
     expect.objectContaining({
       artifactPath,
@@ -438,7 +444,7 @@ it('serves artifact text only from inside the active iteration root', async () =
   expect(logger.warn).toHaveBeenCalledWith(
     expect.objectContaining({
       artifactPath: join(root, '..', 'outside.txt'),
-      statusCode: 403,
+      statusCode: HTTP_STATUS_FORBIDDEN,
       workspaceRoot: root
     }),
     'artifact_read_failed'
@@ -454,7 +460,7 @@ it('returns a clear not-found error when an artifact iteration is unavailable', 
     url: `/api/artifacts?iteration=9&path=${encodeURIComponent(artifactPath)}`
   });
 
-  expect(response.statusCode).toBe(404);
+  expect(response.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   expect(response.json()).toMatchObject({
     error: expect.stringContaining('iteration-9 does not exist')
   });
@@ -469,7 +475,7 @@ it('rejects malformed artifact iteration query parameters', async () => {
     url: `/api/artifacts?iteration=abc&path=${encodeURIComponent(artifactPath)}`
   });
 
-  expect(response.statusCode).toBe(400);
+  expect(response.statusCode).toBe(HTTP_STATUS_BAD_REQUEST);
   expect(response.json()).toEqual({ error: 'iteration must be a non-negative integer.' });
   await server.close();
 });
@@ -483,7 +489,7 @@ it('reports missing artifact query parameters and missing files', async () => {
     url: `/api/artifacts?iteration=1&path=${encodeURIComponent(join(iterationRoot, 'missing.txt'))}`
   });
 
-  expect(missingPath.statusCode).toBe(400);
-  expect(missingFile.statusCode).toBe(404);
+  expect(missingPath.statusCode).toBe(HTTP_STATUS_BAD_REQUEST);
+  expect(missingFile.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   await server.close();
 });

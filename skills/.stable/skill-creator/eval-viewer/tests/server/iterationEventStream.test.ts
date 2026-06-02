@@ -3,6 +3,8 @@ import { EventEmitter } from 'node:events';
 import { expect, it, vi } from 'vitest';
 import { openIterationEventStream } from '../../src/server/buildServer.js';
 
+const HTTP_STATUS_OK = 200;
+
 it('streams the current iteration index and future index events until the client closes the response', async () => {
   const raw = new EventEmitter() as EventEmitter & {
     write: ReturnType<typeof vi.fn>;
@@ -26,7 +28,7 @@ it('streams the current iteration index and future index events until the client
   raw.emit('close');
 
   expect(reply.hijack).toHaveBeenCalled();
-  expect(raw.writeHead).toHaveBeenCalledWith(200, {
+  expect(raw.writeHead).toHaveBeenCalledWith(HTTP_STATUS_OK, {
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
     'Content-Type': 'text/event-stream'
