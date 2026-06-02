@@ -93,7 +93,7 @@ export async function assertWorkspaceRoot(workspaceRoot: string): Promise<void> 
     if (error instanceof Error && error.message.includes('not a directory')) {
       throw error;
     }
-    throw new Error(`evaluation workspace root does not exist: ${workspaceRoot}`);
+    throw new Error(`evaluation workspace root does not exist: ${workspaceRoot}`, { cause: error });
   }
 }
 
@@ -511,12 +511,12 @@ async function readRequiredJson(
     return await readJson(path, options?.schemaName);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Invalid ${artifact}`);
+      throw new Error(`Invalid ${artifact}`, { cause: error });
     }
     if (error instanceof ArtifactSchemaError) {
-      throw new Error(`Invalid ${artifact}: ${error.message}`);
+      throw new Error(`Invalid ${artifact}: ${error.message}`, { cause: error });
     }
-    throw new Error(`Missing ${artifact}`);
+    throw new Error(`Missing ${artifact}`, { cause: error });
   }
 }
 
@@ -526,7 +526,7 @@ async function readJson(path: string, schemaName?: string): Promise<Record<strin
     try {
       await validateArtifactSchema(schemaName, value);
     } catch (error) {
-      throw new ArtifactSchemaError((error as Error).message);
+      throw new ArtifactSchemaError((error as Error).message, { cause: error });
     }
   }
   return value;
@@ -540,10 +540,10 @@ async function readOptionalJson(
     return await readJson(path, options?.schemaName);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Invalid ${options?.artifact}`);
+      throw new Error(`Invalid ${options?.artifact}`, { cause: error });
     }
     if (error instanceof ArtifactSchemaError) {
-      throw new Error(`Invalid ${options?.artifact}: ${error.message}`);
+      throw new Error(`Invalid ${options?.artifact}: ${error.message}`, { cause: error });
     }
     return undefined;
   }
@@ -552,8 +552,8 @@ async function readOptionalJson(
 async function readRequiredText(path: string, artifact: string): Promise<string> {
   try {
     return await readFile(path, 'utf-8');
-  } catch {
-    throw new Error(`Missing ${artifact}`);
+  } catch (error) {
+    throw new Error(`Missing ${artifact}`, { cause: error });
   }
 }
 
@@ -725,7 +725,9 @@ async function discoverIterations(workspaceRoot: string): Promise<IterationNumbe
     if (error instanceof Error && error.message.includes('not a directory')) {
       throw error;
     }
-    throw new Error(`evaluation workspace root must contain results/iteration-N artifacts: ${workspaceRoot}`);
+    throw new Error(`evaluation workspace root must contain results/iteration-N artifacts: ${workspaceRoot}`, {
+      cause: error
+    });
   }
   const iterationCandidates = await Promise.all(
     validIterationDirectoryEntries(entries).map(async (entry) => ({
@@ -764,4 +766,8 @@ function textValue(value: unknown, fallback: string): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
 }
 
-class ArtifactSchemaError extends Error {}
+class ArtifactSchemaError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+  }
+}
