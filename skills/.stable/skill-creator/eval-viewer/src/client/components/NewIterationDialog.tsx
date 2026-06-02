@@ -2,15 +2,6 @@ import type { IterationNumber } from '../../shared/viewModel.js';
 import { useEffect, useRef } from 'react';
 import styles from './NewIterationDialog.module.css';
 
-const focusableSelector = [
-  'button:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  'input:not([disabled])',
-  'a[href]',
-  '[tabindex]:not([tabindex="-1"])'
-].join(',');
-
 export function NewIterationDialog({
   currentIteration,
   latestIteration,
@@ -46,7 +37,7 @@ export function NewIterationDialog({
         return;
       }
 
-      const focusableElements = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      const focusableElements = focusableElementsIn(dialog);
       const firstElement = focusableElements[0] as HTMLElement;
       const lastElement = focusableElements.at(-1) as HTMLElement;
       if (event.shiftKey && document.activeElement === firstElement) {
@@ -111,4 +102,12 @@ export function NewIterationDialog({
       </section>
     </div>
   );
+}
+
+function focusableElementsIn(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('*')).filter(isFocusableElement);
+}
+
+function isFocusableElement(element: HTMLElement): boolean {
+  return element.tabIndex >= 0 && !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true';
 }
