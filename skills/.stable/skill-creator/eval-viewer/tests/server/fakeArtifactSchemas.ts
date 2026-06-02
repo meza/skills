@@ -8,7 +8,11 @@ const knownSchemas = new Set([
   'viewer-feedback.schema.json'
 ]);
 
-export async function validateArtifactSchema(schemaName: string, artifact: unknown): Promise<void> {
+export function validateArtifactSchema(schemaName: string, artifact: unknown): Promise<void> {
+  return Promise.resolve().then(() => validateArtifactSchemaSync(schemaName, artifact));
+}
+
+function validateArtifactSchemaSync(schemaName: string, artifact: unknown): void {
   if (!knownSchemas.has(schemaName)) {
     throw new Error(`Unknown artifact schema: ${schemaName}`);
   }

@@ -21,7 +21,7 @@ export async function validateArtifactSchema(schemaName: string, artifact: unkno
   }
 }
 
-async function schemaValidators(): Promise<Map<string, ValidateFunction>> {
+function schemaValidators(): Promise<Map<string, ValidateFunction>> {
   validators ??= loadSchemaValidators();
   return validators;
 }

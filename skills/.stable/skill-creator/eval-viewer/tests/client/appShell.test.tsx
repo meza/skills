@@ -72,9 +72,7 @@ it('loads a selected older iteration from the iteration dropdown', async () => {
 
 it('reports when a selected iteration fails to load', async () => {
   const user = userEvent.setup();
-  const loadIteration = vi.fn(async () => {
-    throw new Error('Could not load iteration 3.');
-  });
+  const loadIteration = vi.fn(() => Promise.reject(new Error('Could not load iteration 3.')));
   const saveFeedback = vi.fn(async () => ({ ok: true }));
 
   renderApp({ loadIteration, saveFeedback });
@@ -181,9 +179,7 @@ it('refreshes to a newer latest iteration when one exists', async () => {
 
 it('reports when refresh finds a newer iteration that fails to load', async () => {
   const user = userEvent.setup();
-  const loadIteration = vi.fn(async () => {
-    throw new Error('Could not load latest iteration.');
-  });
+  const loadIteration = vi.fn(() => Promise.reject(new Error('Could not load latest iteration.')));
   const loadIterationIndex = vi.fn(async () => ({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 }));
   const saveFeedback = vi.fn(async () => ({ ok: true }));
 
@@ -212,9 +208,7 @@ it('does not reload an iteration when selecting the already active iteration', a
 it('does not reload a selected iteration when saving the active run fails', async () => {
   const user = userEvent.setup();
   const loadIteration = vi.fn(async () => iterationView());
-  const saveFeedback = vi.fn(async () => {
-    throw new Error('write failed');
-  });
+  const saveFeedback = vi.fn(() => Promise.reject(new Error('write failed')));
 
   renderApp({ loadIteration, saveFeedback });
 
@@ -254,9 +248,7 @@ it('does not refresh to a newer iteration when saving the active run fails', asy
   const user = userEvent.setup();
   const loadIteration = vi.fn(async () => iterationView());
   const loadIterationIndex = vi.fn(async () => ({ iterations: [1, 2, 3, 4, 5], latestIteration: 5 }));
-  const saveFeedback = vi.fn(async () => {
-    throw new Error('write failed');
-  });
+  const saveFeedback = vi.fn(() => Promise.reject(new Error('write failed')));
 
   renderApp({ loadIteration, loadIterationIndex, saveFeedback });
 
@@ -279,7 +271,7 @@ it('reports when refresh finds no newer iteration', async () => {
   });
 
   expect(screen.getByRole('status')).toHaveTextContent('No newer iteration found');
-  await act(async () => {
+  act(() => {
     vi.advanceTimersByTime(3_200);
   });
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
@@ -405,9 +397,7 @@ it('loads the latest iteration from the new iteration prompt', async () => {
 
 it('keeps the new iteration prompt open when the latest iteration fails to load', async () => {
   const source = createFakeIterationEventSource();
-  const loadIteration = vi.fn(async () => {
-    throw new Error('Could not load prompted iteration.');
-  });
+  const loadIteration = vi.fn(() => Promise.reject(new Error('Could not load prompted iteration.')));
   const saveFeedback = vi.fn(async () => ({ ok: true }));
 
   renderApp({ createIterationEventSource: () => source, loadIteration, saveFeedback });
@@ -439,9 +429,7 @@ it('does not prompt when the iteration event stream reports no newer iteration',
 it('keeps the new iteration prompt open when saving before load fails', async () => {
   const source = createFakeIterationEventSource();
   const loadIteration = vi.fn(async () => iterationView());
-  const saveFeedback = vi.fn(async () => {
-    throw new Error('write failed');
-  });
+  const saveFeedback = vi.fn(() => Promise.reject(new Error('write failed')));
 
   renderApp({ createIterationEventSource: () => source, loadIteration, saveFeedback });
 

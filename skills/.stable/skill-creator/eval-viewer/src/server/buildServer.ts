@@ -48,7 +48,7 @@ export async function buildServer(options: ServerOptions) {
       : { logger: fastifyLoggerOptions(options.logFilePath) }
   );
   const iterationEvents = await createIterationEventHub(options.workspaceRoot, server.log);
-  server.addHook('onClose', async () => {
+  server.addHook('onClose', () => {
     iterationEvents.close();
   });
   server.setErrorHandler((error, _request, reply) => {

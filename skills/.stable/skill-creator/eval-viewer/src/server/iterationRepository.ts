@@ -329,7 +329,7 @@ function artifactPaths(artifactRoot: Record<string, unknown>, filePaths: RunFile
   };
 }
 
-async function loadTurns(
+function loadTurns(
   metadataTurns: unknown[],
   artifactTurns: unknown[],
   gradedTurns: Map<number, TurnExpectationView[]>
@@ -353,7 +353,7 @@ async function loadTurns(
   );
 }
 
-async function loadComparisonsForRuns(runs: RunView[], iterationRoot: string): Promise<RunView[]> {
+function loadComparisonsForRuns(runs: RunView[], iterationRoot: string): Promise<RunView[]> {
   const baselineByEvalId = new Map(runs.filter((run) => run.runType === 'baseline').map((run) => [run.evalId, run]));
   return Promise.all(
     runs.map(async (run) => {

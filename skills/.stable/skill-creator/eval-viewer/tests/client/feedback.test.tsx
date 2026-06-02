@@ -354,9 +354,7 @@ it('stays on the current eval when the save before navigation fails', async () =
   renderApp({
     autosaveDelayMs: 50_000,
     initialIteration: view,
-    saveFeedback: vi.fn(async () => {
-      throw new Error('write failed');
-    })
+    saveFeedback: vi.fn(() => Promise.reject(new Error('write failed')))
   });
 
   await user.click(screen.getByRole('button', { name: 'Save & Next' }));
@@ -369,9 +367,7 @@ it('shows the default save error when the thrown value has no message', async ()
   const user = userEvent.setup();
   renderApp({
     autosaveDelayMs: 50_000,
-    saveFeedback: vi.fn(async () => {
-      throw '';
-    })
+    saveFeedback: vi.fn(() => Promise.reject(''))
   });
 
   await user.click(screen.getByRole('button', { name: /complete feedback for iteration/i }));

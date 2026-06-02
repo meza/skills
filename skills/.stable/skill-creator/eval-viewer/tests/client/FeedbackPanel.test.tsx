@@ -34,7 +34,7 @@ it('renders workflow actions and reports save state', async () => {
   expect(screen.getByRole('status')).toHaveTextContent('Saved');
 });
 
-it('updates draft comments and reports save failures', async () => {
+it('updates draft comments and reports save failures', () => {
   const run = iterationView().runs[0];
   if (!run) {
     throw new Error('Expected a run for the feedback fixture.');

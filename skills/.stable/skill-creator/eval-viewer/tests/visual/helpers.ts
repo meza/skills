@@ -136,7 +136,7 @@ export async function expectHoverStyleChange(page: Page, locator: Locator, prope
   await expect.poll(() => readComputedStyle(locator, property, pseudoElement)).not.toBe(before);
 }
 
-export async function readComputedStyle(locator: Locator, property: string, pseudoElement?: string) {
+export function readComputedStyle(locator: Locator, property: string, pseudoElement?: string) {
   return locator.evaluate(
     (node, { cssProperty, pseudo }) => getComputedStyle(node, pseudo).getPropertyValue(cssProperty),
     { cssProperty: property, pseudo: pseudoElement }

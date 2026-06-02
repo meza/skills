@@ -445,7 +445,7 @@ function useFeedbackWorkflow({
   const persistence = useFeedbackPersistence(saveFeedback);
   const autosave = useFeedbackAutosave(autosaveDelayMs, persistence.saveDraft);
 
-  async function saveSelectedRun(): Promise<boolean> {
+  function saveSelectedRun(): Promise<boolean> {
     autosave.clear(selectedFeedbackKey);
     const draft = draftStore.draftFor(selectedFeedbackKey);
     return persistence.saveDraft(selectedRun, draft, activeIteration);

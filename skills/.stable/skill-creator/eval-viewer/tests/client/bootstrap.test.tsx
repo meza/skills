@@ -14,9 +14,7 @@ describe('client bootstrap', () => {
 
   it('fails loudly when the API fails or is unavailable', async () => {
     const rejectedFetcher = vi.fn(async () => new Response('', { status: 500 }));
-    const throwingFetcher = vi.fn(async () => {
-      throw new Error('offline');
-    });
+    const throwingFetcher = vi.fn(() => Promise.reject(new Error('offline')));
 
     await expect(loadInitialIteration(rejectedFetcher)).rejects.toThrow('Could not load evaluation results.');
     await expect(loadInitialIteration(throwingFetcher)).rejects.toThrow('offline');

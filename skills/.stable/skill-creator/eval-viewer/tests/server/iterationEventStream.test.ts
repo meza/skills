@@ -105,9 +105,7 @@ it('unsubscribes when the initial iteration index cannot be loaded', async () =>
   };
 
   await expect(
-    openIterationEventStream(reply as never, stream, async () => {
-      throw new Error('workspace unavailable');
-    })
+    openIterationEventStream(reply as never, stream, () => Promise.reject(new Error('workspace unavailable')))
   ).rejects.toThrow('workspace unavailable');
 
   expect(unsubscribe).toHaveBeenCalledWith();
