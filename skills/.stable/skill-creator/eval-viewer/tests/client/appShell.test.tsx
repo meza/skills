@@ -14,7 +14,11 @@ import { renderApp } from './renderApp.js';
 
 const BREAKING_CHANGE_RUN_PATTERN = /breaking-change-returns-full-message-when-needed/i;
 const CHECK_NEWER_ITERATION_BUTTON_PATTERN = /check for newer iteration/i;
+const KEYBOARD_SHIFT_DOWN = '{Shift>}';
+const KEYBOARD_SHIFT_UP = '{/Shift}';
+const KEYBOARD_TAB = '{Tab}';
 const SKILL_EVALUATION_HEADING_PATTERN = /skill evaluation/i;
+const SHIFT_TAB_KEYSTROKE = `${KEYBOARD_SHIFT_DOWN}${KEYBOARD_TAB}${KEYBOARD_SHIFT_UP}`;
 const STATUS_MESSAGE_DISMISS_DELAY_MS = 3_200;
 
 function createFakeIterationEventSource() {
@@ -337,13 +341,13 @@ it('keeps keyboard focus inside the new iteration prompt', async () => {
     expect(viewLatest).toHaveFocus();
   });
 
-  await user.keyboard('{Shift>}{Tab}{/Shift}');
+  await user.keyboard(SHIFT_TAB_KEYSTROKE);
   expect(keepCurrent).toHaveFocus();
 
-  await user.keyboard('{Shift>}{Tab}{/Shift}');
+  await user.keyboard(SHIFT_TAB_KEYSTROKE);
   expect(viewLatest).toHaveFocus();
 
-  await user.keyboard('{Tab}');
+  await user.keyboard(KEYBOARD_TAB);
   expect(keepCurrent).toHaveFocus();
 });
 
