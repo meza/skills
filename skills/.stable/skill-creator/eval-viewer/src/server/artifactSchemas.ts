@@ -16,7 +16,7 @@ export async function validateArtifactSchema(schemaName: string, artifact: unkno
     throw new Error(`Unknown artifact schema: ${schemaName}`);
   }
   if (!validator(artifact)) {
-    const details = validator.errors!.map((error) => `${error.instancePath} ${error.message}`).join('; ');
+    const details = (validator.errors ?? []).map((error) => `${error.instancePath} ${error.message}`).join('; ');
     throw new Error(`Artifact does not match ${schemaName}: ${details}`);
   }
 }

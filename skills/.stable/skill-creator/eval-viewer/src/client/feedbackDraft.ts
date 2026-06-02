@@ -37,7 +37,7 @@ export function expectationComment(
   index: number
 ): string {
   if (expectation.scope === 'overall') {
-    return draft.overall[index]!.comment;
+    return draft.overall[index]?.comment ?? '';
   }
   const turn = expectation.turn;
   const feedbackTurn = draft.turns.find((candidate) => candidate.turn === turn) as FeedbackTurnView | undefined;

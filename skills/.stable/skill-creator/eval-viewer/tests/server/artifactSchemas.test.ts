@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { validateArtifactSchema } from '../../src/server/artifactSchemas.js';
 import { fs, vol } from '../support/memfs.js';
 
@@ -43,4 +43,31 @@ it('rejects schema names that are not present in the schema root', async () => {
   await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(
     /Unknown artifact schema: missing\.schema\.json/
   );
+});
+
+it('reports schema failures when the validator omits error details', async () => {
+  vi.resetModules();
+  vi.doMock('ajv/dist/2020.js', () => ({
+    Ajv2020: class {
+      addFormat() {
+        return undefined;
+      }
+
+      addSchema() {
+        return undefined;
+      }
+
+      getSchema() {
+        return Object.assign(() => false, { errors: undefined });
+      }
+    }
+  }));
+  const { validateArtifactSchema: validateWithMissingErrors } = await import('../../src/server/artifactSchemas.js');
+
+  await expect(validateWithMissingErrors('viewer-feedback.schema.json', { reviews: [] })).rejects.toThrow(
+    'Artifact does not match viewer-feedback.schema.json: '
+  );
+
+  vi.doUnmock('ajv/dist/2020.js');
+  vi.resetModules();
 });
