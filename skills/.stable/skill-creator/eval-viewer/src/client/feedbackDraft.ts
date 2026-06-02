@@ -1,5 +1,5 @@
-import { feedbackTurnShape, turnExpectationIndex } from '../shared/feedbackModel.js';
 import type { ExpectationView, FeedbackTurnView, RunFeedbackView, RunView } from '../shared/viewModel.js';
+import { feedbackTurnShape, turnExpectationIndex } from '../shared/feedbackModel.js';
 
 export type FeedbackDraftUpdater = (updater: (draft: RunFeedbackView) => RunFeedbackView) => void;
 

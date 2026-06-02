@@ -1,6 +1,6 @@
+import type { IterationIndexView } from '../shared/viewModel.js';
 import { type FSWatcher, watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import type { IterationIndexView } from '../shared/viewModel.js';
 import { loadIteration, loadIterationIndex } from './iterationRepository.js';
 import {
   iterationDirectoryKind,

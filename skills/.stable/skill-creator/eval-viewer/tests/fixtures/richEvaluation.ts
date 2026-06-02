@@ -1,6 +1,6 @@
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { IterationNumber } from '../../src/shared/viewModel.js';
 
 interface RichRun {
   duration: number;

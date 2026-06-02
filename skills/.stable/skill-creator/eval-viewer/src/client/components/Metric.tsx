@@ -8,7 +8,7 @@ export function Metric({
   value: string;
 }) {
   return (
-    <div className="metric">
+    <div className='metric'>
       <span>{label}</span>
       <strong className={tone}>{value}</strong>
     </div>

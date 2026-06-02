@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   FeedbackInput,
   IterationIndexView,
@@ -7,6 +6,7 @@ import type {
   RunFeedbackView,
   RunView
 } from '../shared/viewModel.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from './api.js';
 import { AppHeader } from './components/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel.js';
@@ -105,9 +105,9 @@ export function App({
   };
 
   return (
-    <div className="app-shell">
+    <div className='app-shell'>
       <AppHeader summary={iterationView.summary} />
-      <div className="main-layout">
+      <div className='main-layout'>
         <RunNavigation
           filter={filter}
           onFilterChange={setFilter}
@@ -115,7 +115,7 @@ export function App({
           runs={visibleRuns}
           selectedRun={highlightedRun}
         />
-        <main className="content">
+        <main className='content'>
           <ReviewDetail
             hasNextVisibleRun={hasNextVisibleRun}
             iterationControls={iterationControls}
@@ -171,9 +171,9 @@ function ReviewDetail({
       <RunSummary
         isRefreshingIterations={iterationControls.isRefreshingIterations}
         iterationStatus={iterationControls.iterationStatus}
+        iterationSummary={iterationView.summary}
         onIterationRefreshAfterSavingFeedback={iterationControls.refreshIterationsAfterSavingFeedback}
         onIterationSelectAfterSavingFeedback={iterationControls.selectIterationAfterSavingFeedback}
-        iterationSummary={iterationView.summary}
         reviewRunCount={visibleRuns.length}
         run={selectedRun}
         selectedIndex={selectedIndex}

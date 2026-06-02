@@ -1,8 +1,8 @@
+import type { RunFeedbackView } from '../../src/shared/viewModel.js';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { FeedbackPanel } from '../../src/client/components/FeedbackPanel.js';
-import type { RunFeedbackView } from '../../src/shared/viewModel.js';
 import { iterationView } from './appFixture.js';
 
 it('renders workflow actions and reports save state', async () => {
@@ -20,8 +20,8 @@ it('renders workflow actions and reports save state', async () => {
       hasPrevious={true}
       onPrevious={onPrevious}
       onPrimaryAction={onPrimaryAction}
-      primaryActionLabel="Save & Next"
-      saveState="saved"
+      primaryActionLabel='Save & Next'
+      saveState='saved'
       updateDraft={() => undefined}
     />
   );
@@ -50,9 +50,9 @@ it('updates draft comments and reports save failures', async () => {
       hasPrevious={false}
       onPrevious={vi.fn()}
       onPrimaryAction={vi.fn()}
-      primaryActionLabel="Complete feedback for iteration"
-      saveError="Could not save feedback: 500 from /api/feedback/1. Disk is full."
-      saveState="error"
+      primaryActionLabel='Complete feedback for iteration'
+      saveError='Could not save feedback: 500 from /api/feedback/1. Disk is full.'
+      saveState='error'
       updateDraft={updateDraft}
     />
   );
@@ -78,8 +78,8 @@ it('uses a default save failure message when no details are provided', () => {
       hasPrevious={false}
       onPrevious={vi.fn()}
       onPrimaryAction={vi.fn()}
-      primaryActionLabel="Complete feedback for iteration"
-      saveState="error"
+      primaryActionLabel='Complete feedback for iteration'
+      saveState='error'
       updateDraft={() => undefined}
     />
   );

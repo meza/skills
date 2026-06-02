@@ -1,6 +1,6 @@
+import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
 import { useEffect, useId, useRef, useState } from 'react';
 import { turnExpectationIndex } from '../../shared/feedbackModel.js';
-import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
 import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
 
 export function ExpectationCard({
@@ -61,8 +61,8 @@ export function ExpectationCard({
           aria-controls={feedbackId}
           aria-expanded={isFeedbackOpen}
           aria-label={`Toggle feedback for ${expectation.text}`}
-          className="expectation-main"
-          type="button">
+          className='expectation-main'
+          type='button'>
           <ExpectationCardHeader
             comparisonExpectation={comparisonExpectation}
             comparisonLabel={comparisonLabel}
@@ -70,7 +70,7 @@ export function ExpectationCard({
           />
         </button>
       ) : (
-        <div className="expectation-main">
+        <div className='expectation-main'>
           <ExpectationCardHeader
             comparisonExpectation={comparisonExpectation}
             comparisonLabel={comparisonLabel}
@@ -79,17 +79,17 @@ export function ExpectationCard({
         </div>
       )}
       {showEvidence && (expectation.evidence || comparisonExpectation?.evidence) && (
-        <div className="evidence-grid">
+        <div className='evidence-grid'>
           <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
           <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
         </div>
       )}
       {showEvidence && !expectation.evidence && !comparisonExpectation?.evidence ? (
-        <p className="empty-copy">No evidence was recorded for this expectation.</p>
+        <p className='empty-copy'>No evidence was recorded for this expectation.</p>
       ) : null}
       {allowFeedback ? (
-        <div aria-hidden={!isFeedbackOpen} className="inline-feedback" id={feedbackId}>
-          <div className="feedback-input-frame">
+        <div aria-hidden={!isFeedbackOpen} className='inline-feedback' id={feedbackId}>
+          <div className='feedback-input-frame'>
             <textarea
               aria-label={label}
               onChange={(event) => {
@@ -97,7 +97,7 @@ export function ExpectationCard({
                 updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
               }}
               onClick={(event) => event.stopPropagation()}
-              placeholder="Add feedback for this expectation..."
+              placeholder='Add feedback for this expectation...'
               ref={feedbackRef}
               tabIndex={isFeedbackOpen ? undefined : -1}
               value={comment}
@@ -120,13 +120,13 @@ function ExpectationCardHeader({
 }) {
   return (
     <>
-      <div className="status-icon">
-        <span aria-hidden="true" className="material-symbols-outlined">
+      <div className='status-icon'>
+        <span aria-hidden='true' className='material-symbols-outlined'>
           {expectation.passed ? 'check' : 'close'}
         </span>
       </div>
       <div>
-        <p className="expectation-text">{expectation.text}</p>
+        <p className='expectation-text'>{expectation.text}</p>
       </div>
       <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
     </>

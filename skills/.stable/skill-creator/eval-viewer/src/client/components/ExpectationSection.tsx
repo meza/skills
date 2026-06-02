@@ -39,21 +39,21 @@ export function ExpectationSection({
   return (
     <section className={`expectation-section ${status}`} data-state={isOpen ? 'open' : 'closed'} data-variant={variant}>
       <button
-        aria-label={`${label} ${passed}/${total} expectations passed`}
         aria-controls={headingId}
         aria-expanded={isOpen}
-        className="expectation-section-heading"
+        aria-label={`${label} ${passed}/${total} expectations passed`}
+        className='expectation-section-heading'
         onClick={onToggle}
-        type="button">
-        <span aria-hidden="true" className="material-symbols-outlined">
+        type='button'>
+        <span aria-hidden='true' className='material-symbols-outlined'>
           {isOpen ? 'expand_more' : 'chevron_right'}
         </span>
-        <span className="expectation-section-title">{label}</span>
-        <span className="expectation-section-count">
+        <span className='expectation-section-title'>{label}</span>
+        <span className='expectation-section-count'>
           {passed}/{total} expectations passed
         </span>
       </button>
-      <div className="expectation-section-body" hidden={!isOpen} id={headingId}>
+      <div className='expectation-section-body' hidden={!isOpen} id={headingId}>
         {expectations.map((expectation, index) => (
           <ExpectationCard
             allowFeedback={allowFeedback}

@@ -25,34 +25,34 @@ export function RunNavigation({
   selectedRun: RunView;
 }) {
   return (
-    <aside className="side-nav">
-      <div className="brand-block">
-        <span aria-hidden="true" className="material-symbols-outlined brand-icon">
+    <aside className='side-nav'>
+      <div className='brand-block'>
+        <span aria-hidden='true' className='material-symbols-outlined brand-icon'>
           list_alt
         </span>
         <div>
-          <span className="eyebrow">Platform</span>
+          <span className='eyebrow'>Platform</span>
           <strong>Codex</strong>
         </div>
       </div>
-      <div className="filter-label">Filters</div>
-      <div className="filters" aria-label="Filters">
+      <div className='filter-label'>Filters</div>
+      <div aria-label='Filters' className='filters'>
         {REVIEW_FILTERS.map((candidate) => (
           <button
             aria-pressed={filter === candidate}
             className={filterClassName(candidate)}
             key={candidate}
             onClick={() => onFilterChange(candidate)}
-            type="button">
-            <span className="material-symbols-outlined" aria-hidden="true">
+            type='button'>
+            <span aria-hidden='true' className='material-symbols-outlined'>
               {filterIcon(candidate)}
             </span>
             <span>{filterLabel(candidate)}</span>
           </button>
         ))}
       </div>
-      <div className="filter-label">Evals</div>
-      <nav aria-label="Evals" className="run-list">
+      <div className='filter-label'>Evals</div>
+      <nav aria-label='Evals' className='run-list'>
         {runs.map((run) => {
           const reviewStatus = reviewStatusForRun(run);
           return (
@@ -61,10 +61,10 @@ export function RunNavigation({
               className={`run-link ${reviewStatusClassName(reviewStatus)}`}
               key={runKey(run)}
               onClick={() => onRunSelect(run)}
-              type="button">
+              type='button'>
               <span>{run.evalName}</span>
               <small>
-                <i aria-hidden="true" />
+                <i aria-hidden='true' />
                 <span>{reviewStatusLabel(reviewStatus)}</span>
               </small>
             </button>

@@ -1,7 +1,7 @@
+import type { IterationIndexView } from '../../src/shared/viewModel.js';
 import { EventEmitter } from 'node:events';
 import { expect, it, vi } from 'vitest';
 import { openIterationEventStream } from '../../src/server/buildServer.js';
-import type { IterationIndexView } from '../../src/shared/viewModel.js';
 
 it('streams the current iteration index and future index events until the client closes the response', async () => {
   const raw = new EventEmitter() as EventEmitter & {

@@ -1,8 +1,8 @@
+import type { IterationView, RunView } from '../../src/shared/viewModel.js';
 import { readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { isPassingRun } from '../../src/client/runFilters.js';
-import type { IterationView, RunView } from '../../src/shared/viewModel.js';
 
 export const feedbackPath = resolve('.tmp', 'visual-fixture', 'results', 'iteration-3', 'viewer_feedback.json');
 

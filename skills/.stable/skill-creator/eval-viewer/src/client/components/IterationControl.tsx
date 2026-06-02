@@ -28,7 +28,7 @@ export function IterationControl({
       <label className={styles['iteration-control__label']}>
         <span>Iteration</span>
         <select
-          aria-label="Iteration"
+          aria-label='Iteration'
           className={styles['iteration-control__select']}
           onChange={handleSelect}
           value={summary.iteration}>
@@ -43,18 +43,18 @@ export function IterationControl({
         </select>
       </label>
       <button
-        aria-label="Check for newer iteration"
+        aria-label='Check for newer iteration'
         className={styles['iteration-control__refresh']}
         disabled={isRefreshing}
         onClick={handleRefresh}
-        title="Check for newer iteration"
-        type="button">
-        <span aria-hidden="true" className="material-symbols-outlined">
+        title='Check for newer iteration'
+        type='button'>
+        <span aria-hidden='true' className='material-symbols-outlined'>
           refresh
         </span>
       </button>
       {status ? (
-        <span aria-atomic="true" aria-live="polite" className={styles['iteration-control__status']} role="status">
+        <span aria-atomic='true' aria-live='polite' className={styles['iteration-control__status']} role='status'>
           {status}
         </span>
       ) : null}

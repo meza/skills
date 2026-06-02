@@ -16,7 +16,7 @@ it('renders eval identity, summary copy, metrics, and pager state', async () => 
   render(
     <RunSummary
       isRefreshingIterations={false}
-      iterationStatus=""
+      iterationStatus=''
       iterationSummary={summary}
       onIterationRefreshAfterSavingFeedback={async () => undefined}
       onIterationSelectAfterSavingFeedback={async () => undefined}
@@ -48,7 +48,7 @@ it('renders fallback summary and disables the final pager control', () => {
   render(
     <RunSummary
       isRefreshingIterations={false}
-      iterationStatus=""
+      iterationStatus=''
       iterationSummary={summary}
       onIterationRefreshAfterSavingFeedback={async () => undefined}
       onIterationSelectAfterSavingFeedback={async () => undefined}

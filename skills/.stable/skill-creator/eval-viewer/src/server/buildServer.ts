@@ -1,3 +1,4 @@
+import type { FeedbackInput, IterationIndexView, IterationNumber } from '../shared/viewModel.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
@@ -7,7 +8,6 @@ import Fastify, {
   type FastifyRequest,
   type FastifyServerOptions
 } from 'fastify';
-import type { FeedbackInput, IterationIndexView, IterationNumber } from '../shared/viewModel.js';
 import { createIterationEventHub } from './iterationEvents.js';
 import {
   assertWorkspaceRoot,

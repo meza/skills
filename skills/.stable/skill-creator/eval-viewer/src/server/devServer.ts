@@ -1,5 +1,5 @@
-import { resolve } from 'node:path';
 import type { InlineConfig } from 'vite';
+import { resolve } from 'node:path';
 import { DEFAULT_PORT } from './main.js';
 
 type DevApiServer = {

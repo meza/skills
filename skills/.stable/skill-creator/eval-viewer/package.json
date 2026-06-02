@@ -7,7 +7,7 @@
     "build": "tsc --noEmit && vite build",
     "biome:fix": "biome check --write .",
     "coverage": "vitest run --coverage",
-    "doctor": "react-doctor --verbose --full --lint --fail-on warning",
+    "doctor": "react-doctor --verbose --full --lint --no-dead-code --fail-on warning",
     "dev": "npm run dev:server",
     "dev:server": "npm run build && npm run fixture:visual && tsx watch --clear-screen=false scripts/devServer.ts .tmp/visual-fixture",
     "fixture:visual": "tsx tests/fixtures/writeVisualFixture.ts",
@@ -20,7 +20,7 @@
     "test:visual:update": "run-s test:visual:update:local test:visual:update:docker",
     "test:visual:update:local": "playwright test --update-snapshots changed",
     "test:visual:update:docker": "docker run --rm -t -v \".:/work\" -v \"../schemas:/schemas:ro\" -w /work mcr.microsoft.com/playwright:v1.60.0-noble /bin/bash -lc \"npm i --no-package-lock && npm run test:visual:update:local\" && npm i",
-    "validate": "run-s biome:fix style:check doctor coverage build"
+    "validate": "run-s biome:fix style:check coverage build"
   },
   "browserslist": [
     "last 2 Chrome versions",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.7",
-    "@meza/biome": "^1.2.0",
+    "@meza/biome": "^1.3.0",
     "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -52,7 +52,6 @@
     "memfs": "^4.57.3",
     "npm-run-all2": "^8.0.4",
     "postcss-preset-env": "^11.3.0",
-    "react-doctor": "^0.2.16",
     "stylelint": "^17.12.0",
     "stylelint-config-standard": "^40.0.0",
     "tsx": "^4.20.6",

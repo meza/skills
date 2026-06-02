@@ -1,6 +1,6 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
 import { ExpectationSection } from './ExpectationSection.js';
 
 type ExpectationResultMode = 'skill' | 'baseline';
@@ -36,23 +36,23 @@ export function ExpectationsPanel({
   }, [run.evalId]);
 
   return (
-    <section className="expectations">
-      <div className="section-heading">
-        <div className="expectation-heading-main">
+    <section className='expectations'>
+      <div className='section-heading'>
+        <div className='expectation-heading-main'>
           <div>
-            <span aria-hidden="true" className="material-symbols-outlined">
+            <span aria-hidden='true' className='material-symbols-outlined'>
               verified
             </span>
             <h3>Expectations Breakdown</h3>
           </div>
-          <div aria-label="Expectation result source" className="result-toggle">
+          <div aria-label='Expectation result source' className='result-toggle'>
             {(['skill', 'baseline'] as const).map((mode) => (
               <button
                 aria-pressed={resultMode === mode}
                 disabled={mode === 'baseline' && !canShowBaseline}
                 key={mode}
                 onClick={() => setRequestedResultMode(mode)}
-                type="button">
+                type='button'>
                 {mode}
               </button>
             ))}
@@ -69,11 +69,11 @@ export function ExpectationsPanel({
         draft={draft}
         expectations={overall}
         isOpen={sectionOpenState.overall}
-        label="Overall Expectations"
+        label='Overall Expectations'
         onToggle={() => toggleSectionOpenState(setSectionOpenState, 'overall')}
         resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
-        variant="overall"
         updateDraft={updateDraft}
+        variant='overall'
       />
       {turns.map((turn) => (
         <ExpectationSection
@@ -88,7 +88,7 @@ export function ExpectationsPanel({
           onToggle={() => toggleSectionOpenState(setSectionOpenState, turnSectionKey(turn.turn))}
           resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
           updateDraft={updateDraft}
-          variant="turn"
+          variant='turn'
         />
       ))}
     </section>

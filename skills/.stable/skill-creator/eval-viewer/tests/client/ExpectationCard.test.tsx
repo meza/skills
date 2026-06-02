@@ -1,8 +1,8 @@
+import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationCard } from '../../src/client/components/ExpectationCard.js';
-import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
 
 const expectation: ExpectationView = {
   evidence: 'The answer starts with feat!:',
@@ -24,12 +24,12 @@ it('shows expectation result and comparison status', () => {
     <ExpectationCard
       allowFeedback
       comparisonExpectation={{ ...expectation, passed: false }}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -48,12 +48,12 @@ it('toggles passing expectation feedback from the card button', async () => {
     <ExpectationCard
       allowFeedback
       comparisonExpectation={undefined}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -78,12 +78,12 @@ it('toggles expectation feedback from the card surface', async () => {
     <ExpectationCard
       allowFeedback
       comparisonExpectation={undefined}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -104,12 +104,12 @@ it('keeps feedback open when interacting with the textarea', async () => {
     <ExpectationCard
       allowFeedback
       comparisonExpectation={undefined}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectation={{ ...expectation, passed: false }}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -133,12 +133,12 @@ it('records feedback through the draft updater', async () => {
     <ExpectationCard
       allowFeedback
       comparisonExpectation={undefined}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectation={{ ...expectation, passed: false }}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={updateDraft}
     />
   );
@@ -153,7 +153,7 @@ it('opens feedback by default when the expectation already has feedback', () => 
     <ExpectationCard
       allowFeedback
       comparisonExpectation={undefined}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={{
         ...draft,
         turns: [{ expectations: [{ comment: 'Existing note.', expectation_id: expectation.id }], turn: 1 }]
@@ -161,7 +161,7 @@ it('opens feedback by default when the expectation already has feedback', () => 
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );

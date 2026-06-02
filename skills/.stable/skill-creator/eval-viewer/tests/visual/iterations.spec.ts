@@ -1,7 +1,7 @@
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { cp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
-import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { expectNoHorizontalOverflow, resetFeedbackArtifact, scrollContentToTop } from './helpers.js';
 
 const visualFixtureRoot = resolve('.tmp', 'visual-fixture');

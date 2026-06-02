@@ -1,60 +1,60 @@
 .iteration-control {
-  align-items: center;
   display: inline-flex;
   gap: var(--compact-gap);
+  align-items: center;
   min-width: 0;
 }
 
 .iteration-control__label {
-  align-items: center;
-  color: var(--color-text-subtle);
   display: inline-flex;
+  gap: var(--compact-gap);
+  align-items: center;
   font-family: var(--font-family-mono);
   font-size: var(--text-label-size);
-  gap: var(--compact-gap);
+  color: var(--color-text-subtle);
   text-transform: uppercase;
 }
 
 .iteration-control__select {
+  min-width: 118px;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  font: inherit;
+  color: var(--color-text);
   background: oklch(from var(--color-surface-raised) l c h / 80%);
   border: var(--border-strong);
   border-radius: var(--radius-control);
-  color: var(--color-text);
-  font: inherit;
-  height: 30px;
-  min-width: 118px;
-  padding: 0 28px 0 10px;
 }
 
 .iteration-control__select:hover:not(:disabled),
 .iteration-control__select:focus {
-  border-color: oklch(from var(--color-accent) l c h / 45%);
   outline: none;
+  border-color: oklch(from var(--color-accent) l c h / 45%);
 }
 
 .iteration-control__select:focus-visible,
 .iteration-control__refresh:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-focus-accent);
   outline: var(--border-width-accent) solid var(--color-accent);
   outline-offset: 2px;
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focus-accent);
 }
 
 .iteration-control__refresh {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--color-text-muted);
   background: oklch(from var(--color-surface-raised) l c h / 80%);
   border: var(--border-strong);
   border-radius: var(--radius-control);
-  color: var(--color-text-muted);
-  display: inline-flex;
-  height: 30px;
-  justify-content: center;
-  width: 30px;
 }
 
 .iteration-control__refresh:hover:not(:disabled) {
-  border-color: oklch(from var(--color-accent) l c h / 45%);
   color: var(--color-accent);
+  border-color: oklch(from var(--color-accent) l c h / 45%);
 }
 
 .iteration-control__refresh:active:not(:disabled) {
@@ -66,12 +66,12 @@
 }
 
 .iteration-control__status {
-  animation: iteration-status-fade 3.2s ease-out forwards;
-  color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--text-label-size);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   white-space: nowrap;
+  animation: iteration-status-fade 3.2s ease-out forwards;
 }
 
 @keyframes iteration-status-fade {

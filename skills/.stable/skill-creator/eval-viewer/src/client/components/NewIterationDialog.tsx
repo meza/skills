@@ -1,5 +1,5 @@
-import { type KeyboardEvent, useEffect, useRef } from 'react';
 import type { IterationNumber } from '../../shared/viewModel.js';
+import { type KeyboardEvent, useEffect, useRef } from 'react';
 import styles from './NewIterationDialog.module.css';
 
 const focusableSelector = [
@@ -62,28 +62,28 @@ export function NewIterationDialog({
   return (
     <div className={styles['new-iteration-dialog__backdrop']}>
       <section
-        aria-describedby="new-iteration-dialog-description"
-        aria-labelledby="new-iteration-dialog-title"
-        aria-modal="true"
+        aria-describedby='new-iteration-dialog-description'
+        aria-labelledby='new-iteration-dialog-title'
+        aria-modal='true'
         className={styles['new-iteration-dialog']}
         onKeyDown={handleDialogKeyDown}
         ref={dialogRef}
-        role="dialog">
-        <div className={styles['new-iteration-dialog__icon']} aria-hidden="true">
-          <span className="material-symbols-outlined">update</span>
+        role='dialog'>
+        <div aria-hidden='true' className={styles['new-iteration-dialog__icon']}>
+          <span className='material-symbols-outlined'>update</span>
         </div>
         <div className={styles['new-iteration-dialog__body']}>
-          <h2 id="new-iteration-dialog-title">New iteration available</h2>
-          <p className={styles['new-iteration-dialog__description']} id="new-iteration-dialog-description">
+          <h2 id='new-iteration-dialog-title'>New iteration available</h2>
+          <p className={styles['new-iteration-dialog__description']} id='new-iteration-dialog-description'>
             Iteration {latestIteration} is ready. You are viewing iteration {currentIteration}.
           </p>
-          <div className={styles['new-iteration-dialog__comparison']} aria-label="Iteration change">
+          <div aria-label='Iteration change' className={styles['new-iteration-dialog__comparison']}>
             <div className={styles['new-iteration-dialog__iteration-card']}>
               <span>Current</span>
               <p>Iteration {currentIteration}</p>
             </div>
-            <span className={styles['new-iteration-dialog__arrow']} aria-hidden="true">
-              <span className="material-symbols-outlined">arrow_forward</span>
+            <span aria-hidden='true' className={styles['new-iteration-dialog__arrow']}>
+              <span className='material-symbols-outlined'>arrow_forward</span>
             </span>
             <div
               className={`${styles['new-iteration-dialog__iteration-card']} ${styles['new-iteration-dialog__iteration-card--latest']}`}>
@@ -93,10 +93,10 @@ export function NewIterationDialog({
           </div>
         </div>
         <div className={styles['new-iteration-dialog__actions']}>
-          <button className="secondary-button" onClick={onDismiss} type="button">
+          <button className='secondary-button' onClick={onDismiss} type='button'>
             Keep current
           </button>
-          <button className="finalize-button" onClick={onViewLatest} ref={viewLatestButtonRef} type="button">
+          <button className='finalize-button' onClick={onViewLatest} ref={viewLatestButtonRef} type='button'>
             View latest
           </button>
         </div>

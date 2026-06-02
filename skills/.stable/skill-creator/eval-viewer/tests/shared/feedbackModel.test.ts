@@ -1,6 +1,6 @@
+import type { ExpectationView, TurnExpectationView } from '../../src/shared/viewModel.js';
 import { expect, it } from 'vitest';
 import { feedbackTurnShape, turnExpectationIndex } from '../../src/shared/feedbackModel.js';
-import type { ExpectationView, TurnExpectationView } from '../../src/shared/viewModel.js';
 
 const expectations: ExpectationView[] = [
   {

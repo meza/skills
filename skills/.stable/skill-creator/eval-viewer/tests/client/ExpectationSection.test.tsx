@@ -1,8 +1,8 @@
+import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationSection } from '../../src/client/components/ExpectationSection.js';
-import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
 
 const passingExpectation: ExpectationView = {
   evidence: '',
@@ -33,15 +33,15 @@ it('renders the prototype-style section heading with pass counts', () => {
     <ExpectationSection
       allowFeedback
       comparisonExpectations={[]}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectations={[passingExpectation]}
       isOpen
-      label="Turn 1"
+      label='Turn 1'
       onToggle={() => undefined}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
-      variant="turn"
+      variant='turn'
     />
   );
 
@@ -58,15 +58,15 @@ it('requests a section toggle from the heading', async () => {
     <ExpectationSection
       allowFeedback
       comparisonExpectations={[]}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={draft}
       expectations={[passingExpectation]}
       isOpen={false}
-      label="Turn 2"
+      label='Turn 2'
       onToggle={onToggle}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
-      variant="turn"
+      variant='turn'
     />
   );
 
@@ -85,7 +85,7 @@ it('marks a section as failing unless every expectation passes', () => {
     <ExpectationSection
       allowFeedback
       comparisonExpectations={[]}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={{
         comments: '',
         overall: [],
@@ -101,11 +101,11 @@ it('marks a section as failing unless every expectation passes', () => {
       }}
       expectations={[passingExpectation, failingExpectation]}
       isOpen={false}
-      label="Turn 3"
+      label='Turn 3'
       onToggle={() => undefined}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
-      variant="turn"
+      variant='turn'
     />
   );
 
@@ -125,7 +125,7 @@ it('renders overall expectations', () => {
           text: 'The run satisfies the overall requirement.'
         }
       ]}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={{ comments: '', overall: [{ comment: '', expectation_id: 'overall-expectation' }], turns: [] }}
       expectations={[
         {
@@ -137,11 +137,11 @@ it('renders overall expectations', () => {
         }
       ]}
       isOpen
-      label="Overall"
+      label='Overall'
       onToggle={() => undefined}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
-      variant="overall"
+      variant='overall'
     />
   );
 
@@ -154,7 +154,7 @@ it('renders turn expectations', () => {
     <ExpectationSection
       allowFeedback={false}
       comparisonExpectations={[]}
-      comparisonLabel="Baseline"
+      comparisonLabel='Baseline'
       draft={{
         comments: '',
         overall: [],
@@ -171,11 +171,11 @@ it('renders turn expectations', () => {
         }
       ]}
       isOpen
-      label="Turn 2"
+      label='Turn 2'
       onToggle={() => undefined}
-      resultLabel="Run"
+      resultLabel='Run'
       updateDraft={() => undefined}
-      variant="turn"
+      variant='turn'
     />
   );
 

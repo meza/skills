@@ -1,6 +1,6 @@
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { IterationNumber } from '../../src/shared/viewModel.js';
 
 export const SAMPLE_SKILL_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
 export const SAMPLE_BASELINE_EXPECTATION_ID = '5e5bdcd1-eae8-5eed-aff2-2a3f3c262ebc';

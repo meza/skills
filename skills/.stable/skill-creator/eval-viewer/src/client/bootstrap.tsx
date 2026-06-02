@@ -1,5 +1,5 @@
-import { createRoot } from 'react-dom/client';
 import type { IterationView } from '../shared/viewModel.js';
+import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { loadIterationFromServer } from './api.js';
 
