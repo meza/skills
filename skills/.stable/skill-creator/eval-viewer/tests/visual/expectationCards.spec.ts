@@ -9,6 +9,10 @@ import {
 
 const PAGE_EDGE_BLUR_TARGET_X = 8;
 const PAGE_EDGE_BLUR_TARGET_Y = 8;
+const PASSING_TURN_SECTION_BUTTON_NAME = /Turn 1 3\/3 expectations passed/i;
+const BASELINE_TURN_SECTION_BUTTON_NAME = /Turn 2 1\/1 expectations passed/i;
+const FAILING_RUN_BUTTON_NAME = /user-visible-fix-avoids-code-narration/i;
+const TOGGLE_FEEDBACK_BUTTON_NAME = /toggle feedback/i;
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -17,7 +21,7 @@ test.beforeEach(async () => {
 test('successful expectation hover state gives the status bar a neon glow', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
@@ -30,7 +34,7 @@ test('successful expectation hover state gives the status bar a neon glow', asyn
 test('passing expectation card starts with feedback collapsed', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
@@ -43,11 +47,11 @@ test('passing expectation card starts with feedback collapsed', async ({ page })
 test('passing expectation card shows feedback after toggling open', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
-  await expectation.getByRole('button', { name: /toggle feedback/i }).click();
+  await expectation.getByRole('button', { name: TOGGLE_FEEDBACK_BUTTON_NAME }).click();
 
   await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
   await expect(expectation.getByLabel('Feedback for turn 1 expectation 1')).not.toHaveAttribute('tabindex', '-1');
@@ -57,7 +61,7 @@ test('passing expectation card shows feedback after toggling open', async ({ pag
 
 test('expectation card surface toggles feedback outside of the header', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: FAILING_RUN_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.fail').first();
   const feedback = expectation.locator('.inline-feedback');
@@ -73,7 +77,7 @@ test('expectation card surface toggles feedback outside of the header', async ({
 test('expectation feedback textarea keeps the card open while editing', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   const feedback = expectation.getByLabel('Feedback for turn 1 expectation 1');
@@ -90,7 +94,7 @@ test('expectation feedback textarea keeps the card open while editing', async ({
 test('expectation feedback active border animates over the inactive frame', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expectation.click();
@@ -106,7 +110,7 @@ test('expectation feedback active border animates over the inactive frame', asyn
 test('expectation feedback active left border returns to inactive after blur', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);
-  await page.getByRole('button', { name: /Turn 1 3\/3 expectations passed/i }).click();
+  await page.getByRole('button', { name: PASSING_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expectation.click();
@@ -125,7 +129,7 @@ test('expectation feedback active left border returns to inactive after blur', a
 
 test('failed expectation hover state gives the status bar a neon glow', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: FAILING_RUN_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.fail').first();
   await expect(expectation).toBeVisible();
@@ -137,7 +141,7 @@ test('failed expectation hover state gives the status bar a neon glow', async ({
 
 test('failed expectation card starts with feedback and evidence open', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: FAILING_RUN_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.fail').first();
   await expect(expectation).toBeVisible();
@@ -150,9 +154,9 @@ test('failed expectation card starts with feedback and evidence open', async ({ 
 
 test('baseline expectation cards suppress editable feedback', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /user-visible-fix-avoids-code-narration/i }).click();
+  await page.getByRole('button', { name: FAILING_RUN_BUTTON_NAME }).click();
   await page.getByRole('button', { name: 'baseline' }).click();
-  await page.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i }).click();
+  await page.getByRole('button', { name: BASELINE_TURN_SECTION_BUTTON_NAME }).click();
 
   const expectation = page.locator('.expectation.pass').first();
   await expect(expectation).toBeVisible();
