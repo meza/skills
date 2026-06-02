@@ -24,6 +24,8 @@ const HTTP_STATUS_BAD_REQUEST = 400;
 const HTTP_STATUS_FORBIDDEN = 403;
 const HTTP_STATUS_NOT_FOUND = 404;
 const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
+const MISSING_WORKSPACE_ROOT_ERROR_PATTERN = /evaluation workspace root does not exist/i;
+const NO_RUNS_TO_REVIEW_ERROR_PATTERN = /no runs to review/i;
 
 function createAuditLogger() {
   const logger = {
@@ -234,7 +236,7 @@ it('returns a clear not-found error when a requested run iteration is unavailabl
 
 it('rejects startup when the workspace root is missing', async () => {
   await expect(buildServer({ workspaceRoot: join(root, 'missing') })).rejects.toThrow(
-    /evaluation workspace root does not exist/i
+    MISSING_WORKSPACE_ROOT_ERROR_PATTERN
   );
 });
 
@@ -258,7 +260,7 @@ it('rejects startup when the workspace root has no runs to review', async () => 
     'utf-8'
   );
 
-  await expect(buildServer({ workspaceRoot: emptyRoot })).rejects.toThrow(/no runs to review/i);
+  await expect(buildServer({ workspaceRoot: emptyRoot })).rejects.toThrow(NO_RUNS_TO_REVIEW_ERROR_PATTERN);
 });
 
 it('saves feedback through the JSON API', async () => {

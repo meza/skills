@@ -6,6 +6,8 @@ import { fs, vol } from '../support/memfs.js';
 
 const schemaRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../schemas');
 const schemaIdPrefix = 'https://agent-skills.local/skill-creator/';
+const ARTIFACT_SCHEMA_ERROR_PATTERN = /Artifact does not match viewer-feedback\.schema\.json/;
+const MISSING_SCHEMA_ERROR_PATTERN = /Unknown artifact schema: missing\.schema\.json/;
 
 beforeEach(async () => {
   vol.reset();
@@ -35,14 +37,12 @@ it('validates artifacts against schemas loaded from the configured schema root',
 
 it('rejects artifacts that do not match a known schema', async () => {
   await expect(validateArtifactSchema('viewer-feedback.schema.json', { reviews: 'invalid' })).rejects.toThrow(
-    /Artifact does not match viewer-feedback\.schema\.json/
+    ARTIFACT_SCHEMA_ERROR_PATTERN
   );
 });
 
 it('rejects schema names that are not present in the schema root', async () => {
-  await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(
-    /Unknown artifact schema: missing\.schema\.json/
-  );
+  await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(MISSING_SCHEMA_ERROR_PATTERN);
 });
 
 it('reports schema failures when the validator omits error details', async () => {
