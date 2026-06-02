@@ -13,6 +13,7 @@ const logger = {
   info: vi.fn(),
   warn: vi.fn()
 };
+const SHORT_ITERATION_WRITE_SETTLE_DELAY_MS = 250;
 
 beforeEach(() => {
   vol.reset();
@@ -86,7 +87,7 @@ it('rechecks after a filesystem event so newly visible iteration directories are
 
   resultsWatcherCallback('rename', 'iteration-2');
   await writeSampleIteration(join(root, 'results', 'iteration-2'), { iteration: 2 });
-  await vi.advanceTimersByTimeAsync(250);
+  await vi.advanceTimersByTimeAsync(SHORT_ITERATION_WRITE_SETTLE_DELAY_MS);
 
   await vi.waitFor(() => {
     expect(send).toHaveBeenCalledWith({

@@ -14,6 +14,7 @@ vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeA
 
 let root: string;
 let iterationRoot: string;
+const RICH_SKILL_EXPECTATION_COUNT = 6;
 
 beforeEach(async () => {
   vol.reset();
@@ -132,7 +133,7 @@ it('loads a representative workspace with comparisons, large counts, and failure
   const userVisibleRun = iteration.runs.find(
     (run) => run.evalName === 'user-visible-fix-avoids-code-narration' && run.runType === 'skill'
   );
-  expect(internalRun?.expectations).toHaveLength(6);
+  expect(internalRun?.expectations).toHaveLength(RICH_SKILL_EXPECTATION_COUNT);
   expect(internalRun?.turns).toHaveLength(2);
   expect(userVisibleRun?.comparisons.baseline).toMatchObject({
     runType: 'baseline',

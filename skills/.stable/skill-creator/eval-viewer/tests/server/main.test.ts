@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } from '../../src/server/main.js';
 import { fs, vol } from '../support/memfs.js';
 
+const CONFIGURED_VIEWER_PORT = 4123;
+
 describe('server entrypoint', () => {
   it('requires an evaluation workspace root argument', () => {
     expect(() => workspaceRootFromArgs(['node', 'main.ts'])).toThrow(/usage/i);
@@ -87,6 +89,6 @@ describe('server entrypoint', () => {
   });
 
   it('parses configured viewer ports', () => {
-    expect(viewerPortFromEnv({ PORT: '4123' })).toBe(4123);
+    expect(viewerPortFromEnv({ PORT: '4123' })).toBe(CONFIGURED_VIEWER_PORT);
   });
 });

@@ -13,21 +13,25 @@ import {
   validIterationDirectoryEntries
 } from '../../src/server/iterationWorkspace.js';
 
+const SELECTED_ITERATION = 3;
+const MULTI_DIGIT_ITERATION = 12;
+const ROOT_PATH_ITERATION = 4;
+
 describe('iteration workspace paths', () => {
   it('builds workspace result and iteration artifact paths from one layout rule', () => {
     const workspaceRoot = join('/memory', 'workspace');
-    const iterationRoot = iterationRootPath(workspaceRoot, 3);
+    const iterationRoot = iterationRootPath(workspaceRoot, SELECTED_ITERATION);
 
     expect(resultsRootPath(workspaceRoot)).toBe(join(workspaceRoot, 'results'));
-    expect(iterationDirectoryName(3)).toBe('iteration-3');
+    expect(iterationDirectoryName(SELECTED_ITERATION)).toBe('iteration-3');
     expect(iterationRoot).toBe(join(workspaceRoot, 'results', 'iteration-3'));
     expect(iterationManifestPath(iterationRoot)).toBe(join(iterationRoot, 'run_manifest.json'));
     expect(previousIterationRootPath(iterationRoot)).toBe(join(workspaceRoot, 'results', 'iteration-2'));
   });
 
   it('parses only valid iteration directory names', () => {
-    expect(iterationNumberFromDirectoryName('iteration-12')).toBe(12);
-    expect(iterationNumberFromRoot(join('/memory', 'workspace', 'results', 'iteration-4'))).toBe(4);
+    expect(iterationNumberFromDirectoryName('iteration-12')).toBe(MULTI_DIGIT_ITERATION);
+    expect(iterationNumberFromRoot(join('/memory', 'workspace', 'results', 'iteration-4'))).toBe(ROOT_PATH_ITERATION);
     expect(() => iterationNumberFromDirectoryName('draft')).toThrow(/Invalid iteration directory name/);
   });
 

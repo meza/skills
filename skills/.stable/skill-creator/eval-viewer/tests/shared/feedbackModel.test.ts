@@ -2,6 +2,10 @@ import type { ExpectationView, TurnExpectationView } from '../../src/shared/view
 import { expect, it } from 'vitest';
 import { feedbackTurnShape, turnExpectationIndex } from '../../src/shared/feedbackModel.js';
 
+const FIRST_TURN_FIRST_EXPECTATION_INDEX = 1;
+const SECOND_TURN_FIRST_EXPECTATION_INDEX = 2;
+const FIRST_TURN_SECOND_EXPECTATION_INDEX = 3;
+
 const expectations: ExpectationView[] = [
   {
     evidence: '',
@@ -53,7 +57,25 @@ it('groups turn feedback in expectation order while preserving turn buckets', ()
 });
 
 it('finds an expectation ordinal within its own turn', () => {
-  expect(turnExpectationIndex(expectations, expectations[1] as TurnExpectationView, 1)).toBe(0);
-  expect(turnExpectationIndex(expectations, expectations[2] as TurnExpectationView, 2)).toBe(0);
-  expect(turnExpectationIndex(expectations, expectations[3] as TurnExpectationView, 3)).toBe(1);
+  expect(
+    turnExpectationIndex(
+      expectations,
+      expectations[FIRST_TURN_FIRST_EXPECTATION_INDEX] as TurnExpectationView,
+      FIRST_TURN_FIRST_EXPECTATION_INDEX
+    )
+  ).toBe(0);
+  expect(
+    turnExpectationIndex(
+      expectations,
+      expectations[SECOND_TURN_FIRST_EXPECTATION_INDEX] as TurnExpectationView,
+      SECOND_TURN_FIRST_EXPECTATION_INDEX
+    )
+  ).toBe(0);
+  expect(
+    turnExpectationIndex(
+      expectations,
+      expectations[FIRST_TURN_SECOND_EXPECTATION_INDEX] as TurnExpectationView,
+      FIRST_TURN_SECOND_EXPECTATION_INDEX
+    )
+  ).toBe(1);
 });
