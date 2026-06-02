@@ -1,5 +1,5 @@
 import type { IterationNumber } from '../../shared/viewModel.js';
-import { type KeyboardEvent, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import styles from './NewIterationDialog.module.css';
 
 const focusableSelector = [
@@ -31,32 +31,41 @@ export function NewIterationDialog({
     }
   }, [latestIteration]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current as HTMLElement;
+    if (latestIteration === undefined || !dialog) {
+      return;
+    }
+
+    const handleDialogKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onDismiss();
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements.at(-1) as HTMLElement;
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+      if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    dialog.addEventListener('keydown', handleDialogKeyDown);
+    return () => dialog.removeEventListener('keydown', handleDialogKeyDown);
+  }, [latestIteration, onDismiss]);
+
   if (latestIteration === undefined) {
     return null;
-  }
-
-  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === 'Escape') {
-      onDismiss();
-      return;
-    }
-    if (event.key !== 'Tab') {
-      return;
-    }
-
-    const dialog = dialogRef.current as HTMLElement;
-    const focusableElements = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements.at(-1) as HTMLElement;
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement.focus();
-      return;
-    }
-    if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement.focus();
-    }
   }
 
   return (
@@ -66,7 +75,6 @@ export function NewIterationDialog({
         aria-labelledby='new-iteration-dialog-title'
         aria-modal='true'
         className={styles['new-iteration-dialog']}
-        onKeyDown={handleDialogKeyDown}
         ref={dialogRef}
         role='dialog'>
         <div aria-hidden='true' className={styles['new-iteration-dialog__icon']}>
@@ -77,7 +85,7 @@ export function NewIterationDialog({
           <p className={styles['new-iteration-dialog__description']} id='new-iteration-dialog-description'>
             Iteration {latestIteration} is ready. You are viewing iteration {currentIteration}.
           </p>
-          <div aria-label='Iteration change' className={styles['new-iteration-dialog__comparison']}>
+          <div className={styles['new-iteration-dialog__comparison']}>
             <div className={styles['new-iteration-dialog__iteration-card']}>
               <span>Current</span>
               <p>Iteration {currentIteration}</p>

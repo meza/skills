@@ -35,8 +35,8 @@ export function RunNavigation({
           <strong>Codex</strong>
         </div>
       </div>
-      <div className='filter-label'>Filters</div>
-      <div aria-label='Filters' className='filters'>
+      <fieldset className='filters'>
+        <legend className='filter-label'>Filters</legend>
         {REVIEW_FILTERS.map((candidate) => (
           <button
             aria-pressed={filter === candidate}
@@ -50,7 +50,7 @@ export function RunNavigation({
             <span>{filterLabel(candidate)}</span>
           </button>
         ))}
-      </div>
+      </fieldset>
       <div className='filter-label'>Evals</div>
       <nav aria-label='Evals' className='run-list'>
         {runs.map((run) => {

@@ -45,7 +45,8 @@ export function ExpectationsPanel({
             </span>
             <h3>Expectations Breakdown</h3>
           </div>
-          <div aria-label='Expectation result source' className='result-toggle'>
+          <fieldset className='result-toggle'>
+            <legend className='visually-hidden'>Expectation result source</legend>
             {(['skill', 'baseline'] as const).map((mode) => (
               <button
                 aria-pressed={resultMode === mode}
@@ -56,7 +57,7 @@ export function ExpectationsPanel({
                 {mode}
               </button>
             ))}
-          </div>
+          </fieldset>
         </div>
         <span>
           {passed}/{displayedExpectations.length} requirements passed

@@ -25,7 +25,6 @@ export function ExpectationCard({
   updateDraft: FeedbackDraftUpdater;
 }) {
   const comment = allowFeedback ? expectationComment(draft, expectation, expectations, index) : '';
-  const showEvidence = !expectation.passed;
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const feedbackId = useId();
   const feedbackStartsOpen = !expectation.passed || comment.trim().length > 0;
@@ -55,38 +54,30 @@ export function ExpectationCard({
     .join(' ');
 
   return (
-    <article className={className} onClick={allowFeedback ? toggleFeedback : undefined}>
+    <article className={className}>
       {allowFeedback ? (
         <button
           aria-controls={feedbackId}
           aria-expanded={isFeedbackOpen}
           aria-label={`Toggle feedback for ${expectation.text}`}
-          className='expectation-main'
+          className='expectation-toggle'
+          onClick={toggleFeedback}
           type='button'>
-          <ExpectationCardHeader
+          <ExpectationCardBody
             comparisonExpectation={comparisonExpectation}
             comparisonLabel={comparisonLabel}
             expectation={expectation}
+            resultLabel={resultLabel}
           />
         </button>
       ) : (
-        <div className='expectation-main'>
-          <ExpectationCardHeader
-            comparisonExpectation={comparisonExpectation}
-            comparisonLabel={comparisonLabel}
-            expectation={expectation}
-          />
-        </div>
+        <ExpectationCardBody
+          comparisonExpectation={comparisonExpectation}
+          comparisonLabel={comparisonLabel}
+          expectation={expectation}
+          resultLabel={resultLabel}
+        />
       )}
-      {showEvidence && (expectation.evidence || comparisonExpectation?.evidence) && (
-        <div className='evidence-grid'>
-          <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
-          <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
-        </div>
-      )}
-      {showEvidence && !expectation.evidence && !comparisonExpectation?.evidence ? (
-        <p className='empty-copy'>No evidence was recorded for this expectation.</p>
-      ) : null}
       {allowFeedback ? (
         <div aria-hidden={!isFeedbackOpen} className='inline-feedback' id={feedbackId}>
           <div className='feedback-input-frame'>
@@ -96,7 +87,6 @@ export function ExpectationCard({
                 const nextComment = event.currentTarget.value;
                 updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
               }}
-              onClick={(event) => event.stopPropagation()}
               placeholder='Add feedback for this expectation...'
               ref={feedbackRef}
               tabIndex={isFeedbackOpen ? undefined : -1}
@@ -106,6 +96,42 @@ export function ExpectationCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function ExpectationCardBody({
+  comparisonExpectation,
+  comparisonLabel,
+  expectation,
+  resultLabel
+}: {
+  comparisonExpectation: ExpectationView | undefined;
+  comparisonLabel: string;
+  expectation: ExpectationView;
+  resultLabel: string;
+}) {
+  const showEvidence = !expectation.passed;
+  const hasEvidence = Boolean(expectation.evidence || comparisonExpectation?.evidence);
+
+  return (
+    <>
+      <div className='expectation-main'>
+        <ExpectationCardHeader
+          comparisonExpectation={comparisonExpectation}
+          comparisonLabel={comparisonLabel}
+          expectation={expectation}
+        />
+      </div>
+      {showEvidence && hasEvidence ? (
+        <div className='evidence-grid'>
+          <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
+          <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
+        </div>
+      ) : null}
+      {showEvidence && !hasEvidence ? (
+        <p className='empty-copy'>No evidence was recorded for this expectation.</p>
+      ) : null}
+    </>
   );
 }
 

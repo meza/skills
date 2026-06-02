@@ -159,10 +159,25 @@ button:disabled {
   margin: 14px 0 var(--compact-gap);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--compact-gap);
+  padding: 0;
+  margin: 0;
+  border: 0;
 }
 
 .filters button {
@@ -526,6 +541,7 @@ button:disabled {
   display: flex;
   gap: 4px;
   padding: 4px;
+  margin: 0;
   background: oklch(from var(--color-surface-raised) l c h / 86%);
   border: var(--border-default);
   border-radius: var(--radius-pill);
@@ -825,6 +841,7 @@ button:disabled {
 
 .expectation {
   --rail-glow-color: var(--color-text-subtle);
+
   position: relative;
   display: flex;
   flex-direction: column;
@@ -835,7 +852,6 @@ button:disabled {
   border-left: var(--border-width-status) solid var(--color-text-subtle);
   border-radius: var(--radius-panel);
   isolation: isolate;
-
   backdrop-filter: var(--panel-backdrop-filter);
   transition: var(--transition-rail-glow);
 }
@@ -923,6 +939,22 @@ button:disabled {
 }
 
 .expectation.feedback-enabled {
+  cursor: pointer;
+}
+
+.expectation-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.expectation-toggle .expectation-main {
   cursor: pointer;
 }
 
@@ -1139,9 +1171,9 @@ div.expectation-main {
 
 .feedback {
   --rail-glow-color: var(--color-accent);
+
   position: relative;
   margin-top: var(--compact-gap);
-
   isolation: isolate;
   transition: var(--transition-rail-glow);
 }
