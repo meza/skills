@@ -954,10 +954,6 @@ button:disabled {
   border: 0;
 }
 
-.expectation-toggle .expectation-main {
-  cursor: pointer;
-}
-
 .expectation-main {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
@@ -973,7 +969,7 @@ button:disabled {
 }
 
 div.expectation-main {
-  cursor: default;
+  cursor: inherit;
 }
 
 .status-icon {
