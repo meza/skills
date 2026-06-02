@@ -2,12 +2,7 @@ import type { FeedbackInput, IterationIndexView, IterationNumber } from '../shar
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
-import Fastify, {
-  type FastifyInstance,
-  type FastifyReply,
-  type FastifyRequest,
-  type FastifyServerOptions
-} from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { createIterationEventHub } from './iterationEvents.js';
 import {
   assertWorkspaceRoot,
@@ -18,6 +13,7 @@ import {
   UnavailableIterationError
 } from './iterationRepository.js';
 
+type FastifyServerOptions = Fastify.FastifyServerOptions;
 type IterationEventStream = {
   subscribe: (send: (index: IterationIndexView) => void) => () => void;
 };
