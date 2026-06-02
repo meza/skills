@@ -4,6 +4,8 @@ import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationCard } from '../../src/client/components/ExpectationCard.js';
 
+const BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN = /Toggle feedback for The response uses a breaking-change marker/i;
+
 const expectation: ExpectationView = {
   evidence: 'The answer starts with feat!:',
   id: 'turn-one-expectation',
@@ -60,7 +62,7 @@ it('toggles passing expectation feedback from the card button', async () => {
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
   const toggle = screen.getByRole('button', {
-    name: /Toggle feedback for The response uses a breaking-change marker/i
+    name: BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN
   });
 
   expect(feedback).toHaveAttribute('tabIndex', '-1');
@@ -116,7 +118,7 @@ it('keeps feedback open when interacting with the textarea', async () => {
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
   const toggle = screen.getByRole('button', {
-    name: /Toggle feedback for The response uses a breaking-change marker/i
+    name: BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN
   });
 
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -168,7 +170,7 @@ it('opens feedback by default when the expectation already has feedback', () => 
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
   const toggle = screen.getByRole('button', {
-    name: /Toggle feedback for The response uses a breaking-change marker/i
+    name: BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN
   });
 
   expect(toggle).toHaveAttribute('aria-expanded', 'true');

@@ -4,6 +4,18 @@ import { expect, it } from 'vitest';
 import { ExpectationsPanel } from '../../src/client/components/ExpectationsPanel.js';
 import { iterationView } from './appFixture.js';
 
+const BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN = /Toggle feedback for The response uses a breaking-change marker/i;
+const FOOTER_FEEDBACK_TOGGLE_PATTERN = /Toggle feedback for Requires a footer/i;
+const OVERALL_FULL_PASS_HEADING_PATTERN = /Overall Expectations 1\/1 expectations passed/i;
+const TURN_ONE_FULL_PASS_HEADING_PATTERN = /Turn 1 1\/1 expectations passed/i;
+const TURN_ONE_ONE_OF_TWO_PASS_HEADING_PATTERN = /Turn 1 1\/2 expectations passed/i;
+const TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN = /Turn 1 2\/2 expectations passed/i;
+const TURN_TWO_FULL_PASS_HEADING_PATTERN = /Turn 2 1\/1 expectations passed/i;
+const TURN_TWO_ONE_OF_TWO_PASS_HEADING_PATTERN = /Turn 2 1\/2 expectations passed/i;
+const TURN_TWO_TWO_OF_TWO_PASS_HEADING_PATTERN = /Turn 2 2\/2 expectations passed/i;
+const TURN_ONE_BREAKING_SURFACE_FEEDBACK_TOGGLE_PATTERN =
+  /Toggle feedback for The response names the breaking surface/i;
+
 it('switches between skill and baseline expectation results', async () => {
   const user = userEvent.setup();
   const run = iterationView().runs[0];
@@ -46,11 +58,11 @@ it('keeps passing expectation feedback collapsed until the card is toggled', asy
   }
   render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
 
-  await user.click(screen.getByRole('button', { name: /Turn 1 1\/1 expectations passed/i }));
+  await user.click(screen.getByRole('button', { name: TURN_ONE_FULL_PASS_HEADING_PATTERN }));
 
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
   const toggle = screen.getByRole('button', {
-    name: /Toggle feedback for The response uses a breaking-change marker/i
+    name: BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN
   });
 
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -86,7 +98,7 @@ it('opens expectation feedback by default when feedback already exists', () => {
   const feedback = screen.getByLabelText('Feedback for turn 1 expectation 1');
   expect(
     screen.getByRole('button', {
-      name: /Toggle feedback for The response uses a breaking-change marker/i
+      name: BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN
     })
   ).toHaveAttribute('aria-expanded', 'true');
   expect(feedback).toHaveValue('Already reviewed.');
@@ -118,7 +130,7 @@ it('opens failed expectation feedback by default', () => {
 
   expect(
     screen.getByRole('button', {
-      name: /Toggle feedback for Requires a footer/i
+      name: FOOTER_FEEDBACK_TOGGLE_PATTERN
     })
   ).toHaveAttribute('aria-expanded', 'true');
 });
@@ -182,11 +194,11 @@ it('starts passing turns closed and failing turns open for the loaded eval', () 
 
   render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
 
-  expect(screen.getByRole('button', { name: /Turn 1 2\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'false'
   );
-  expect(screen.getByRole('button', { name: /Turn 2 1\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_TWO_ONE_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'true'
   );
@@ -198,18 +210,18 @@ it('persists turn open state while switching between skill and baseline results'
 
   render(<ExpectationsPanel draft={run.feedback} run={run} updateDraft={() => undefined} />);
 
-  const turnOne = screen.getByRole('button', { name: /Turn 1 2\/2 expectations passed/i });
-  const turnTwo = screen.getByRole('button', { name: /Turn 2 1\/2 expectations passed/i });
+  const turnOne = screen.getByRole('button', { name: TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN });
+  const turnTwo = screen.getByRole('button', { name: TURN_TWO_ONE_OF_TWO_PASS_HEADING_PATTERN });
 
   await user.click(turnOne);
   await user.click(turnTwo);
   await user.click(screen.getByRole('button', { name: 'baseline' }));
 
-  expect(screen.getByRole('button', { name: /Turn 1 1\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_ONE_ONE_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'true'
   );
-  expect(screen.getByRole('button', { name: /Turn 2 2\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_TWO_TWO_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'false'
   );
@@ -229,16 +241,16 @@ it('reapplies default turn state when a different eval is loaded', async () => {
     <ExpectationsPanel draft={firstRun.feedback} run={firstRun} updateDraft={() => undefined} />
   );
 
-  await user.click(screen.getByRole('button', { name: /Turn 1 2\/2 expectations passed/i }));
-  await user.click(screen.getByRole('button', { name: /Turn 2 1\/2 expectations passed/i }));
+  await user.click(screen.getByRole('button', { name: TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN }));
+  await user.click(screen.getByRole('button', { name: TURN_TWO_ONE_OF_TWO_PASS_HEADING_PATTERN }));
 
   rerender(<ExpectationsPanel draft={secondRun.feedback} run={secondRun} updateDraft={() => undefined} />);
 
-  expect(screen.getByRole('button', { name: /Turn 1 2\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'false'
   );
-  expect(screen.getByRole('button', { name: /Turn 2 2\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_TWO_TWO_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'false'
   );
@@ -262,13 +274,13 @@ it('opens a passing turn by default when one of its expectations has feedback', 
 
   render(<ExpectationsPanel draft={draft} run={run} updateDraft={() => undefined} />);
 
-  expect(screen.getByRole('button', { name: /Turn 1 2\/2 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_ONE_TWO_OF_TWO_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'true'
   );
   expect(
     screen.getByRole('button', {
-      name: /Toggle feedback for The response names the breaking surface/i
+      name: TURN_ONE_BREAKING_SURFACE_FEEDBACK_TOGGLE_PATTERN
     })
   ).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toHaveValue('Already reviewed.');
@@ -299,7 +311,7 @@ it('keeps a passing turn closed when no feedback entry exists for it', () => {
     />
   );
 
-  expect(screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i })).toHaveAttribute(
+  expect(screen.getByRole('button', { name: TURN_TWO_FULL_PASS_HEADING_PATTERN })).toHaveAttribute(
     'aria-expanded',
     'false'
   );
@@ -330,7 +342,7 @@ it('allows the overall expectations section to be collapsed', async () => {
     />
   );
 
-  const heading = screen.getByRole('button', { name: /Overall Expectations 1\/1 expectations passed/i });
+  const heading = screen.getByRole('button', { name: OVERALL_FULL_PASS_HEADING_PATTERN });
 
   expect(heading).toHaveAttribute('aria-expanded', 'true');
 

@@ -4,6 +4,10 @@ import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { ExpectationSection } from '../../src/client/components/ExpectationSection.js';
 
+const TURN_ONE_FULL_PASS_HEADING_PATTERN = /Turn 1 1\/1 expectations passed/i;
+const TURN_TWO_FULL_PASS_HEADING_PATTERN = /Turn 2 1\/1 expectations passed/i;
+const TURN_THREE_PARTIAL_PASS_HEADING_PATTERN = /Turn 3 1\/2 expectations passed/i;
+
 const passingExpectation: ExpectationView = {
   evidence: '',
   id: 'passing-expectation',
@@ -45,7 +49,7 @@ it('renders the prototype-style section heading with pass counts', () => {
     />
   );
 
-  const heading = screen.getByRole('button', { name: /Turn 1 1\/1 expectations passed/i });
+  const heading = screen.getByRole('button', { name: TURN_ONE_FULL_PASS_HEADING_PATTERN });
 
   expect(heading).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByText('The response keeps the answer concise.')).toBeInTheDocument();
@@ -70,7 +74,7 @@ it('requests a section toggle from the heading', async () => {
     />
   );
 
-  const heading = screen.getByRole('button', { name: /Turn 2 1\/1 expectations passed/i });
+  const heading = screen.getByRole('button', { name: TURN_TWO_FULL_PASS_HEADING_PATTERN });
 
   expect(heading).toHaveAttribute('aria-expanded', 'false');
   expect(screen.getByText('The response keeps the answer concise.')).not.toBeVisible();
@@ -109,7 +113,7 @@ it('marks a section as failing unless every expectation passes', () => {
     />
   );
 
-  expect(screen.getByRole('button', { name: /Turn 3 1\/2 expectations passed/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: TURN_THREE_PARTIAL_PASS_HEADING_PATTERN })).toBeInTheDocument();
 });
 
 it('renders overall expectations', () => {
