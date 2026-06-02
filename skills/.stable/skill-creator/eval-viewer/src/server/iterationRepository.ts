@@ -23,7 +23,6 @@ import {
   iterationDirectoryName,
   iterationManifestPath,
   iterationNumberFromDirectoryName,
-  iterationNumberFromRoot,
   iterationRootPath,
   previousIterationRootPath,
   resultsRootPath,

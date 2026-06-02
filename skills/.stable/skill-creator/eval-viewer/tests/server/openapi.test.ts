@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import openapiJson from '../../openapi.json' with { type: 'json' };
 import { buildServer } from '../../src/server/buildServer.js';
 import { writeSampleWorkspace } from '../fixtures/sampleIteration.js';
-import { fs, vol } from '../support/memfs.js';
+import { vol } from '../support/memfs.js';
 
 type OpenApiDocument = {
   openapi: string;
