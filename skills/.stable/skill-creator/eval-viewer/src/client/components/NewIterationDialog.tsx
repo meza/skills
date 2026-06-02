@@ -1,5 +1,5 @@
 import type { IterationNumber } from '../../shared/viewModel.js';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import styles from './NewIterationDialog.module.css';
 
 export function NewIterationDialog({
@@ -13,6 +13,8 @@ export function NewIterationDialog({
   onDismiss: () => void;
   onViewLatest: () => Promise<void>;
 }) {
+  const titleId = useId();
+  const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   const viewLatestButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -62,8 +64,8 @@ export function NewIterationDialog({
   return (
     <div className={styles['new-iteration-dialog__backdrop']}>
       <section
-        aria-describedby='new-iteration-dialog-description'
-        aria-labelledby='new-iteration-dialog-title'
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
         aria-modal='true'
         className={styles['new-iteration-dialog']}
         ref={dialogRef}
@@ -72,8 +74,8 @@ export function NewIterationDialog({
           <span className='material-symbols-outlined'>update</span>
         </div>
         <div className={styles['new-iteration-dialog__body']}>
-          <h2 id='new-iteration-dialog-title'>New iteration available</h2>
-          <p className={styles['new-iteration-dialog__description']} id='new-iteration-dialog-description'>
+          <h2 id={titleId}>New iteration available</h2>
+          <p className={styles['new-iteration-dialog__description']} id={descriptionId}>
             Iteration {latestIteration} is ready. You are viewing iteration {currentIteration}.
           </p>
           <div className={styles['new-iteration-dialog__comparison']}>
