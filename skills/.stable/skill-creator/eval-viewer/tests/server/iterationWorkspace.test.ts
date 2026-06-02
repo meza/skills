@@ -1,4 +1,4 @@
-import { Dirent } from 'node:fs';
+import type { Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -16,6 +16,7 @@ import {
 const SELECTED_ITERATION = 3;
 const MULTI_DIGIT_ITERATION = 12;
 const ROOT_PATH_ITERATION = 4;
+const INVALID_ITERATION_DIRECTORY_ERROR = /Invalid iteration directory name/;
 
 describe('iteration workspace paths', () => {
   it('builds workspace result and iteration artifact paths from one layout rule', () => {
@@ -32,7 +33,7 @@ describe('iteration workspace paths', () => {
   it('parses only valid iteration directory names', () => {
     expect(iterationNumberFromDirectoryName('iteration-12')).toBe(MULTI_DIGIT_ITERATION);
     expect(iterationNumberFromRoot(join('/memory', 'workspace', 'results', 'iteration-4'))).toBe(ROOT_PATH_ITERATION);
-    expect(() => iterationNumberFromDirectoryName('draft')).toThrow(/Invalid iteration directory name/);
+    expect(() => iterationNumberFromDirectoryName('draft')).toThrow(INVALID_ITERATION_DIRECTORY_ERROR);
   });
 
   it('filters directory entries through the shared iteration directory convention', () => {

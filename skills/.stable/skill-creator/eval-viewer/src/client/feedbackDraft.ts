@@ -11,7 +11,7 @@ export function feedbackDraftFromRun(run: RunView): RunFeedbackView {
   const overallExpectations = run.expectations.filter((expectation) => expectation.scope === 'overall');
   const turnShape = feedbackTurnShape(run.expectations);
   return {
-    comments: run.feedback.comments || run.userComments || '',
+    comments: feedbackComments(run),
     overall: overallExpectations.map((expectation, index) => ({
       comment: feedbackComment(run.feedback.overall, expectation.id, index),
       expectation_id: expectation.id
@@ -74,6 +74,13 @@ export function updateExpectationComment(
         : candidate
     )
   };
+}
+
+function feedbackComments(run: RunView): string {
+  if (run.feedback.comments !== '') {
+    return run.feedback.comments;
+  }
+  return run.userComments ?? '';
 }
 
 function feedbackComment(

@@ -199,14 +199,10 @@ export async function openIterationEventStream(
   });
   reply.raw.write('\n');
   const queuedIndexes: IterationIndexView[] = [];
-  let initialIndexWritten = false;
-  const unsubscribe = iterationEvents.subscribe((index) => {
-    if (initialIndexWritten) {
-      writeIterationEvent(reply, index);
-    } else {
-      queuedIndexes.push(index);
-    }
-  });
+  let writeIndex = (index: IterationIndexView): void => {
+    queuedIndexes.push(index);
+  };
+  const unsubscribe = iterationEvents.subscribe((index) => writeIndex(index));
   reply.raw.on('close', unsubscribe);
   let initialIndex: IterationIndexView;
   try {
@@ -216,7 +212,7 @@ export async function openIterationEventStream(
     throw error;
   }
   writeIterationEvent(reply, initialIndex);
-  initialIndexWritten = true;
+  writeIndex = (index) => writeIterationEvent(reply, index);
   for (const index of queuedIndexes) {
     if (index.latestIteration > initialIndex.latestIteration) {
       writeIterationEvent(reply, index);
