@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs';
 import type {
   ArtifactIssue,
   ExpectationView,
@@ -713,7 +714,7 @@ async function resolveIterationSelection(
 async function discoverIterations(workspaceRoot: string): Promise<IterationNumber[]> {
   await assertWorkspaceRoot(workspaceRoot);
   const resultsRoot = resultsRootPath(workspaceRoot);
-  let entries;
+  let entries: Dirent[];
   try {
     const result = await stat(resultsRoot);
     if (!result.isDirectory()) {

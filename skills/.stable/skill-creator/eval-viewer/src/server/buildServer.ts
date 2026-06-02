@@ -202,7 +202,7 @@ export async function openIterationEventStream(
     }
   });
   reply.raw.on('close', unsubscribe);
-  let initialIndex;
+  let initialIndex: IterationIndexView;
   try {
     initialIndex = await loadInitialIndex();
   } catch (error) {
