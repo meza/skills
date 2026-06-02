@@ -19,6 +19,12 @@ interface IterationEventStream {
 }
 type LoadIterationEventIndex = () => Promise<IterationIndexView>;
 
+const HTTP_STATUS_OK = 200;
+const HTTP_STATUS_BAD_REQUEST = 400;
+const HTTP_STATUS_FORBIDDEN = 403;
+const HTTP_STATUS_NOT_FOUND = 404;
+const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
+
 export interface ServerOptions {
   /** Log file path passed to Fastify's Pino-backed file logger. */
   logFilePath?: string;
@@ -54,10 +60,10 @@ export async function buildServer(options: ServerOptions) {
   server.setErrorHandler((error, _request, reply) => {
     const message = (error as Error).message;
     if (isBadRequestError(error)) {
-      return reply.code(400).send({ error: message });
+      return reply.code(HTTP_STATUS_BAD_REQUEST).send({ error: message });
     }
     if (error instanceof UnavailableIterationError) {
-      return reply.code(404).send({ error: message });
+      return reply.code(HTTP_STATUS_NOT_FOUND).send({ error: message });
     }
     return reply.send(error);
   });
@@ -87,14 +93,14 @@ function registerApiRoutes(server: FastifyInstance, options: ServerOptions, iter
           candidate.evalId === Number(request.params.evalId) && candidate.runType === request.params.runType
       );
       if (!run) {
-        return reply.code(404).send({ error: 'Run not found.' });
+        return reply.code(HTTP_STATUS_NOT_FOUND).send({ error: 'Run not found.' });
       }
       return reply.send(run);
     }
   );
   server.get<{ Querystring: { iteration?: string; path?: string } }>('/api/artifacts', async (request, reply) => {
     if (!request.query.path) {
-      return reply.code(400).send({ error: 'Artifact path is required.' });
+      return reply.code(HTTP_STATUS_BAD_REQUEST).send({ error: 'Artifact path is required.' });
     }
     try {
       const iteration = optionalIterationNumber(request.query.iteration);
@@ -146,16 +152,16 @@ function registerApiRoutes(server: FastifyInstance, options: ServerOptions, iter
     } catch (error) {
       const message = (error as Error).message;
       if (isBadRequestError(error)) {
-        return reply.code(400).send({ error: message });
+        return reply.code(HTTP_STATUS_BAD_REQUEST).send({ error: message });
       }
       if (error instanceof UnavailableIterationError) {
-        return reply.code(404).send({ error: message });
+        return reply.code(HTTP_STATUS_NOT_FOUND).send({ error: message });
       }
       request.log.error(
         { error: message, evalId: feedback.evalId, workspaceRoot: options.workspaceRoot },
         'feedback_save_failed'
       );
-      return reply.code(500).send({ error: message });
+      return reply.code(HTTP_STATUS_INTERNAL_SERVER_ERROR).send({ error: message });
     }
   });
 }
@@ -186,7 +192,7 @@ export async function openIterationEventStream(
   loadInitialIndex: LoadIterationEventIndex
 ) {
   reply.hijack();
-  reply.raw.writeHead(200, {
+  reply.raw.writeHead(HTTP_STATUS_OK, {
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
     'Content-Type': 'text/event-stream'
@@ -251,13 +257,15 @@ function isBadRequestError(error: unknown): boolean {
   );
 }
 
-function artifactErrorStatusCode(error: unknown): 400 | 403 | 404 {
+function artifactErrorStatusCode(
+  error: unknown
+): typeof HTTP_STATUS_BAD_REQUEST | typeof HTTP_STATUS_FORBIDDEN | typeof HTTP_STATUS_NOT_FOUND {
   if (isBadRequestError(error)) {
-    return 400;
+    return HTTP_STATUS_BAD_REQUEST;
   }
   const message = (error as Error).message;
   if (message.includes('inside the active iteration root')) {
-    return 403;
+    return HTTP_STATUS_FORBIDDEN;
   }
-  return 404;
+  return HTTP_STATUS_NOT_FOUND;
 }
