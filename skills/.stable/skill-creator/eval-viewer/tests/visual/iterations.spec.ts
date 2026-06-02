@@ -8,6 +8,7 @@ const OLDER_AVAILABLE_ITERATION = 2;
 const CURRENT_AVAILABLE_ITERATION = 3;
 const NEW_AVAILABLE_ITERATION = 4;
 const EVENT_STREAM_OK_STATUS = 200;
+const CHECK_FOR_NEWER_ITERATION_BUTTON_NAME = /check for newer iteration/i;
 const visualFixtureRoot = resolve('.tmp', 'visual-fixture');
 const createdIterationRoot = join(visualFixtureRoot, 'results', `iteration-${NEW_AVAILABLE_ITERATION}`);
 
@@ -48,7 +49,7 @@ test('older iteration selected state keeps the selected iteration visible', asyn
 test('refresh no-newer status is visible without shifting the header', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByRole('button', { name: /check for newer iteration/i }).click();
+  await page.getByRole('button', { name: CHECK_FOR_NEWER_ITERATION_BUTTON_NAME }).click();
 
   await expect(page.getByRole('status')).toHaveText('No newer iteration found');
   await expectNoHorizontalOverflow(page);
