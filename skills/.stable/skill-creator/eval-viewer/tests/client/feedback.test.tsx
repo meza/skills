@@ -2,7 +2,9 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import {
+  CURRENT_ITERATION,
   iterationView,
+  OLDER_ITERATION,
   OVERALL_EXPECTATION_ONE_ID,
   OVERALL_EXPECTATION_TWO_ID,
   TURN_EXPECTATION_ID,
@@ -28,7 +30,7 @@ it('autosaves reviewer feedback with expectation ids', async () => {
         overall: [],
         turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
       },
-      4
+      CURRENT_ITERATION
     );
   });
   fireEvent.change(screen.getByLabelText('Feedback for turn 1 expectation 1'), {
@@ -48,7 +50,7 @@ it('autosaves reviewer feedback with expectation ids', async () => {
           }
         ]
       },
-      4
+      CURRENT_ITERATION
     );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -101,7 +103,7 @@ it('saves the latest draft after an in-flight autosave finishes', async () => {
         overall: [],
         turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
       },
-      4
+      CURRENT_ITERATION
     );
   });
 });
@@ -154,7 +156,7 @@ it('records overall expectation feedback by grading order', async () => {
         ],
         turns: []
       },
-      4
+      CURRENT_ITERATION
     );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -226,7 +228,7 @@ it('keeps turn expectation feedback aligned across turn and expectation position
           { expectations: [{ comment: 'Later turn note.', expectation_id: TURN_TWO_EXPECTATION_ID }], turn: 2 }
         ]
       },
-      4
+      CURRENT_ITERATION
     );
   });
   expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -256,7 +258,7 @@ it('saves before advancing through the visible eval queue', async () => {
       overall: [],
       turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
     },
-    4
+    CURRENT_ITERATION
   );
   expect(screen.getByRole('heading', { name: 'second-visible-eval' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
@@ -287,7 +289,7 @@ it('moves to the previous visible eval after saving current feedback', async () 
       overall: [],
       turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
     },
-    4
+    CURRENT_ITERATION
   );
   expect(screen.getByRole('heading', { name: 'breaking-change-returns-full-message-when-needed' })).toBeInTheDocument();
 });
@@ -298,7 +300,7 @@ it('saves feedback to the active selected iteration', async () => {
   selectedIteration.summary = {
     ...selectedIteration.summary,
     isLatest: false,
-    iteration: 3
+    iteration: OLDER_ITERATION
   };
   const loadIteration = vi.fn(async () => selectedIteration);
   const saveFeedback = vi.fn(async () => ({ ok: true }));
@@ -317,7 +319,7 @@ it('saves feedback to the active selected iteration', async () => {
         overall: [],
         turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
       },
-      3
+      OLDER_ITERATION
     );
   });
 });

@@ -4,6 +4,8 @@ import { expect, it, vi } from 'vitest';
 import { iterationView } from './appFixture.js';
 import { renderApp } from './renderApp.js';
 
+const PARTIAL_PASS_RATE = 0.86;
+
 it('filters failed runs by pass rate', async () => {
   const view = iterationView();
   const failedRun = view.runs[0];
@@ -111,7 +113,7 @@ it('labels partial pass-rate runs as failed in navigation', () => {
   if (!run) {
     throw new Error('Expected a first run in the test fixture.');
   }
-  run.passRate = 0.86;
+  run.passRate = PARTIAL_PASS_RATE;
   renderApp({ initialIteration: view });
 
   const navigation = screen.getByRole('navigation', { name: /evals/i });
