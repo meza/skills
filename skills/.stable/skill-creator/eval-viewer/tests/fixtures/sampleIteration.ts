@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 export const SAMPLE_SKILL_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
 export const SAMPLE_BASELINE_EXPECTATION_ID = '5e5bdcd1-eae8-5eed-aff2-2a3f3c262ebc';
+const MILLISECONDS_PER_SECOND = 1000;
 
 export async function writeSampleWorkspace(
   root: string,
@@ -355,7 +356,7 @@ async function writeRun(
     total_tokens: run.totalTokens,
     input_tokens: Math.floor(run.totalTokens / 2),
     output_tokens: Math.ceil(run.totalTokens / 2),
-    duration_ms: run.duration * 1000,
+    duration_ms: run.duration * MILLISECONDS_PER_SECOND,
     total_duration_seconds: run.duration,
     cost_usd: 0
   });
