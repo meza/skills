@@ -24,12 +24,11 @@ Stylelint across the client styles, run the full test suite, run full coverage,
 and run the Playwright visual test suite:
 
 ```bash
-npm run biome:fix
-npm run style:check
-npm run test
-npm run coverage
+npm run validate
 npm run test:visual
 ```
+
+Do not run individual parts of these commands for actual verification.
 
 Always run these commands against the whole viewer project. Do not narrow Biome,
 Stylelint, Vitest, coverage, or Playwright verification to individual files,
