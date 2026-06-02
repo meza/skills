@@ -196,7 +196,7 @@ it('logs watcher startup failures and keeps the hub usable', async () => {
 
 it('formats non-error watcher failures in the notifier log', async () => {
   vi.mocked(watch).mockImplementation(() => {
-    throw 'watch unavailable';
+    throwWatchFailure('watch unavailable');
   });
   const root = join('/memory', 'string-watch-failure');
   await writeSampleWorkspaceWithHistory(root);
@@ -212,6 +212,10 @@ it('formats non-error watcher failures in the notifier log', async () => {
 
 async function waitForNotifierCheck(expected: Record<string, unknown>) {
   await waitForNotifierLog(expected, 'iteration_notifier_checked');
+}
+
+function throwWatchFailure(error: unknown): never {
+  throw error;
 }
 
 async function waitForNotifierLog(expected: Record<string, unknown>, message: string) {
