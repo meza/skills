@@ -102,12 +102,8 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: Iter
   });
 
   const evals = new Map(runs.map((run) => [run.evalId, run]));
-  for (const run of evals.values()) {
-    await writeEvalMetadata(root, run);
-  }
-  for (const run of runs) {
-    await writeRun(root, run);
-  }
+  await Promise.all(Array.from(evals.values()).map((run) => writeEvalMetadata(root, run)));
+  await Promise.all(runs.map((run) => writeRun(root, run)));
 }
 
 function currentRuns(): RichRun[] {
@@ -276,9 +272,9 @@ async function writeEvalMetadata(root: string, run: RichRun): Promise<void> {
 
 async function writeRun(root: string, run: RichRun): Promise<void> {
   const runTypeRoot = join(root, `eval-${run.evalId}`, run.runType);
-  for (const [index] of run.turns.entries()) {
-    await mkdir(join(runTypeRoot, `turn-${index + 1}`, 'outputs'), { recursive: true });
-  }
+  await Promise.all(
+    run.turns.map((_turn, index) => mkdir(join(runTypeRoot, `turn-${index + 1}`, 'outputs'), { recursive: true }))
+  );
   await writeJson(join(runTypeRoot, 'run_artifacts.json'), {
     eval: {
       id: run.evalId,
