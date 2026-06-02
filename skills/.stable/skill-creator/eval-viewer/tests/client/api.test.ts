@@ -8,14 +8,27 @@ const feedback: FeedbackInput = {
   overall: [],
   turns: []
 };
+const FEEDBACK_SAVE_ITERATION = 4;
+const SELECTED_ITERATION = 3;
+const FIRST_AVAILABLE_ITERATION = 1;
+const MISSING_ITERATION = 9;
+const FIRST_FETCH_CALL = 1;
+const SECOND_FETCH_CALL = 2;
+const HTTP_STATUS_NOT_FOUND = 404;
+const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
+const HTTP_STATUS_SERVICE_UNAVAILABLE = 503;
 
 it('includes JSON error details when feedback save fails', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Invalid feedback.' }), { status: 500 }))
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid feedback.' }), { status: HTTP_STATUS_INTERNAL_SERVER_ERROR })
+      )
   );
 
-  await expect(saveFeedbackToServer(feedback, 4)).rejects.toThrow(
+  await expect(saveFeedbackToServer(feedback, FEEDBACK_SAVE_ITERATION)).rejects.toThrow(
     'Could not save feedback: 500 from /api/feedback/1?iteration=4. Invalid feedback.'
   );
 
@@ -23,9 +36,12 @@ it('includes JSON error details when feedback save fails', async () => {
 });
 
 it('includes plain text error details when feedback save fails', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Disk is full.', { status: 500 })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response('Disk is full.', { status: HTTP_STATUS_INTERNAL_SERVER_ERROR }))
+  );
 
-  await expect(saveFeedbackToServer(feedback, 4)).rejects.toThrow(
+  await expect(saveFeedbackToServer(feedback, FEEDBACK_SAVE_ITERATION)).rejects.toThrow(
     'Could not save feedback: 500 from /api/feedback/1?iteration=4. Disk is full.'
   );
 
@@ -35,10 +51,14 @@ it('includes plain text error details when feedback save fails', async () => {
 it('falls back to the response status text when feedback save details are empty', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(new Response('', { status: 503, statusText: 'Service Unavailable' }))
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response('', { status: HTTP_STATUS_SERVICE_UNAVAILABLE, statusText: 'Service Unavailable' })
+      )
   );
 
-  await expect(saveFeedbackToServer(feedback, 4)).rejects.toThrow(
+  await expect(saveFeedbackToServer(feedback, FEEDBACK_SAVE_ITERATION)).rejects.toThrow(
     'Could not save feedback: 503 from /api/feedback/1?iteration=4. Service Unavailable'
   );
 
@@ -46,9 +66,9 @@ it('falls back to the response status text when feedback save details are empty'
 });
 
 it('omits feedback save details when the response has no error body or status text', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 500 })));
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: HTTP_STATUS_INTERNAL_SERVER_ERROR })));
 
-  await expect(saveFeedbackToServer(feedback, 4)).rejects.toThrow(
+  await expect(saveFeedbackToServer(feedback, FEEDBACK_SAVE_ITERATION)).rejects.toThrow(
     'Could not save feedback: 500 from /api/feedback/1?iteration=4.'
   );
 
@@ -58,10 +78,15 @@ it('omits feedback save details when the response has no error body or status te
 it('uses status text when JSON feedback save details are not a string', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 500 }), { status: 500, statusText: 'Bad' }))
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: HTTP_STATUS_INTERNAL_SERVER_ERROR }), {
+        status: HTTP_STATUS_INTERNAL_SERVER_ERROR,
+        statusText: 'Bad'
+      })
+    )
   );
 
-  await expect(saveFeedbackToServer(feedback, 4)).rejects.toThrow(
+  await expect(saveFeedbackToServer(feedback, FEEDBACK_SAVE_ITERATION)).rejects.toThrow(
     'Could not save feedback: 500 from /api/feedback/1?iteration=4. Bad'
   );
 
@@ -71,20 +96,35 @@ it('uses status text when JSON feedback save details are not a string', async ()
 it('loads selected iterations and the iteration index from the server', async () => {
   const fetcher = vi
     .fn()
-    .mockResolvedValueOnce(new Response(JSON.stringify({ summary: { iteration: 3 } })))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ iterations: [1, 3], latestIteration: 3 })));
+    .mockResolvedValueOnce(new Response(JSON.stringify({ summary: { iteration: SELECTED_ITERATION } })))
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          iterations: [FIRST_AVAILABLE_ITERATION, SELECTED_ITERATION],
+          latestIteration: SELECTED_ITERATION
+        })
+      )
+    );
   vi.stubGlobal('fetch', fetcher);
 
-  await expect(loadIterationFromServer(3)).resolves.toEqual({ summary: { iteration: 3 } });
-  await expect(loadIterationIndexFromServer()).resolves.toEqual({ iterations: [1, 3], latestIteration: 3 });
-  expect(fetcher).toHaveBeenNthCalledWith(1, '/api/iteration?iteration=3');
-  expect(fetcher).toHaveBeenNthCalledWith(2, '/api/iterations');
+  await expect(loadIterationFromServer(SELECTED_ITERATION)).resolves.toEqual({
+    summary: { iteration: SELECTED_ITERATION }
+  });
+  await expect(loadIterationIndexFromServer()).resolves.toEqual({
+    iterations: [FIRST_AVAILABLE_ITERATION, SELECTED_ITERATION],
+    latestIteration: SELECTED_ITERATION
+  });
+  expect(fetcher).toHaveBeenNthCalledWith(FIRST_FETCH_CALL, '/api/iteration?iteration=3');
+  expect(fetcher).toHaveBeenNthCalledWith(SECOND_FETCH_CALL, '/api/iterations');
 
   vi.unstubAllGlobals();
 });
 
 it('reports iteration index load failures', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('No iterations.', { status: 500 })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response('No iterations.', { status: HTTP_STATUS_INTERNAL_SERVER_ERROR }))
+  );
 
   await expect(loadIterationIndexFromServer()).rejects.toThrow(
     'Could not load iterations: 500 from /api/iterations. No iterations.'
@@ -94,9 +134,12 @@ it('reports iteration index load failures', async () => {
 });
 
 it('reports selected iteration load failures', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Missing iteration.', { status: 404 })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response('Missing iteration.', { status: HTTP_STATUS_NOT_FOUND }))
+  );
 
-  await expect(loadIterationFromServer(9)).rejects.toThrow(
+  await expect(loadIterationFromServer(MISSING_ITERATION)).rejects.toThrow(
     'Could not load evaluation results: 404 from /api/iteration?iteration=9. Missing iteration.'
   );
 
