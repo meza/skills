@@ -8,7 +8,7 @@ export function TranscriptPanel({ iteration, run }: { iteration: IterationNumber
         <h3>Execution History</h3>
         {run.turns.length > 0 ? (
           run.turns.map((turn, index) => (
-            <article className='turn' key={`${turn.prompt}-${index}`}>
+            <article className='turn' key={turnKey(turn)}>
               <div className='turn-divider'>
                 <span />
                 <strong>Turn {index + 1}</strong>
@@ -71,4 +71,8 @@ export function TranscriptPanel({ iteration, run }: { iteration: IterationNumber
       </aside>
     </section>
   );
+}
+
+function turnKey(turn: RunView['turns'][number]): string {
+  return [turn.prompt, turn.response, turn.transcript].join('\n');
 }
