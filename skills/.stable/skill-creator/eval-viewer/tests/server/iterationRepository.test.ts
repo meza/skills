@@ -14,7 +14,22 @@ vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeA
 
 let root: string;
 let iterationRoot: string;
+const AGGREGATED_RESULTS_ERROR_PATTERN = /Invalid aggregated_results\.json/;
+const DIRECT_ITERATION_ROOT_ERROR_PATTERN = /must contain results\/iteration-N artifacts/i;
+const GRADING_ERROR_PATTERN = /Invalid grading\.json/;
+const ITERATION_NINE_MISSING_ERROR_PATTERN = /iteration-9 does not exist/;
+const MISSING_RUN_ARTIFACTS_ERROR_PATTERN =
+  /Missing (grading\.json|raw_output\.jsonl|timing\.json|response\.md|transcript\.md)/;
+const MISSING_SCHEMA_ERROR_PATTERN = /Unknown artifact schema/;
+const NO_VALID_ITERATIONS_ERROR_PATTERN = /no valid results\/iteration-N artifacts/;
+const NOT_A_DIRECTORY_ERROR_PATTERN = /not a directory/i;
+const RESULTS_ARTIFACTS_ERROR_PATTERN = /results\/iteration-N artifacts/;
+const RESULTS_PATH_NOT_DIRECTORY_ERROR_PATTERN = /results path is not a directory/i;
 const RICH_SKILL_EXPECTATION_COUNT = 6;
+const RUN_ARTIFACTS_ERROR_PATTERN = /Invalid run_artifacts\.json/;
+const RUN_MANIFEST_ERROR_PATTERN = /Invalid run_manifest\.json/i;
+const TIMING_ERROR_PATTERN = /Invalid timing\.json/;
+const VIEWER_FEEDBACK_ERROR_PATTERN = /Invalid viewer_feedback\.json/;
 
 beforeEach(async () => {
   vol.reset();
@@ -60,7 +75,7 @@ it('loads an iteration from explicit evaluator artifacts with comparison data', 
 });
 
 it('rejects direct iteration roots', async () => {
-  await expect(loadIteration(iterationRoot)).rejects.toThrow(/must contain results\/iteration-N artifacts/i);
+  await expect(loadIteration(iterationRoot)).rejects.toThrow(DIRECT_ITERATION_ROOT_ERROR_PATTERN);
 });
 
 it('uses iteration directory numbers instead of manifest iteration values when selecting latest', async () => {
@@ -104,7 +119,7 @@ it('loads a requested iteration from an evaluation workspace root', async () => 
 });
 
 it('rejects a requested iteration that does not exist', async () => {
-  await expect(loadIteration(root, { iteration: 9 })).rejects.toThrow(/iteration-9 does not exist/);
+  await expect(loadIteration(root, { iteration: 9 })).rejects.toThrow(ITERATION_NINE_MISSING_ERROR_PATTERN);
 });
 
 it('loads a representative workspace with comparisons, large counts, and failures', async () => {
@@ -230,31 +245,29 @@ it('rejects missing required run artifacts', async () => {
   await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
   await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
 
-  await expect(loadIteration(root)).rejects.toThrow(
-    /Missing (grading\.json|raw_output\.jsonl|timing\.json|response\.md|transcript\.md)/
-  );
+  await expect(loadIteration(root)).rejects.toThrow(MISSING_RUN_ARTIFACTS_ERROR_PATTERN);
 });
 
 it('rejects invalid grading artifacts', async () => {
   await fs.promises.writeFile(join(iterationRoot, 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(GRADING_ERROR_PATTERN);
 });
 
 it('rejects invalid optional generated artifacts when they are present', async () => {
   await fs.promises.writeFile(join(iterationRoot, 'aggregated_results.json'), '{', 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid aggregated_results\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(AGGREGATED_RESULTS_ERROR_PATTERN);
 });
 
 it('rejects unknown artifact schema names', async () => {
-  await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(/Unknown artifact schema/);
+  await expect(validateArtifactSchema('missing.schema.json', {})).rejects.toThrow(MISSING_SCHEMA_ERROR_PATTERN);
 });
 
 it('rejects timing artifacts that do not match the schema', async () => {
   await fs.promises.writeFile(join(iterationRoot, 'eval-1', 'skill', 'timing.json'), JSON.stringify({}), 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid timing\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(TIMING_ERROR_PATTERN);
 });
 
 it('writes viewer feedback without mutating evaluator artifacts', async () => {
@@ -393,7 +406,7 @@ it('rejects preserving an empty existing feedback review', async () => {
   );
 
   await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
-    /Invalid viewer_feedback\.json/
+    VIEWER_FEEDBACK_ERROR_PATTERN
   );
 });
 
@@ -480,7 +493,7 @@ it('rejects preserving an invalid existing feedback turn', async () => {
   );
 
   await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
-    /Invalid viewer_feedback\.json/
+    VIEWER_FEEDBACK_ERROR_PATTERN
   );
 });
 
@@ -505,7 +518,7 @@ it('rejects preserving invalid existing expectation feedback', async () => {
   );
 
   await expect(saveFeedback(root, { comments: 'New note.', evalId: 1, overall: [], turns: [] })).rejects.toThrow(
-    /Invalid viewer_feedback\.json/
+    VIEWER_FEEDBACK_ERROR_PATTERN
   );
 });
 
@@ -677,7 +690,7 @@ it('rejects malformed eval ids in current feedback artifacts', async () => {
     'utf-8'
   );
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid viewer_feedback\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(VIEWER_FEEDBACK_ERROR_PATTERN);
 });
 
 it('updates existing viewer feedback entries by eval_id', async () => {
@@ -739,7 +752,7 @@ it('rejects manifest artifacts that do not match the schema', async () => {
   manifest.runs[0].execution_status = 'queued';
   await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(RUN_MANIFEST_ERROR_PATTERN);
 });
 
 it('loads runs without exposing execution status in the viewer model', async () => {
@@ -762,7 +775,7 @@ it('rejects malformed turn artifact entries', async () => {
     'utf-8'
   );
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_artifacts\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(RUN_ARTIFACTS_ERROR_PATTERN);
 });
 
 it('loads previous iteration comparisons from numbered iteration directories', async () => {
@@ -811,7 +824,7 @@ it('rejects run artifacts without turn entries', async () => {
     'utf-8'
   );
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_artifacts\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(RUN_ARTIFACTS_ERROR_PATTERN);
 });
 
 it('keeps expectations empty when grading has no expectation results', async () => {
@@ -844,7 +857,7 @@ it('rejects grader turn entries without expectation arrays', async () => {
     'utf-8'
   );
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid grading\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(GRADING_ERROR_PATTERN);
 });
 
 it('rejects omitted manifest statuses', async () => {
@@ -854,13 +867,13 @@ it('rejects omitted manifest statuses', async () => {
   delete manifest.runs[0].execution_status;
   await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/);
+  await expect(loadIteration(root)).rejects.toThrow(RUN_MANIFEST_ERROR_PATTERN);
 });
 
 it('rejects a workspace root that points at a file', async () => {
   const fileRoot = join(iterationRoot, 'run_manifest.json');
 
-  await expect(loadIteration(fileRoot)).rejects.toThrow(/not a directory/i);
+  await expect(loadIteration(fileRoot)).rejects.toThrow(NOT_A_DIRECTORY_ERROR_PATTERN);
 });
 
 it('rejects a workspace whose results path is a file', async () => {
@@ -868,13 +881,13 @@ it('rejects a workspace whose results path is a file', async () => {
   await fs.promises.mkdir(workspaceRoot, { recursive: true });
   await fs.promises.writeFile(join(workspaceRoot, 'results'), 'not a directory', 'utf-8');
 
-  await expect(loadIteration(workspaceRoot)).rejects.toThrow(/results path is not a directory/i);
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(RESULTS_PATH_NOT_DIRECTORY_ERROR_PATTERN);
 });
 
 it('rejects an empty iteration when the manifest has no run array', async () => {
   await fs.promises.writeFile(join(iterationRoot, 'run_manifest.json'), JSON.stringify({ iteration: 1 }), 'utf-8');
 
-  await expect(loadIteration(root)).rejects.toThrow(/Invalid run_manifest\.json/i);
+  await expect(loadIteration(root)).rejects.toThrow(RUN_MANIFEST_ERROR_PATTERN);
 });
 
 it('rejects a directory that is neither an iteration root nor an evaluation workspace', async () => {
@@ -883,7 +896,7 @@ it('rejects a directory that is neither an iteration root nor an evaluation work
   await writeSampleIteration(join(unrelatedRoot, 'other', 'iteration-1'));
   await fs.promises.rm(join(unrelatedRoot, 'other'), { recursive: true });
 
-  await expect(loadIteration(unrelatedRoot)).rejects.toThrow(/results\/iteration-N artifacts/);
+  await expect(loadIteration(unrelatedRoot)).rejects.toThrow(RESULTS_ARTIFACTS_ERROR_PATTERN);
 });
 
 it('rejects an evaluation workspace when no iteration manifests exist', async () => {
@@ -891,7 +904,7 @@ it('rejects an evaluation workspace when no iteration manifests exist', async ()
   await writeSampleIteration(join(workspaceRoot, 'results', 'draft'));
   await fs.promises.rm(join(workspaceRoot, 'results', 'draft'), { recursive: true });
 
-  await expect(loadIteration(workspaceRoot)).rejects.toThrow(/no valid results\/iteration-N artifacts/);
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(NO_VALID_ITERATIONS_ERROR_PATTERN);
 });
 
 it('ignores iteration directories without manifests', async () => {
