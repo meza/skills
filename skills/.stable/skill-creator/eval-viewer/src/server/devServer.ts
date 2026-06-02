@@ -2,16 +2,16 @@ import type { InlineConfig } from 'vite';
 import { resolve } from 'node:path';
 import { DEFAULT_PORT } from './main.js';
 
-type DevApiServer = {
+interface DevApiServer {
   close: () => Promise<unknown>;
   listen: (options: { host: string; port: number }) => Promise<unknown>;
-};
+}
 
-type DevViteServer = {
+interface DevViteServer {
   close: () => Promise<unknown>;
   listen: () => Promise<unknown>;
   printUrls: () => void;
-};
+}
 
 interface StartDevServerOptions {
   argv: string[];

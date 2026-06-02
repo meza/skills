@@ -5,14 +5,14 @@ import { buildServer } from '../../src/server/buildServer.js';
 import { writeSampleWorkspace } from '../fixtures/sampleIteration.js';
 import { vol } from '../support/memfs.js';
 
-type OpenApiDocument = {
+interface OpenApiDocument {
   openapi: string;
   paths: Record<string, Record<string, OpenApiOperation>>;
-};
+}
 
-type OpenApiOperation = {
+interface OpenApiOperation {
   responses: Record<string, unknown>;
-};
+}
 
 const documentedRoutes: {
   method: 'GET' | 'PUT';

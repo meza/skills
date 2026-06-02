@@ -11,11 +11,11 @@ import {
 } from './iterationWorkspace.js';
 
 type IterationEventSink = (index: IterationIndexView) => void;
-export type IterationEventLogger = {
+export interface IterationEventLogger {
   error: (value: Record<string, unknown>, message: string) => void;
   info: (value: Record<string, unknown>, message: string) => void;
   warn: (value: Record<string, unknown>, message: string) => void;
-};
+}
 
 /**
  * Watches an evaluation workspace and publishes iteration index updates to subscribers.

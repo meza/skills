@@ -23,10 +23,10 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type SaveErrors = Record<string, string>;
 type SaveStates = Record<string, SaveState>;
 type EvalTransitionState = 'idle' | 'exiting' | 'entering';
-export type IterationEventSource = {
+export interface IterationEventSource {
   close: () => void;
   onmessage: ((event: MessageEvent<string>) => void) | null;
-};
+}
 type CreateIterationEventSource = () => IterationEventSource;
 type LoadIteration = (iteration?: IterationNumber) => Promise<IterationView>;
 type LoadIterationIndex = () => Promise<IterationIndexView>;

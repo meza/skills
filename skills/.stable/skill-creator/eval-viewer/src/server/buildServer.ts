@@ -14,9 +14,9 @@ import {
 } from './iterationRepository.js';
 
 type FastifyServerOptions = Fastify.FastifyServerOptions;
-type IterationEventStream = {
+interface IterationEventStream {
   subscribe: (send: (index: IterationIndexView) => void) => () => void;
-};
+}
 type LoadIterationEventIndex = () => Promise<IterationIndexView>;
 
 export interface ServerOptions {
