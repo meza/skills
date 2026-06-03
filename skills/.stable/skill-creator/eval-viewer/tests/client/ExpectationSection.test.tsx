@@ -2,7 +2,7 @@ import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewMode
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { ExpectationSection } from '../../src/client/components/ExpectationSection.js';
+import { ExpectationSection } from '../../src/client/components/ExpectationSection/ExpectationSection.js';
 
 const TURN_ONE_FULL_PASS_HEADING_PATTERN = /Turn 1 1\/1 expectations passed/i;
 const TURN_TWO_FULL_PASS_HEADING_PATTERN = /Turn 2 1\/1 expectations passed/i;

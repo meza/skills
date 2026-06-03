@@ -1,6 +1,7 @@
-import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
-import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
-import { ExpectationCard } from './ExpectationCard.js';
+import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel.js';
+import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
+import { ExpectationCard } from '../ExpectationCard.js';
+import styles from './ExpectationSection.module.css';
 
 export function ExpectationSection({
   allowFeedback,
@@ -29,7 +30,8 @@ export function ExpectationSection({
 }) {
   const passed = expectations.filter((expectation) => expectation.passed).length;
   const total = expectations.length;
-  const status = passed === total ? 'pass' : 'fail';
+  const isPassing = passed === total;
+  const status = isPassing ? 'pass' : 'fail';
   const headingId = `${variant}-${label.toLowerCase().replaceAll(/\s+/gu, '-')}-expectations`;
 
   if (total === 0) {
@@ -37,23 +39,28 @@ export function ExpectationSection({
   }
 
   return (
-    <section className={`expectation-section ${status}`} data-state={isOpen ? 'open' : 'closed'} data-variant={variant}>
+    <section
+      className={[styles.section, isPassing ? undefined : styles.failing, 'expectation-section', status]
+        .filter(Boolean)
+        .join(' ')}
+      data-state={isOpen ? 'open' : 'closed'}
+      data-variant={variant}>
       <button
         aria-controls={headingId}
         aria-expanded={isOpen}
         aria-label={`${label} ${passed}/${total} expectations passed`}
-        className='expectation-section-heading'
+        className={`${styles.heading} expectation-section-heading`}
         onClick={onToggle}
         type='button'>
-        <span aria-hidden='true' className='material-symbols-outlined'>
+        <span aria-hidden='true' className={`${styles.icon} material-symbols-outlined`}>
           {isOpen ? 'expand_more' : 'chevron_right'}
         </span>
-        <span className='expectation-section-title'>{label}</span>
-        <span className='expectation-section-count'>
+        <span className={`${styles.title} expectation-section-title`}>{label}</span>
+        <span className={`${styles.count} expectation-section-count`}>
           {passed}/{total} expectations passed
         </span>
       </button>
-      <div className='expectation-section-body' hidden={!isOpen} id={headingId}>
+      <div className={`${styles.body} expectation-section-body`} hidden={!isOpen} id={headingId}>
         {expectations.map((expectation, index) => (
           <ExpectationCard
             allowFeedback={allowFeedback}

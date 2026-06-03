@@ -1,7 +1,7 @@
 import type { ExpectationView, RunFeedbackView, RunView } from '../../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react';
-import { ExpectationSection } from '../ExpectationSection.js';
+import { ExpectationSection } from '../ExpectationSection/ExpectationSection.js';
 import styles from './ExpectationsPanel.module.css';
 
 type ExpectationResultMode = 'skill' | 'baseline';
