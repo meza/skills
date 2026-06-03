@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { RunNavigation } from '../../src/client/components/RunNavigation.js';
+import { RunNavigation } from '../../src/client/components/RunNavigation/RunNavigation.js';
 import { RunFilter } from '../../src/client/runFilters.js';
 import { iterationView } from './appFixture.js';
 
