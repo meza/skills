@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { ActionButton } from '../ActionButton/ActionButton.js';
 import styles from './ReviewCompleteDialog.module.css';
 
 export function ReviewCompleteDialog({ isOpen, onDismiss }: { isOpen: boolean; onDismiss: () => void }) {
@@ -36,13 +37,14 @@ export function ReviewCompleteDialog({ isOpen, onDismiss }: { isOpen: boolean; o
           </p>
         </div>
         <div className={styles.actions}>
-          <button
-            className={`finalize-button ${styles.primaryAction}`}
+          <ActionButton
+            className={styles.primaryAction}
             onClick={onDismiss}
             ref={actionButtonRef}
-            type='button'>
+            type='button'
+            variant='primary'>
             Done
-          </button>
+          </ActionButton>
         </div>
       </section>
     </div>

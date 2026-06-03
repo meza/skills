@@ -1,5 +1,6 @@
 import type { RunFeedbackView } from '../../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
+import { ActionButton } from '../ActionButton/ActionButton.js';
 import styles from './FeedbackPanel.module.css';
 
 export function FeedbackPanel({
@@ -58,20 +59,22 @@ export function FeedbackPanel({
         ) : null}
       </section>
       <div className={`${styles.actions} review-actions`}>
-        <button
-          className={`${styles.secondaryAction} secondary-button`}
+        <ActionButton
+          className={styles.secondaryAction}
           disabled={!hasPrevious || saveState === 'saving'}
           onClick={onPrevious}
-          type='button'>
+          type='button'
+          variant='secondary'>
           Previous
-        </button>
-        <button
-          className={`${styles.primaryAction} finalize-button`}
+        </ActionButton>
+        <ActionButton
+          className={styles.primaryAction}
           disabled={saveState === 'saving'}
           onClick={onPrimaryAction}
-          type='button'>
+          type='button'
+          variant='primary'>
           {primaryActionLabel}
-        </button>
+        </ActionButton>
       </div>
     </>
   );

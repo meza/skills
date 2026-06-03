@@ -1,5 +1,6 @@
 import type { IterationNumber } from '../../../shared/viewModel.js';
 import { useEffect, useId, useRef } from 'react';
+import { ActionButton } from '../ActionButton/ActionButton.js';
 import styles from './NewIterationDialog.module.css';
 
 export function NewIterationDialog({
@@ -97,12 +98,12 @@ export function NewIterationDialog({
           </div>
         </div>
         <div className={styles.actions}>
-          <button className='secondary-button' onClick={onDismiss} type='button'>
+          <ActionButton onClick={onDismiss} type='button' variant='secondary'>
             Keep current
-          </button>
-          <button className='finalize-button' onClick={onViewLatest} ref={viewLatestButtonRef} type='button'>
+          </ActionButton>
+          <ActionButton onClick={onViewLatest} ref={viewLatestButtonRef} type='button' variant='primary'>
             View latest
-          </button>
+          </ActionButton>
         </div>
       </section>
     </div>
