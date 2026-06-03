@@ -1,7 +1,7 @@
 import type { IterationView } from '../shared/viewModel.js';
 import { createRoot } from 'react-dom/client';
-import { App } from './App.js';
 import { loadIterationFromServer } from './api.js';
+import { App } from './components/App/App.js';
 
 export async function loadInitialIteration(
   fetcher: typeof fetch = fetch,

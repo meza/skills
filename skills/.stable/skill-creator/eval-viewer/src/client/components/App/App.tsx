@@ -5,19 +5,20 @@ import type {
   IterationView,
   RunFeedbackView,
   RunView
-} from '../shared/viewModel.js';
+} from '../../../shared/viewModel.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from './api.js';
-import { AppHeader } from './components/AppHeader/AppHeader.js';
-import { ExpectationsPanel } from './components/ExpectationsPanel/ExpectationsPanel.js';
-import { FeedbackPanel } from './components/FeedbackPanel/FeedbackPanel.js';
-import { NewIterationDialog } from './components/NewIterationDialog/NewIterationDialog.js';
-import { ReviewCompleteDialog } from './components/ReviewCompleteDialog/ReviewCompleteDialog.js';
-import { RunNavigation } from './components/RunNavigation/RunNavigation.js';
-import { RunSummary } from './components/RunSummary/RunSummary.js';
-import { TranscriptPanel } from './components/TranscriptPanel/TranscriptPanel.js';
-import { type FeedbackDraftUpdater, feedbackDraftFromRun, runKey } from './feedbackDraft.js';
-import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from './runFilters.js';
+import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from '../../api.js';
+import { type FeedbackDraftUpdater, feedbackDraftFromRun, runKey } from '../../feedbackDraft.js';
+import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from '../../runFilters.js';
+import { AppHeader } from '../AppHeader/AppHeader.js';
+import { ExpectationsPanel } from '../ExpectationsPanel/ExpectationsPanel.js';
+import { FeedbackPanel } from '../FeedbackPanel/FeedbackPanel.js';
+import { NewIterationDialog } from '../NewIterationDialog/NewIterationDialog.js';
+import { ReviewCompleteDialog } from '../ReviewCompleteDialog/ReviewCompleteDialog.js';
+import { RunNavigation } from '../RunNavigation/RunNavigation.js';
+import { RunSummary } from '../RunSummary/RunSummary.js';
+import { TranscriptPanel } from '../TranscriptPanel/TranscriptPanel.js';
+import styles from './App.module.css';
 
 type FeedbackDraft = RunFeedbackView;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -113,9 +114,9 @@ export function App({
   };
 
   return (
-    <div className='app-shell'>
+    <div className={`${styles.shell} app-shell`}>
       <AppHeader summary={iterationView.summary} />
-      <div className='main-layout'>
+      <div className={`${styles.mainLayout} main-layout`}>
         <RunNavigation
           filter={filter}
           onFilterChange={setFilter}
@@ -123,7 +124,7 @@ export function App({
           runs={visibleRuns}
           selectedRun={highlightedRun}
         />
-        <main className='content'>
+        <main className={`${styles.content} content`}>
           <ReviewDetail
             hasNextVisibleRun={hasNextVisibleRun}
             iterationControls={iterationControls}
@@ -181,8 +182,18 @@ function ReviewDetail({
   visibleRuns: RunView[];
   workflow: FeedbackWorkflow;
 }) {
+  const transitionClassName = {
+    entering: styles.detailEntering,
+    exiting: styles.detailExiting,
+    idle: undefined
+  }[transitionState];
+
   return (
-    <div className={`eval-detail eval-detail-${transitionState}`} key={selectedRunKey}>
+    <div
+      className={[styles.detail, transitionClassName, 'eval-detail', `eval-detail-${transitionState}`]
+        .filter(Boolean)
+        .join(' ')}
+      key={selectedRunKey}>
       <RunSummary
         isRefreshingIterations={iterationControls.isRefreshingIterations}
         iterationStatus={iterationControls.iterationStatus}
