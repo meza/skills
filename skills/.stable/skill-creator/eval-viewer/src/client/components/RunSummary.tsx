@@ -1,7 +1,7 @@
 import type { IterationNumber, IterationView, RunView } from '../../shared/viewModel.js';
 import { formatDeltaPercent, formatPercent } from '../formatters.js';
 import { IterationControl } from './IterationControl.js';
-import { Metric } from './Metric.js';
+import { Metric } from './Metric/Metric.js';
 
 export function RunSummary({
   isRefreshingIterations,

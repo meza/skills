@@ -91,7 +91,6 @@ button:disabled {
 .run-link small,
 .run-pager,
 .section-heading > span,
-.metric span,
 .expectation-section-heading,
 .status-badge,
 .result-toggle button,
@@ -483,38 +482,6 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--stack-gap);
   margin-top: var(--section-gap);
-}
-
-.metric {
-  padding: var(--stack-gap);
-  background: oklch(from var(--color-surface-muted) l c h / 60%);
-  border: var(--border-default);
-  border-radius: var(--radius-control);
-}
-
-.metric span {
-  display: block;
-  font-size: var(--text-meta-size);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-}
-
-.metric strong {
-  display: block;
-  margin-top: 4px;
-  font-size: var(--text-section-title-size);
-  line-height: var(--text-section-title-line-height);
-  color: var(--color-text-muted);
-}
-
-.metric strong.pass {
-  color: var(--color-success-emphasis);
-  text-shadow: var(--shadow-success-text);
-}
-
-.metric strong.primary {
-  color: var(--color-accent);
-  text-shadow: var(--shadow-accent-text);
 }
 
 .expectations {

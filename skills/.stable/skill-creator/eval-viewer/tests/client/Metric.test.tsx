@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { Metric } from '../../src/client/components/Metric.js';
+import { Metric } from '../../src/client/components/Metric/Metric.js';
 
 it('renders a muted metric by default', () => {
   render(<Metric label='vs Last Iteration' value='N/A' />);
