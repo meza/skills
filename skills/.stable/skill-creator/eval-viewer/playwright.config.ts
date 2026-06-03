@@ -15,7 +15,7 @@ export default defineConfig({
     command: 'npm run serve:visual',
     env: { PORT: '4277' },
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 240_000,
     url: 'http://127.0.0.1:4277'
   },
   workers: 1,

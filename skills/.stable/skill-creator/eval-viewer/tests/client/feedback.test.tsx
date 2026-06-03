@@ -269,6 +269,43 @@ it('saves before advancing through the visible eval queue', async () => {
   expect(screen.getByRole('button', { name: 'Complete feedback for iteration' })).toBeInTheDocument();
 });
 
+it('prompts the reviewer after the final visible eval is saved', async () => {
+  const user = userEvent.setup();
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+  renderApp({ autosaveDelayMs: 50_000, saveFeedback });
+
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
+
+  const dialog = screen.getByRole('dialog', { name: 'Review complete' });
+  expect(dialog).toHaveTextContent("Tell your agent that you've finished with your review.");
+  expect(saveFeedback).toHaveBeenCalledWith(
+    {
+      comments: '',
+      evalId: 1,
+      overall: [],
+      turns: [{ expectations: [{ comment: '', expectation_id: TURN_EXPECTATION_ID }], turn: 1 }]
+    },
+    CURRENT_ITERATION
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Done' }));
+
+  expect(screen.queryByRole('dialog', { name: 'Review complete' })).not.toBeInTheDocument();
+});
+
+it('does not prompt the reviewer when the final visible eval save fails', async () => {
+  const user = userEvent.setup();
+  renderApp({
+    autosaveDelayMs: 50_000,
+    saveFeedback: vi.fn(() => Promise.reject(new Error('write failed')))
+  });
+
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
+
+  expect(await screen.findByText('write failed')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: 'Review complete' })).not.toBeInTheDocument();
+});
+
 it('moves to the previous visible eval after saving current feedback', async () => {
   const user = userEvent.setup();
   const view = iterationView();

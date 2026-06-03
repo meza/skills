@@ -12,6 +12,7 @@ import { AppHeader } from './components/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel.js';
 import { FeedbackPanel } from './components/FeedbackPanel.js';
 import { NewIterationDialog } from './components/NewIterationDialog.js';
+import { ReviewCompleteDialog } from './components/ReviewCompleteDialog.js';
 import { RunNavigation } from './components/RunNavigation.js';
 import { RunSummary } from './components/RunSummary.js';
 import { TranscriptPanel } from './components/TranscriptPanel.js';
@@ -62,6 +63,7 @@ export function App({
   );
   const [filter, setFilter] = useState<RunFilter>(() => defaultReviewFilter(reviewRuns));
   const [selectedKey, setSelectedKey] = useState(runKey(reviewRuns[0] as RunView));
+  const [isReviewCompleteDialogOpen, setIsReviewCompleteDialogOpen] = useState(false);
   const visibleRuns = useMemo(() => visibleReviewRuns(reviewRuns, filter), [filter, reviewRuns]);
   const visibleRunFallback = (visibleRuns[0] ?? reviewRuns[0]) as RunView;
   const selectedRun = visibleRuns.find((run) => runKey(run) === selectedKey) ?? visibleRunFallback;
@@ -98,6 +100,12 @@ export function App({
     setSelectedKey
   });
 
+  useEffect(() => {
+    if (iterationControls.pendingLatestIteration !== undefined) {
+      setIsReviewCompleteDialogOpen(false);
+    }
+  }, [iterationControls.pendingLatestIteration]);
+
   const selectRun = (runToSelect: RunView) => selectEvalKey(runKey(runToSelect));
   const selectRunAt = (offset: number) => {
     const targetRun = visibleRuns[selectedIndex + offset];
@@ -120,6 +128,7 @@ export function App({
             hasNextVisibleRun={hasNextVisibleRun}
             iterationControls={iterationControls}
             iterationView={iterationView}
+            onReviewComplete={() => setIsReviewCompleteDialogOpen(true)}
             primaryActionLabel={primaryActionLabel}
             selectedIndex={selectedIndex}
             selectedRun={selectedRun}
@@ -137,6 +146,10 @@ export function App({
         onDismiss={iterationControls.dismissPendingLatestIteration}
         onViewLatest={iterationControls.loadPendingLatestIterationAfterSavingFeedback}
       />
+      <ReviewCompleteDialog
+        isOpen={isReviewCompleteDialogOpen && iterationControls.pendingLatestIteration === undefined}
+        onDismiss={() => setIsReviewCompleteDialogOpen(false)}
+      />
     </div>
   );
 }
@@ -145,6 +158,7 @@ function ReviewDetail({
   hasNextVisibleRun,
   iterationControls,
   iterationView,
+  onReviewComplete,
   primaryActionLabel,
   selectedIndex,
   selectedRun,
@@ -157,6 +171,7 @@ function ReviewDetail({
   hasNextVisibleRun: boolean;
   iterationControls: IterationControls;
   iterationView: IterationView;
+  onReviewComplete: () => void;
   primaryActionLabel: string;
   selectedIndex: number;
   selectedRun: RunView;
@@ -191,7 +206,9 @@ function ReviewDetail({
             await workflow.moveToVisibleRun(1);
             return;
           }
-          await workflow.saveSelectedRun();
+          if (await workflow.saveSelectedRun()) {
+            onReviewComplete();
+          }
         }}
         primaryActionLabel={primaryActionLabel}
         saveError={workflow.saveError}

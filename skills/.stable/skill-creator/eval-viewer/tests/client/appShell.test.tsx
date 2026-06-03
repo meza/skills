@@ -14,6 +14,7 @@ import { renderApp } from './renderApp.js';
 
 const BREAKING_CHANGE_RUN_PATTERN = /breaking-change-returns-full-message-when-needed/i;
 const CHECK_NEWER_ITERATION_BUTTON_PATTERN = /check for newer iteration/i;
+const COMPLETE_FEEDBACK_BUTTON_PATTERN = /complete feedback for iteration/i;
 const KEYBOARD_SHIFT_DOWN = '{Shift>}';
 const KEYBOARD_SHIFT_UP = '{/Shift}';
 const KEYBOARD_TAB = '{Tab}';
@@ -418,6 +419,24 @@ it('loads the latest iteration from the new iteration prompt', async () => {
 
   expect(screen.getByText('Loaded from prompt.')).toBeInTheDocument();
   expect(loadIteration).toHaveBeenCalledWith(NEWER_ITERATION);
+});
+
+it('replaces the review completion prompt when a newer iteration is detected', async () => {
+  const user = userEvent.setup();
+  const source = createFakeIterationEventSource();
+  const saveFeedback = vi.fn(async () => ({ ok: true }));
+
+  renderApp({ createIterationEventSource: () => source, saveFeedback });
+
+  await user.click(screen.getByRole('button', { name: COMPLETE_FEEDBACK_BUTTON_PATTERN }));
+  expect(screen.getByRole('dialog', { name: 'Review complete' })).toBeInTheDocument();
+
+  act(() => {
+    source.emit({ iterations: [...NEWER_AVAILABLE_ITERATIONS], latestIteration: NEWER_ITERATION });
+  });
+
+  expect(screen.queryByRole('dialog', { name: 'Review complete' })).not.toBeInTheDocument();
+  expect(screen.getByRole('dialog', { name: 'New iteration available' })).toBeInTheDocument();
 });
 
 it('keeps the new iteration prompt open when the latest iteration fails to load', async () => {

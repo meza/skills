@@ -92,6 +92,24 @@ test('feedback workflow has visual coverage and persists only filled values', as
   await expect(page.getByLabel('Review comments')).toHaveValue(comments);
 });
 
+test('review completion prompt tells the reviewer what to do next', async ({ page }) => {
+  await page.goto('/');
+  await showPassingRuns(page);
+
+  await page.getByRole('navigation', { name: 'Evals' }).getByRole('button').last().click();
+  const completeFeedbackButton = page.getByRole('button', { name: 'Complete feedback for iteration' });
+  await expect(completeFeedbackButton).toBeVisible();
+  await completeFeedbackButton.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Review complete' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Tell your agent that you've finished with your review.")).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Done' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await expect(dialog).toHaveScreenshot('viewer-review-complete-dialog-state.png');
+});
+
 test('past feedback state loads saved review content', async ({ page }) => {
   await page.goto('/');
   await showPassingRuns(page);

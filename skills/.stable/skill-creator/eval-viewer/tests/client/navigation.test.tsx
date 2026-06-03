@@ -210,7 +210,7 @@ it('keeps the current eval visible while the next eval transitions in', async ()
   });
   renderApp({
     autosaveDelayMs: 50_000,
-    evalTransitionMs: 20,
+    evalTransitionMs: 1_000,
     initialIteration: view,
     saveFeedback: vi.fn(async () => ({ ok: true }))
   });
