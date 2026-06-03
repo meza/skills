@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import type { IterationNumber, IterationView } from '../../shared/viewModel.js';
+import type { IterationNumber, IterationView } from '../../../shared/viewModel.js';
 import styles from './IterationControl.module.css';
 
 export function IterationControl({
@@ -24,14 +24,10 @@ export function IterationControl({
   }
 
   return (
-    <div className={styles['iteration-control']}>
-      <label className={styles['iteration-control__label']}>
+    <div className={styles.control}>
+      <label className={styles.label}>
         <span>Iteration</span>
-        <select
-          aria-label='Iteration'
-          className={styles['iteration-control__select']}
-          onChange={handleSelect}
-          value={summary.iteration}>
+        <select aria-label='Iteration' className={styles.select} onChange={handleSelect} value={summary.iteration}>
           {summary.availableIterations
             .slice()
             .sort((left, right) => right - left)
@@ -44,17 +40,17 @@ export function IterationControl({
       </label>
       <button
         aria-label='Check for newer iteration'
-        className={styles['iteration-control__refresh']}
+        className={styles.refresh}
         disabled={isRefreshing}
         onClick={handleRefresh}
         title='Check for newer iteration'
         type='button'>
-        <span aria-hidden='true' className='material-symbols-outlined'>
+        <span aria-hidden='true' className={`${styles.refreshIcon} material-symbols-outlined`}>
           refresh
         </span>
       </button>
       {status ? (
-        <span aria-atomic='true' aria-live='polite' className={styles['iteration-control__status']} role='status'>
+        <span aria-atomic='true' aria-live='polite' className={styles.status} role='status'>
           {status}
         </span>
       ) : null}
