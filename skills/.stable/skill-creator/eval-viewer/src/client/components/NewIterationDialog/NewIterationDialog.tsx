@@ -89,8 +89,10 @@ export function NewIterationDialog({
               <span className={`${styles.arrowIcon} material-symbols-outlined`}>arrow_forward</span>
             </span>
             <div className={`${styles.iterationCard} ${styles.latestIterationCard}`}>
-              <span className={styles.iterationLabel}>Latest</span>
-              <strong className={styles.iterationValue}>Iteration {latestIteration}</strong>
+              <span className={`${styles.iterationLabel} ${styles.latestIterationLabel}`}>Latest</span>
+              <strong className={`${styles.iterationValue} ${styles.latestIterationValue}`}>
+                Iteration {latestIteration}
+              </strong>
             </div>
           </div>
         </div>
