@@ -64,7 +64,7 @@ export function ExpectationCard({
           aria-controls={feedbackId}
           aria-expanded={isFeedbackOpen}
           aria-label={`Toggle feedback for ${expectation.text}`}
-          className={`${styles.toggle} expectation-toggle`}
+          className={`${styles.cardContent} ${styles.toggle} expectation-toggle`}
           onClick={toggleFeedback}
           type='button'>
           <ExpectationCardBody
@@ -83,7 +83,10 @@ export function ExpectationCard({
         />
       )}
       {allowFeedback ? (
-        <div aria-hidden={!isFeedbackOpen} className={`${styles.inlineFeedback} inline-feedback`} id={feedbackId}>
+        <div
+          aria-hidden={!isFeedbackOpen}
+          className={`${styles.cardContent} ${styles.inlineFeedback} inline-feedback`}
+          id={feedbackId}>
           <div className={`${styles.feedbackFrame} feedback-input-frame`}>
             <textarea
               aria-label={label}
@@ -120,7 +123,7 @@ function ExpectationCardBody({
 
   return (
     <>
-      <div className={`${styles.main} expectation-main`}>
+      <div className={`${styles.cardContent} ${styles.main} expectation-main`}>
         <ExpectationCardHeader
           comparisonExpectation={comparisonExpectation}
           comparisonLabel={comparisonLabel}
@@ -128,13 +131,15 @@ function ExpectationCardBody({
         />
       </div>
       {showEvidence && hasEvidence ? (
-        <div className={`${styles.evidenceGrid} evidence-grid`}>
+        <div className={`${styles.cardContent} ${styles.evidenceGrid} evidence-grid`}>
           <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
           <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
         </div>
       ) : null}
       {showEvidence && !hasEvidence ? (
-        <p className={`${styles.emptyCopy} empty-copy`}>No evidence was recorded for this expectation.</p>
+        <p className={`${styles.cardContent} ${styles.emptyCopy} empty-copy`}>
+          No evidence was recorded for this expectation.
+        </p>
       ) : null}
     </>
   );

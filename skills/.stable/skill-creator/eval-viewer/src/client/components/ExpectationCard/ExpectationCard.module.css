@@ -40,11 +40,6 @@
       box-shadow var(--transition-glow);
   }
 
-  & > * {
-    position: relative;
-    z-index: 1;
-  }
-
   &:hover {
     background: oklch(from var(--color-surface) l c h / 86%);
     border-left-color: var(--color-text-subtle);
@@ -58,6 +53,11 @@
   & p {
     margin: 0;
   }
+}
+
+.cardContent {
+  position: relative;
+  z-index: 1;
 }
 
 .passing {
