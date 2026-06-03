@@ -14,7 +14,7 @@ import { FeedbackPanel } from './components/FeedbackPanel.js';
 import { NewIterationDialog } from './components/NewIterationDialog.js';
 import { ReviewCompleteDialog } from './components/ReviewCompleteDialog.js';
 import { RunNavigation } from './components/RunNavigation.js';
-import { RunSummary } from './components/RunSummary.js';
+import { RunSummary } from './components/RunSummary/RunSummary.js';
 import { TranscriptPanel } from './components/TranscriptPanel.js';
 import { type FeedbackDraftUpdater, feedbackDraftFromRun, runKey } from './feedbackDraft.js';
 import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from './runFilters.js';

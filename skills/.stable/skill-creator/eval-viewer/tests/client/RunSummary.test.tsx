@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { RunSummary } from '../../src/client/components/RunSummary.js';
+import { RunSummary } from '../../src/client/components/RunSummary/RunSummary.js';
 import { iterationView } from './appFixture.js';
 
 it('renders eval identity, summary copy, metrics, and pager state', async () => {

@@ -66,7 +66,6 @@ button:disabled {
 .filter-label,
 .filters button,
 .run-link small,
-.run-pager,
 .section-heading > span,
 .expectation-section-heading,
 .status-badge,
@@ -304,8 +303,6 @@ button:disabled {
   margin-left: 0;
 }
 
-.run-header,
-.summary-card,
 .expectations,
 .feedback,
 .review-actions,
@@ -338,86 +335,6 @@ button:disabled {
   }
 }
 
-.run-header {
-  display: flex;
-  gap: var(--section-gap);
-  align-items: flex-start;
-  justify-content: space-between;
-  padding-bottom: var(--section-gap);
-  border-bottom: var(--border-section);
-}
-
-.run-header > div:first-child {
-  min-width: 0;
-}
-
-.run-context-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--inline-gap);
-  align-items: center;
-}
-
-.run-header h2 {
-  margin: var(--inline-gap) 0 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--text-page-title-size);
-  line-height: var(--text-page-title-line-height);
-  white-space: nowrap;
-}
-
-.run-pager {
-  display: flex;
-  gap: var(--compact-gap);
-  align-items: center;
-}
-
-.run-pager button,
-.run-pager > span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  height: 40px;
-  color: var(--color-text-muted);
-  background: oklch(from var(--color-surface-raised) l c h / 80%);
-  border: var(--border-strong);
-  border-radius: var(--radius-control);
-}
-
-.run-pager > span {
-  width: 72px;
-  padding: 0 14px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.run-pager strong {
-  margin-right: 4px;
-  color: var(--color-accent);
-}
-
-.run-pager button:hover:not(:disabled) {
-  color: var(--color-accent);
-  background: oklch(from var(--color-control) l c h / 50%);
-  border-color: oklch(from var(--color-accent) l c h / 45%);
-}
-
-.run-pager button:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-.summary-card,
-.feedback {
-  padding: var(--panel-padding);
-  background: oklch(from var(--color-surface) l c h / 82%);
-  border: var(--border-default);
-  border-left: var(--border-width-accent) solid var(--color-accent);
-  border-radius: var(--radius-panel);
-  backdrop-filter: var(--panel-backdrop-filter);
-}
-
 .card-title,
 .section-heading > div,
 .expectation-heading-main > div:first-child {
@@ -431,7 +348,6 @@ button:disabled {
   color: var(--color-accent);
 }
 
-.summary-card h3,
 .feedback h3,
 .history h3,
 .metadata h3,
@@ -439,20 +355,6 @@ button:disabled {
   margin: 0;
   font-size: var(--text-section-title-size);
   line-height: var(--text-section-title-line-height);
-}
-
-.summary-card p {
-  margin: 22px 0 0;
-  font-size: var(--text-body-emphasis-size);
-  line-height: var(--text-body-emphasis-line-height);
-  color: var(--color-text-muted);
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--stack-gap);
-  margin-top: var(--section-gap);
 }
 
 .expectations {
@@ -1107,8 +1009,14 @@ div.expectation-main {
   --rail-glow-color: var(--color-accent);
 
   position: relative;
+  padding: var(--panel-padding);
   margin-top: var(--compact-gap);
+  background: oklch(from var(--color-surface) l c h / 82%);
+  border: var(--border-default);
+  border-left: var(--border-width-accent) solid var(--color-accent);
+  border-radius: var(--radius-panel);
   isolation: isolate;
+  backdrop-filter: var(--panel-backdrop-filter);
   transition: var(--transition-rail-glow);
 }
 
@@ -1412,7 +1320,6 @@ div.expectation-main {
     overflow: visible;
   }
 
-  .run-header,
   .feedback > div:first-child,
   .section-heading {
     display: flex;
@@ -1420,14 +1327,6 @@ div.expectation-main {
     align-items: flex-start;
   }
 
-  .run-header h2 {
-    overflow: visible;
-    text-overflow: clip;
-    overflow-wrap: anywhere;
-    white-space: normal;
-  }
-
-  .metric-grid,
   .evidence-grid,
   .history {
     grid-template-columns: 1fr;
