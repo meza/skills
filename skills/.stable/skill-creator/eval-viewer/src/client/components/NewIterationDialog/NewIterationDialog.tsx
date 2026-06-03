@@ -1,4 +1,4 @@
-import type { IterationNumber } from '../../shared/viewModel.js';
+import type { IterationNumber } from '../../../shared/viewModel.js';
 import { useEffect, useId, useRef } from 'react';
 import styles from './NewIterationDialog.module.css';
 
@@ -62,38 +62,39 @@ export function NewIterationDialog({
   }
 
   return (
-    <div className={styles['new-iteration-dialog__backdrop']}>
+    <div className={styles.backdrop}>
       <section
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal='true'
-        className={styles['new-iteration-dialog']}
+        className={styles.dialog}
         ref={dialogRef}
         role='dialog'>
-        <div aria-hidden='true' className={styles['new-iteration-dialog__icon']}>
+        <div aria-hidden='true' className={styles.icon}>
           <span className='material-symbols-outlined'>update</span>
         </div>
-        <div className={styles['new-iteration-dialog__body']}>
-          <h2 id={titleId}>New iteration available</h2>
-          <p className={styles['new-iteration-dialog__description']} id={descriptionId}>
+        <div className={styles.body}>
+          <h2 className={styles.title} id={titleId}>
+            New iteration available
+          </h2>
+          <p className={styles.description} id={descriptionId}>
             Iteration {latestIteration} is ready. You are viewing iteration {currentIteration}.
           </p>
-          <div className={styles['new-iteration-dialog__comparison']}>
-            <div className={styles['new-iteration-dialog__iteration-card']}>
-              <span>Current</span>
-              <p>Iteration {currentIteration}</p>
+          <div className={styles.comparison}>
+            <div className={styles.iterationCard}>
+              <span className={styles.iterationLabel}>Current</span>
+              <p className={styles.iterationValue}>Iteration {currentIteration}</p>
             </div>
-            <span aria-hidden='true' className={styles['new-iteration-dialog__arrow']}>
-              <span className='material-symbols-outlined'>arrow_forward</span>
+            <span aria-hidden='true' className={styles.arrow}>
+              <span className={`${styles.arrowIcon} material-symbols-outlined`}>arrow_forward</span>
             </span>
-            <div
-              className={`${styles['new-iteration-dialog__iteration-card']} ${styles['new-iteration-dialog__iteration-card--latest']}`}>
-              <span>Latest</span>
-              <strong>Iteration {latestIteration}</strong>
+            <div className={`${styles.iterationCard} ${styles.latestIterationCard}`}>
+              <span className={styles.iterationLabel}>Latest</span>
+              <strong className={styles.iterationValue}>Iteration {latestIteration}</strong>
             </div>
           </div>
         </div>
-        <div className={styles['new-iteration-dialog__actions']}>
+        <div className={styles.actions}>
           <button className='secondary-button' onClick={onDismiss} type='button'>
             Keep current
           </button>

@@ -11,7 +11,7 @@ import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToSe
 import { AppHeader } from './components/AppHeader/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel.js';
 import { FeedbackPanel } from './components/FeedbackPanel.js';
-import { NewIterationDialog } from './components/NewIterationDialog.js';
+import { NewIterationDialog } from './components/NewIterationDialog/NewIterationDialog.js';
 import { ReviewCompleteDialog } from './components/ReviewCompleteDialog.js';
 import { RunNavigation } from './components/RunNavigation/RunNavigation.js';
 import { RunSummary } from './components/RunSummary/RunSummary.js';
