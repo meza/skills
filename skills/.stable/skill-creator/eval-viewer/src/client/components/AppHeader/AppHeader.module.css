@@ -9,20 +9,20 @@
   background: oklch(from var(--color-page) l c h / 88%);
   border-bottom: var(--border-default);
   backdrop-filter: var(--panel-backdrop-filter);
+}
 
-  & > .title {
-    margin: 0;
-    font-size: var(--text-app-title-size);
-    font-weight: var(--font-weight-strong);
-    color: var(--color-accent);
-    letter-spacing: 0;
-    text-shadow: var(--shadow-app-title);
-  }
+.title {
+  margin: 0;
+  font-size: var(--text-app-title-size);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-accent);
+  letter-spacing: 0;
+  text-shadow: var(--shadow-app-title);
+}
 
-  & > .metadata {
-    margin: 0;
-    font-family: var(--font-family-mono);
-    font-size: var(--text-meta-size);
-    color: var(--color-text-muted);
-  }
+.metadata {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-meta-size);
+  color: var(--color-text-muted);
 }
