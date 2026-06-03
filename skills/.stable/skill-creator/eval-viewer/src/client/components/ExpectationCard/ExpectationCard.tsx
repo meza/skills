@@ -1,7 +1,8 @@
-import type { ExpectationView, RunFeedbackView } from '../../shared/viewModel.js';
+import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel.js';
 import { useEffect, useId, useRef, useState } from 'react';
-import { turnExpectationIndex } from '../../shared/feedbackModel.js';
-import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../feedbackDraft.js';
+import { turnExpectationIndex } from '../../../shared/feedbackModel.js';
+import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../../feedbackDraft.js';
+import styles from './ExpectationCard.module.css';
 
 export function ExpectationCard({
   allowFeedback,
@@ -46,6 +47,9 @@ export function ExpectationCard({
   };
 
   const className = [
+    styles.card,
+    expectation.passed ? styles.passing : styles.failing,
+    allowFeedback ? styles.feedbackEnabled : undefined,
     'expectation',
     expectation.passed ? 'pass' : 'fail',
     allowFeedback ? 'feedback-enabled' : undefined
@@ -60,7 +64,7 @@ export function ExpectationCard({
           aria-controls={feedbackId}
           aria-expanded={isFeedbackOpen}
           aria-label={`Toggle feedback for ${expectation.text}`}
-          className='expectation-toggle'
+          className={`${styles.toggle} expectation-toggle`}
           onClick={toggleFeedback}
           type='button'>
           <ExpectationCardBody
@@ -79,10 +83,11 @@ export function ExpectationCard({
         />
       )}
       {allowFeedback ? (
-        <div aria-hidden={!isFeedbackOpen} className='inline-feedback' id={feedbackId}>
-          <div className='feedback-input-frame'>
+        <div aria-hidden={!isFeedbackOpen} className={`${styles.inlineFeedback} inline-feedback`} id={feedbackId}>
+          <div className={`${styles.feedbackFrame} feedback-input-frame`}>
             <textarea
               aria-label={label}
+              className={styles.feedbackInput}
               onChange={(event) => {
                 const nextComment = event.currentTarget.value;
                 updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
@@ -115,7 +120,7 @@ function ExpectationCardBody({
 
   return (
     <>
-      <div className='expectation-main'>
+      <div className={`${styles.main} expectation-main`}>
         <ExpectationCardHeader
           comparisonExpectation={comparisonExpectation}
           comparisonLabel={comparisonLabel}
@@ -123,13 +128,13 @@ function ExpectationCardBody({
         />
       </div>
       {showEvidence && hasEvidence ? (
-        <div className='evidence-grid'>
+        <div className={`${styles.evidenceGrid} evidence-grid`}>
           <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
           <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
         </div>
       ) : null}
       {showEvidence && !hasEvidence ? (
-        <p className='empty-copy'>No evidence was recorded for this expectation.</p>
+        <p className={`${styles.emptyCopy} empty-copy`}>No evidence was recorded for this expectation.</p>
       ) : null}
     </>
   );
@@ -146,13 +151,13 @@ function ExpectationCardHeader({
 }) {
   return (
     <>
-      <div className='status-icon'>
+      <div className={`${styles.statusIcon} status-icon`}>
         <span aria-hidden='true' className='material-symbols-outlined'>
           {expectation.passed ? 'check' : 'close'}
         </span>
       </div>
       <div>
-        <p className='expectation-text'>{expectation.text}</p>
+        <p className={`${styles.text} expectation-text`}>{expectation.text}</p>
       </div>
       <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
     </>
@@ -169,7 +174,13 @@ function StatusBadge({
   passed: boolean;
 }) {
   return (
-    <span className={passed ? 'status-badge pass' : 'status-badge fail'}>
+    <span
+      className={[
+        styles.badge,
+        passed ? styles.passingBadge : styles.failingBadge,
+        'status-badge',
+        passed ? 'pass' : 'fail'
+      ].join(' ')}>
       {passed ? 'PASS' : 'FAIL'} |{' '}
       <em>
         {comparisonLabel}: {expectationStatus(comparison)}
@@ -183,9 +194,12 @@ function EvidenceBlock({ label, muted = false, text }: { label: string; muted?: 
     return null;
   }
   return (
-    <div className={muted ? 'evidence muted' : 'evidence'}>
-      <span>{label}</span>
-      <p>{text}</p>
+    <div
+      className={[styles.evidence, muted ? styles.mutedEvidence : undefined, 'evidence', muted ? 'muted' : undefined]
+        .filter(Boolean)
+        .join(' ')}>
+      <span className={styles.evidenceLabel}>{label}</span>
+      <p className={styles.evidenceText}>{text}</p>
     </div>
   );
 }

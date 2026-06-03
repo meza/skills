@@ -2,7 +2,7 @@ import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewMode
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { ExpectationCard } from '../../src/client/components/ExpectationCard.js';
+import { ExpectationCard } from '../../src/client/components/ExpectationCard/ExpectationCard.js';
 
 const BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN = /Toggle feedback for The response uses a breaking-change marker/i;
 

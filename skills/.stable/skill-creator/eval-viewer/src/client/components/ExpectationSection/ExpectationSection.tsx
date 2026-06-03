@@ -1,6 +1,6 @@
 import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
-import { ExpectationCard } from '../ExpectationCard.js';
+import { ExpectationCard } from '../ExpectationCard/ExpectationCard.js';
 import styles from './ExpectationSection.module.css';
 
 export function ExpectationSection({
