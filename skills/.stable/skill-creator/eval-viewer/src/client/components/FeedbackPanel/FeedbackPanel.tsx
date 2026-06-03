@@ -1,5 +1,6 @@
-import type { RunFeedbackView } from '../../shared/viewModel.js';
-import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
+import type { RunFeedbackView } from '../../../shared/viewModel.js';
+import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
+import styles from './FeedbackPanel.module.css';
 
 export function FeedbackPanel({
   draft,
@@ -22,18 +23,19 @@ export function FeedbackPanel({
 }) {
   return (
     <>
-      <section className='feedback'>
-        <div>
-          <div className='card-title'>
-            <span aria-hidden='true' className='material-symbols-outlined'>
+      <section className={`${styles.panel} feedback`}>
+        <div className={styles.heading}>
+          <div className={`${styles.titleGroup} card-title`}>
+            <span aria-hidden='true' className={`${styles.icon} material-symbols-outlined`}>
               rate_review
             </span>
-            <h3>Feedback</h3>
+            <h3 className={styles.title}>Feedback</h3>
           </div>
         </div>
-        <div className='feedback-input-frame'>
+        <div className={`${styles.feedbackFrame} feedback-input-frame`}>
           <textarea
             aria-label='Review comments'
+            className={styles.comments}
             onChange={(event) => {
               const comments = event.currentTarget.value;
               updateDraft((current) => ({ ...current, comments }));
@@ -43,25 +45,29 @@ export function FeedbackPanel({
           />
         </div>
         {saveState === 'saved' ? (
-          <p className='save-message' role='status'>
+          <p className={`${styles.saveMessage} save-message`} role='status'>
             Saved
           </p>
         ) : null}
         {saveState === 'error' ? (
-          <p className='save-message error' role='alert'>
+          <p className={`${styles.saveMessage} ${styles.errorMessage} save-message error`} role='alert'>
             {saveError ?? 'Could not save feedback.'}
           </p>
         ) : null}
       </section>
-      <div className='review-actions'>
+      <div className={`${styles.actions} review-actions`}>
         <button
-          className='secondary-button'
+          className={`${styles.secondaryAction} secondary-button`}
           disabled={!hasPrevious || saveState === 'saving'}
           onClick={onPrevious}
           type='button'>
           Previous
         </button>
-        <button className='finalize-button' disabled={saveState === 'saving'} onClick={onPrimaryAction} type='button'>
+        <button
+          className={`${styles.primaryAction} finalize-button`}
+          disabled={saveState === 'saving'}
+          onClick={onPrimaryAction}
+          type='button'>
           {primaryActionLabel}
         </button>
       </div>

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from './api.js';
 import { AppHeader } from './components/AppHeader/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel/ExpectationsPanel.js';
-import { FeedbackPanel } from './components/FeedbackPanel.js';
+import { FeedbackPanel } from './components/FeedbackPanel/FeedbackPanel.js';
 import { NewIterationDialog } from './components/NewIterationDialog/NewIterationDialog.js';
 import { ReviewCompleteDialog } from './components/ReviewCompleteDialog.js';
 import { RunNavigation } from './components/RunNavigation/RunNavigation.js';

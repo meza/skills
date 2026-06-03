@@ -2,7 +2,7 @@ import type { RunFeedbackView } from '../../src/shared/viewModel.js';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { FeedbackPanel } from '../../src/client/components/FeedbackPanel.js';
+import { FeedbackPanel } from '../../src/client/components/FeedbackPanel/FeedbackPanel.js';
 import { iterationView } from './appFixture.js';
 
 it('renders workflow actions and reports save state', async () => {
