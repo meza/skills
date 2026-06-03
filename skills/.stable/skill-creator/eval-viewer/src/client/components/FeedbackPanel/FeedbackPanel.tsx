@@ -24,7 +24,7 @@ export function FeedbackPanel({
   return (
     <>
       <section className={`${styles.panel} feedback`}>
-        <div className={styles.heading}>
+        <div className={`${styles.panelContent} ${styles.heading}`}>
           <div className={`${styles.titleGroup} card-title`}>
             <span aria-hidden='true' className={`${styles.icon} material-symbols-outlined`}>
               rate_review
@@ -32,7 +32,7 @@ export function FeedbackPanel({
             <h3 className={styles.title}>Feedback</h3>
           </div>
         </div>
-        <div className={`${styles.feedbackFrame} feedback-input-frame`}>
+        <div className={`${styles.panelContent} ${styles.feedbackFrame} feedback-input-frame`}>
           <textarea
             aria-label='Review comments'
             className={styles.comments}
@@ -45,12 +45,14 @@ export function FeedbackPanel({
           />
         </div>
         {saveState === 'saved' ? (
-          <p className={`${styles.saveMessage} save-message`} role='status'>
+          <p className={`${styles.panelContent} ${styles.saveMessage} save-message`} role='status'>
             Saved
           </p>
         ) : null}
         {saveState === 'error' ? (
-          <p className={`${styles.saveMessage} ${styles.errorMessage} save-message error`} role='alert'>
+          <p
+            className={`${styles.panelContent} ${styles.saveMessage} ${styles.errorMessage} save-message error`}
+            role='alert'>
             {saveError ?? 'Could not save feedback.'}
           </p>
         ) : null}

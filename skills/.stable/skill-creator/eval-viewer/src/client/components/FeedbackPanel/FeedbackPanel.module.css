@@ -37,11 +37,6 @@
       box-shadow var(--transition-glow);
   }
 
-  & > * {
-    position: relative;
-    z-index: 1;
-  }
-
   &:hover {
     background: oklch(from var(--color-surface) l c h / 88%);
     border-left-color: var(--color-accent);
@@ -51,6 +46,11 @@
   &:hover::before {
     opacity: 1;
   }
+}
+
+.panelContent {
+  position: relative;
+  z-index: 1;
 }
 
 .heading {
