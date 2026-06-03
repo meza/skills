@@ -8,7 +8,7 @@ import type {
 } from '../shared/viewModel.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from './api.js';
-import { AppHeader } from './components/AppHeader.js';
+import { AppHeader } from './components/AppHeader/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel.js';
 import { FeedbackPanel } from './components/FeedbackPanel.js';
 import { NewIterationDialog } from './components/NewIterationDialog.js';
