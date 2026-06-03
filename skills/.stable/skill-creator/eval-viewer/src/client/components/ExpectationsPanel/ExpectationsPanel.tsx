@@ -1,7 +1,8 @@
-import type { ExpectationView, RunFeedbackView, RunView } from '../../shared/viewModel.js';
-import type { FeedbackDraftUpdater } from '../feedbackDraft.js';
+import type { ExpectationView, RunFeedbackView, RunView } from '../../../shared/viewModel.js';
+import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react';
-import { ExpectationSection } from './ExpectationSection.js';
+import { ExpectationSection } from '../ExpectationSection.js';
+import styles from './ExpectationsPanel.module.css';
 
 type ExpectationResultMode = 'skill' | 'baseline';
 interface SectionOpenState extends Record<string, boolean> {
@@ -38,20 +39,21 @@ export function ExpectationsPanel({
   }, [run.expectations]);
 
   return (
-    <section className='expectations'>
-      <div className='section-heading'>
-        <div className='expectation-heading-main'>
-          <div>
-            <span aria-hidden='true' className='material-symbols-outlined'>
+    <section className={`${styles.panel} expectations`}>
+      <div className={`${styles.heading} section-heading`}>
+        <div className={`${styles.headingMain} expectation-heading-main`}>
+          <div className={styles.titleGroup}>
+            <span aria-hidden='true' className={`${styles.headingIcon} material-symbols-outlined`}>
               verified
             </span>
-            <h3>Expectations Breakdown</h3>
+            <h3 className={styles.title}>Expectations Breakdown</h3>
           </div>
-          <fieldset className='result-toggle'>
+          <fieldset className={`${styles.resultToggle} result-toggle`}>
             <legend className='visually-hidden'>Expectation result source</legend>
             {(['skill', 'baseline'] as const).map((mode) => (
               <button
                 aria-pressed={resultMode === mode}
+                className={styles.resultButton}
                 disabled={mode === 'baseline' && !canShowBaseline}
                 key={mode}
                 onClick={() => setRequestedResultMode(mode)}
@@ -61,7 +63,7 @@ export function ExpectationsPanel({
             ))}
           </fieldset>
         </div>
-        <span>
+        <span className={styles.summary}>
           {passed}/{displayedExpectations.length} requirements passed
         </span>
       </div>

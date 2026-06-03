@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it } from 'vitest';
-import { ExpectationsPanel } from '../../src/client/components/ExpectationsPanel.js';
+import { ExpectationsPanel } from '../../src/client/components/ExpectationsPanel/ExpectationsPanel.js';
 import { iterationView } from './appFixture.js';
 
 const BREAKING_CHANGE_FEEDBACK_TOGGLE_PATTERN = /Toggle feedback for The response uses a breaking-change marker/i;
