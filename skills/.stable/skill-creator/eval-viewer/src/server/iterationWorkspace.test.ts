@@ -11,7 +11,7 @@ import {
   previousIterationRootPath,
   resultsRootPath,
   validIterationDirectoryEntries
-} from '../../src/server/iterationWorkspace.js';
+} from './iterationWorkspace.js';
 
 const SELECTED_ITERATION = 3;
 const MULTI_DIGIT_ITERATION = 12;

@@ -1,4 +1,4 @@
-import type { IterationView, RunView } from '../../src/shared/viewModel.js';
+import type { IterationView, RunView } from '../../../shared/viewModel.js';
 
 export const TURN_EXPECTATION_ID = '54a2c16d-1372-54bb-b939-547ebe82bf1e';
 export const OVERALL_EXPECTATION_ONE_ID = '10a375c5-12f4-5a15-b5bd-951f7d6204f1';

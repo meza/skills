@@ -1,6 +1,6 @@
-import type { ExpectationView, TurnExpectationView } from '../../src/shared/viewModel.js';
+import type { ExpectationView, TurnExpectationView } from './viewModel.js';
 import { expect, it } from 'vitest';
-import { feedbackTurnShape, turnExpectationIndex } from '../../src/shared/feedbackModel.js';
+import { feedbackTurnShape, turnExpectationIndex } from './feedbackModel.js';
 
 const FIRST_TURN_FIRST_EXPECTATION_INDEX = 1;
 const SECOND_TURN_FIRST_EXPECTATION_INDEX = 2;

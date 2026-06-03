@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { loadInitialIteration, renderViewer } from '../../src/client/bootstrap.js';
-import { iterationView } from './appFixture.js';
+import { loadInitialIteration, renderViewer } from './bootstrap.js';
+import { iterationView } from './components/App/appFixture.js';
 
 describe('client bootstrap', () => {
   it('loads the server iteration when the API responds successfully', async () => {

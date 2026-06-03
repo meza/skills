@@ -1,6 +1,6 @@
-import type { ExpectationView, RunFeedbackView } from '../../src/shared/viewModel.js';
+import type { ExpectationView, RunFeedbackView } from '../shared/viewModel.js';
 import { expect, it } from 'vitest';
-import { expectationComment } from '../../src/client/feedbackDraft.js';
+import { expectationComment } from './feedbackDraft.js';
 
 it('uses an empty comment when an overall feedback draft entry is missing', () => {
   const expectation: ExpectationView = {

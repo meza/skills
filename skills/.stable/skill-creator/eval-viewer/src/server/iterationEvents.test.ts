@@ -2,11 +2,11 @@ import { watch } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { createIterationEventHub } from '../../src/server/iterationEvents.js';
-import { writeSampleIteration, writeSampleWorkspaceWithHistory } from '../fixtures/sampleIteration.js';
-import { vol } from '../support/memfs.js';
+import { writeSampleIteration, writeSampleWorkspaceWithHistory } from '../../tests/fixtures/sampleIteration.js';
+import { vol } from '../../tests/support/memfs.js';
+import { createIterationEventHub } from './iterationEvents.js';
 
-vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
+vi.mock('./artifactSchemas.js', async () => await import('../../tests/support/fakeArtifactSchemas.js'));
 
 const logger = {
   error: vi.fn(),

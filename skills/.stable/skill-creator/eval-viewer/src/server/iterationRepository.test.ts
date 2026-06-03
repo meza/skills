@@ -1,16 +1,16 @@
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { validateArtifactSchema } from '../../src/server/artifactSchemas.js';
-import { loadIteration, saveFeedback } from '../../src/server/iterationRepository.js';
-import { writeRichEvaluationWorkspace } from '../fixtures/richEvaluation.js';
+import { writeRichEvaluationWorkspace } from '../../tests/fixtures/richEvaluation.js';
 import {
   SAMPLE_SKILL_EXPECTATION_ID,
   writeSampleIteration,
   writeSampleWorkspaceWithHistory
-} from '../fixtures/sampleIteration.js';
-import { fs, vol } from '../support/memfs.js';
+} from '../../tests/fixtures/sampleIteration.js';
+import { fs, vol } from '../../tests/support/memfs.js';
+import { validateArtifactSchema } from './artifactSchemas.js';
+import { loadIteration, saveFeedback } from './iterationRepository.js';
 
-vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
+vi.mock('./artifactSchemas.js', async () => await import('../../tests/support/fakeArtifactSchemas.js'));
 
 let root: string;
 let iterationRoot: string;

@@ -1,9 +1,9 @@
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import openapiJson from '../../openapi.json' with { type: 'json' };
-import { buildServer } from '../../src/server/buildServer.js';
-import { writeSampleWorkspace } from '../fixtures/sampleIteration.js';
-import { vol } from '../support/memfs.js';
+import { writeSampleWorkspace } from '../../tests/fixtures/sampleIteration.js';
+import { vol } from '../../tests/support/memfs.js';
+import { buildServer } from './buildServer.js';
 
 interface OpenApiDocument {
   openapi: string;
@@ -27,7 +27,7 @@ const documentedRoutes: {
   { method: 'PUT', openApiPath: '/api/feedback/{evalId}', serverPath: '/api/feedback/:evalId' }
 ];
 
-vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
+vi.mock('./artifactSchemas.js', async () => await import('../../tests/support/fakeArtifactSchemas.js'));
 
 const openapi = openapiJson as OpenApiDocument;
 

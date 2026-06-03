@@ -2,19 +2,19 @@ import { watch } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
 import {
+  SAMPLE_SKILL_EXPECTATION_ID,
+  writeSampleIteration,
+  writeSampleWorkspaceWithHistory
+} from '../../tests/fixtures/sampleIteration.js';
+import { fs, vol } from '../../tests/support/memfs.js';
+import {
   buildServer,
   createIterationEventRoute,
   fastifyLoggerOptions,
   openIterationEventStream
-} from '../../src/server/buildServer.js';
-import {
-  SAMPLE_SKILL_EXPECTATION_ID,
-  writeSampleIteration,
-  writeSampleWorkspaceWithHistory
-} from '../fixtures/sampleIteration.js';
-import { fs, vol } from '../support/memfs.js';
+} from './buildServer.js';
 
-vi.mock('../../src/server/artifactSchemas.js', async () => await import('./fakeArtifactSchemas.js'));
+vi.mock('./artifactSchemas.js', async () => await import('../../tests/support/fakeArtifactSchemas.js'));
 
 let root: string;
 let iterationRoot: string;

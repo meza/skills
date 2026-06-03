@@ -1,9 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { RunNavigation } from '../../src/client/components/RunNavigation/RunNavigation.js';
-import { RunFilter } from '../../src/client/runFilters.js';
-import { iterationView } from './appFixture.js';
+import { RunFilter } from '../../runFilters.js';
+import { iterationView } from '../App/appFixture.js';
+import { RunNavigation } from './RunNavigation.js';
 
 const ALL_FILTER_BUTTON_PATTERN = /^all$/i;
 const BREAKING_CHANGE_RUN_PATTERN = /breaking-change-returns-full-message-when-needed/i;

@@ -1,8 +1,8 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { validateArtifactSchema } from '../../src/server/artifactSchemas.js';
-import { fs, vol } from '../support/memfs.js';
+import { fs, vol } from '../../tests/support/memfs.js';
+import { validateArtifactSchema } from './artifactSchemas.js';
 
 const schemaRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../schemas');
 const schemaIdPrefix = 'https://agent-skills.local/skill-creator/';
@@ -62,7 +62,7 @@ it('reports schema failures when the validator omits error details', async () =>
       }
     }
   }));
-  const { validateArtifactSchema: validateWithMissingErrors } = await import('../../src/server/artifactSchemas.js');
+  const { validateArtifactSchema: validateWithMissingErrors } = await import('./artifactSchemas.js');
 
   await expect(validateWithMissingErrors('viewer-feedback.schema.json', { reviews: [] })).rejects.toThrow(
     'Artifact does not match viewer-feedback.schema.json: '

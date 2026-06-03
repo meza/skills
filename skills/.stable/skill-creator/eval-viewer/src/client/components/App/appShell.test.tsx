@@ -1,4 +1,4 @@
-import type { IterationIndexView } from '../../src/shared/viewModel.js';
+import type { IterationIndexView } from '../../../shared/viewModel.js';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';

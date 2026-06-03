@@ -1,7 +1,7 @@
 import { join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { startDevServer } from '../../src/server/devServer.js';
-import { DEFAULT_PORT } from '../../src/server/main.js';
+import { startDevServer } from './devServer.js';
+import { DEFAULT_PORT } from './main.js';
 
 describe('development server entrypoint', () => {
   it('starts the API with the resolved workspace root and proxies Vite requests', async () => {

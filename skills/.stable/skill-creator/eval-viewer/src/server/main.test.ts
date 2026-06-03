@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } from '../../src/server/main.js';
-import { fs, vol } from '../support/memfs.js';
+import { fs, vol } from '../../tests/support/memfs.js';
+import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } from './main.js';
 
 const CONFIGURED_VIEWER_PORT = 4123;
 const EVAL_VIEWER_LOG_PATH_PATTERN = /eval-viewer\.log$/;

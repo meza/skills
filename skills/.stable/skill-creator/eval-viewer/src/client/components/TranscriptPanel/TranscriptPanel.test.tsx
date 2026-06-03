@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { TranscriptPanel } from '../../src/client/components/TranscriptPanel/TranscriptPanel.js';
-import { iterationView } from './appFixture.js';
+import { iterationView } from '../App/appFixture.js';
+import { TranscriptPanel } from './TranscriptPanel.js';
 
 it('renders turn prompts, responses, transcripts, metadata, and artifact links', () => {
   const run = iterationView().runs[0];

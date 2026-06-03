@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { runKey } from '../../src/client/feedbackDraft.js';
-import { artifactHref } from '../../src/client/formatters.js';
-import { CURRENT_ITERATION } from './appFixture.js';
+import { CURRENT_ITERATION } from './components/App/appFixture.js';
+import { runKey } from './feedbackDraft.js';
+import { artifactHref } from './formatters.js';
 
 it('formats missing artifact links as inert links', () => {
   expect(artifactHref(undefined, CURRENT_ITERATION)).toBe('#');

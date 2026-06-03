@@ -1,6 +1,6 @@
-import type { FeedbackInput } from '../../src/shared/viewModel.js';
+import type { FeedbackInput } from '../shared/viewModel.js';
 import { expect, it, vi } from 'vitest';
-import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from '../../src/client/api.js';
+import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from './api.js';
 
 const feedback: FeedbackInput = {
   comments: '',

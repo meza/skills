@@ -1,7 +1,7 @@
-import type { IterationIndexView } from '../../src/shared/viewModel.js';
+import type { IterationIndexView } from '../shared/viewModel.js';
 import { EventEmitter } from 'node:events';
 import { expect, it, vi } from 'vitest';
-import { openIterationEventStream } from '../../src/server/buildServer.js';
+import { openIterationEventStream } from './buildServer.js';
 
 const HTTP_STATUS_OK = 200;
 

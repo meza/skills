@@ -1,6 +1,6 @@
-import type { FeedbackInput, IterationIndexView, IterationNumber, IterationView } from '../../src/shared/viewModel.js';
+import type { FeedbackInput, IterationIndexView, IterationNumber, IterationView } from '../../../shared/viewModel.js';
 import { render } from '@testing-library/react';
-import { App, type IterationEventSource } from '../../src/client/components/App/App.js';
+import { App, type IterationEventSource } from './App.js';
 import { iterationView } from './appFixture.js';
 
 export function renderApp({
