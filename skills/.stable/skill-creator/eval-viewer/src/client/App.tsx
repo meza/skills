@@ -12,7 +12,7 @@ import { AppHeader } from './components/AppHeader/AppHeader.js';
 import { ExpectationsPanel } from './components/ExpectationsPanel/ExpectationsPanel.js';
 import { FeedbackPanel } from './components/FeedbackPanel/FeedbackPanel.js';
 import { NewIterationDialog } from './components/NewIterationDialog/NewIterationDialog.js';
-import { ReviewCompleteDialog } from './components/ReviewCompleteDialog.js';
+import { ReviewCompleteDialog } from './components/ReviewCompleteDialog/ReviewCompleteDialog.js';
 import { RunNavigation } from './components/RunNavigation/RunNavigation.js';
 import { RunSummary } from './components/RunSummary/RunSummary.js';
 import { TranscriptPanel } from './components/TranscriptPanel/TranscriptPanel.js';

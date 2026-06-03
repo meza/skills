@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import styles from './NewIterationDialog/NewIterationDialog.module.css';
+import styles from './ReviewCompleteDialog.module.css';
 
 export function ReviewCompleteDialog({ isOpen, onDismiss }: { isOpen: boolean; onDismiss: () => void }) {
   const titleId = useId();
