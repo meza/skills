@@ -117,10 +117,6 @@
     outline: var(--border-width-accent) solid var(--section-accent);
     outline-offset: 2px;
   }
-
-  & > span {
-    margin: 0;
-  }
 }
 
 .section[data-state='open'] > .heading:hover {
@@ -218,6 +214,7 @@
 }
 
 .icon {
+  margin: 0;
   font-size: var(--icon-size-default);
   color: var(--section-accent);
   filter: drop-shadow(0 0 8px oklch(from var(--section-accent) l c h / 62%));
@@ -229,6 +226,7 @@
 
 .title,
 .count {
+  margin: 0;
   font-size: var(--text-meta-size);
   letter-spacing: 0.12em;
 }
