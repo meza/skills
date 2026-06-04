@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "skill_name": "skill-creator",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "basic consultation",
+      "turns": [
+        {
+          "prompt": "Hey, let's create a skill",
+          "expectations": [
+            "The agent asked the user to explain the skill they want to create.",
+            "The agent didn't jump to creating a skill right away"
+          ]
+        }
+      ]
+    }
+  ]
+}
