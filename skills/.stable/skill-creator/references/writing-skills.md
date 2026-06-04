@@ -4,6 +4,8 @@
 
 When writing skills, you should collaborate closely with the user to understand their needs, goals, and constraints. This collaboration is essential for creating skills that are useful, relevant, and aligned with the user's intentions.
 
+DO NOT JUMP INTO WRITING THE SKILL IMMEDIATELY. Start by having a conversation with the user to capture their intent and gather information. This will help you create a skill that truly meets their needs.
+
 ### Capture Intent
 
 Start by understanding the user's intent. The current conversation might already contain a workflow the user wants to capture (e.g., they say "turn this into a skill"). If so, extract answers from the conversation history first — the tools used, the sequence of steps, corrections the user made, input/output formats observed. The user may need to fill the gaps, and should confirm before proceeding to the next step.
