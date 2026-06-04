@@ -5,11 +5,12 @@ The evaluation framework provides a repeatable workflow for developing skills th
 ## The workflow
 
 1. Write a skill with a `SKILL.md` and an `evals/evals.json` file.
-2. Run the evals with `evaluate_skill.py` as defined below.
-3. Open the eval viewer (or reuse if already running) UI in the `eval-viewer` folder with `npm run serve -- <path-to-evaluation-workspace>`.
-4. User reviews results, identifies issues
-5. The UI generates a `<run-root>/<skill-name>/results/iteration-N/viewer_feedback.json` file with user feedback and improvement suggestions.
-6. You iterate on the skill with the user based on the feedback, keeping the same run root, and re-run the evals when the user asks to see how the changes impact the results.
+2. Self-Verification checkpoint as prescribed in the [Eval Self-Verification](#eval-self-verification) section below.
+3. Run the evals with `evaluate_skill.py` as defined below.
+4. Open the eval viewer (or reuse if already running) UI in the `eval-viewer` folder with `npm run serve -- <path-to-evaluation-workspace>`.
+5. User reviews results, identifies issues
+6. The UI generates a `<run-root>/<skill-name>/results/iteration-N/viewer_feedback.json` file with user feedback and improvement suggestions.
+7. You iterate on the skill with the user based on the feedback, keeping the same run root, and re-run the evals when the user asks to see how the changes impact the results.
 
 ## Evals file
 
@@ -236,3 +237,16 @@ This is your primary source of feedback for the next iteration. Use this feedbac
 
 Follow [the workflow](#the-workflow) for the next iteration, keeping the same run root to accumulate results across iterations. This allows you to track progress over time and see how changes to the skill impact the eval results.
 Remember, the UI should be open the whole time, and new runs should appear automatically without needing to restart the viewer.
+
+## Eval Self-Verification
+
+You must verify that all the following are true before considering evals well written:
+
+- Prompts avoid meta-language and eval-aware phrasing. 
+- Eval prompts represent real-life interaction turns.
+- Expectations test outputs for correctness based on the skill under test in the lens of the eval intent.
+- Expectations are useful and not repetitive of other expectations.
+- The number of expectations for a turn is reasonable for the eval intent and the skill under test, and not just matching the number of expectations in other evals which is a common failure mode.
+- The eval json matches the eval schema and is well-formed JSON.
+- You followed the evaluation-framework rules to the letter
+- You consulted the user about the eval design and got their buy-in
