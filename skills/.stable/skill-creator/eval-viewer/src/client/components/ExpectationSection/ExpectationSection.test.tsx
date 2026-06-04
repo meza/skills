@@ -43,7 +43,6 @@ it('renders the prototype-style section heading with pass counts', () => {
       isOpen
       label='Turn 1'
       onToggle={() => undefined}
-      resultLabel='Run'
       updateDraft={() => undefined}
       variant='turn'
     />
@@ -68,7 +67,6 @@ it('requests a section toggle from the heading', async () => {
       isOpen={false}
       label='Turn 2'
       onToggle={onToggle}
-      resultLabel='Run'
       updateDraft={() => undefined}
       variant='turn'
     />
@@ -107,7 +105,6 @@ it('marks a section as failing unless every expectation passes', () => {
       isOpen={false}
       label='Turn 3'
       onToggle={() => undefined}
-      resultLabel='Run'
       updateDraft={() => undefined}
       variant='turn'
     />
@@ -143,7 +140,6 @@ it('renders overall expectations', () => {
       isOpen
       label='Overall'
       onToggle={() => undefined}
-      resultLabel='Run'
       updateDraft={() => undefined}
       variant='overall'
     />
@@ -177,7 +173,6 @@ it('renders turn expectations', () => {
       isOpen
       label='Turn 2'
       onToggle={() => undefined}
-      resultLabel='Run'
       updateDraft={() => undefined}
       variant='turn'
     />

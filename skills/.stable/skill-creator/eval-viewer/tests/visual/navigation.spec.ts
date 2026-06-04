@@ -59,7 +59,8 @@ test('baseline expectation toggle shows baseline grading results', async ({ page
   await expect(page.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('1/4 requirements passed')).toBeVisible();
   await expect(page.getByText('Skill: PASS').first()).toBeVisible();
-  await expect(page.getByText('Baseline Evidence').first()).toBeVisible();
+  await expect(page.getByText('Evidence', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Baseline Evidence')).toHaveCount(0);
   await expect(page.getByLabel('Feedback for turn 1 expectation 1')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 

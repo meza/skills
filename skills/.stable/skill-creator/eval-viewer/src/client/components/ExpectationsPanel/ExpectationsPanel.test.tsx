@@ -33,8 +33,9 @@ it('switches between skill and baseline expectation results', async () => {
 
   expect(screen.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('0/1 requirements passed')).toBeInTheDocument();
-  expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
   expect(screen.getByText('The answer uses fix: and omits the breaking-change impact.')).toBeInTheDocument();
+  expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
 });
 
@@ -184,8 +185,9 @@ it('renders failed expectation evidence and empty evidence copy', () => {
     />
   );
 
-  expect(screen.getByText('Run Evidence')).toBeInTheDocument();
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
   expect(screen.getByText('The response missed the required footer.')).toBeInTheDocument();
+  expect(screen.queryByText('Run Evidence')).not.toBeInTheDocument();
   expect(screen.getByText('No evidence was recorded for this expectation.')).toBeInTheDocument();
 });
 

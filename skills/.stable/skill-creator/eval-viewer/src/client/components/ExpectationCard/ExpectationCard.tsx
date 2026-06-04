@@ -12,7 +12,6 @@ export function ExpectationCard({
   expectation,
   expectations,
   index,
-  resultLabel,
   updateDraft
 }: {
   allowFeedback: boolean;
@@ -22,7 +21,6 @@ export function ExpectationCard({
   expectation: ExpectationView;
   expectations: ExpectationView[];
   index: number;
-  resultLabel: string;
   updateDraft: FeedbackDraftUpdater;
 }) {
   const comment = allowFeedback ? expectationComment(draft, expectation, expectations, index) : '';
@@ -71,7 +69,6 @@ export function ExpectationCard({
             comparisonExpectation={comparisonExpectation}
             comparisonLabel={comparisonLabel}
             expectation={expectation}
-            resultLabel={resultLabel}
           />
         </button>
       ) : (
@@ -79,7 +76,6 @@ export function ExpectationCard({
           comparisonExpectation={comparisonExpectation}
           comparisonLabel={comparisonLabel}
           expectation={expectation}
-          resultLabel={resultLabel}
         />
       )}
       {allowFeedback ? (
@@ -110,16 +106,13 @@ export function ExpectationCard({
 function ExpectationCardBody({
   comparisonExpectation,
   comparisonLabel,
-  expectation,
-  resultLabel
+  expectation
 }: {
   comparisonExpectation: ExpectationView | undefined;
   comparisonLabel: string;
   expectation: ExpectationView;
-  resultLabel: string;
 }) {
-  const showEvidence = !expectation.passed;
-  const hasEvidence = Boolean(expectation.evidence || comparisonExpectation?.evidence);
+  const hasEvidence = Boolean(expectation.evidence);
 
   return (
     <>
@@ -130,13 +123,12 @@ function ExpectationCardBody({
           expectation={expectation}
         />
       </div>
-      {showEvidence && hasEvidence ? (
+      {hasEvidence ? (
         <div className={`${styles.cardContent} ${styles.evidenceGrid} evidence-grid`}>
-          <EvidenceBlock label={`${resultLabel} Evidence`} text={expectation.evidence} />
-          <EvidenceBlock label={`${comparisonLabel} Evidence`} muted text={comparisonExpectation?.evidence ?? ''} />
+          <EvidenceBlock label='Evidence' text={expectation.evidence} />
         </div>
       ) : null}
-      {showEvidence && !hasEvidence ? (
+      {!hasEvidence ? (
         <p className={`${styles.cardContent} ${styles.emptyCopy} empty-copy`}>
           No evidence was recorded for this expectation.
         </p>
@@ -194,15 +186,9 @@ function StatusBadge({
   );
 }
 
-function EvidenceBlock({ label, muted = false, text }: { label: string; muted?: boolean; text: string }) {
-  if (!text) {
-    return null;
-  }
+function EvidenceBlock({ label, text }: { label: string; text: string }) {
   return (
-    <div
-      className={[styles.evidence, muted ? styles.mutedEvidence : undefined, 'evidence', muted ? 'muted' : undefined]
-        .filter(Boolean)
-        .join(' ')}>
+    <div className={`${styles.evidence} evidence`}>
       <span className={styles.evidenceLabel}>{label}</span>
       <p className={styles.evidenceText}>{text}</p>
     </div>

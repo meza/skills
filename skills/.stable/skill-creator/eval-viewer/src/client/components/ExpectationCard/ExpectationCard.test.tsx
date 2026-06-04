@@ -31,7 +31,6 @@ it('shows expectation result and comparison status', () => {
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -55,7 +54,6 @@ it('toggles passing expectation feedback from the card button', async () => {
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -74,6 +72,28 @@ it('toggles passing expectation feedback from the card button', async () => {
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
 });
 
+it('shows passing expectation evidence while keeping feedback collapsed', () => {
+  render(
+    <ExpectationCard
+      allowFeedback
+      comparisonExpectation={{ ...expectation, evidence: 'Baseline evidence should be hidden.', passed: false }}
+      comparisonLabel='Baseline'
+      draft={draft}
+      expectation={expectation}
+      expectations={[expectation]}
+      index={0}
+      updateDraft={() => undefined}
+    />
+  );
+
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
+  expect(screen.getByText('The answer starts with feat!:')).toBeInTheDocument();
+  expect(screen.queryByText('Run Evidence')).not.toBeInTheDocument();
+  expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
+  expect(screen.queryByText('Baseline evidence should be hidden.')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Feedback for turn 1 expectation 1')).toHaveAttribute('tabIndex', '-1');
+});
+
 it('toggles expectation feedback from the card surface', async () => {
   const user = userEvent.setup();
   render(
@@ -85,7 +105,6 @@ it('toggles expectation feedback from the card surface', async () => {
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -111,7 +130,6 @@ it('keeps feedback open when interacting with the textarea', async () => {
       expectation={{ ...expectation, passed: false }}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );
@@ -140,7 +158,6 @@ it('records feedback through the draft updater', async () => {
       expectation={{ ...expectation, passed: false }}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={updateDraft}
     />
   );
@@ -163,7 +180,6 @@ it('opens feedback by default when the expectation already has feedback', () => 
       expectation={expectation}
       expectations={[expectation]}
       index={0}
-      resultLabel='Run'
       updateDraft={() => undefined}
     />
   );

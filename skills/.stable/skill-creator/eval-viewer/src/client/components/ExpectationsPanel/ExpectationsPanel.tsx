@@ -87,7 +87,6 @@ export function ExpectationsPanel({
         isOpen={sectionOpenState.overall}
         label='Overall Expectations'
         onToggle={() => toggleSectionOpenState(setSectionOpenState, 'overall')}
-        resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
         updateDraft={updateDraft}
         variant='overall'
       />
@@ -102,7 +101,6 @@ export function ExpectationsPanel({
           key={turn.turn}
           label={`Turn ${turn.turn}`}
           onToggle={() => toggleSectionOpenState(setSectionOpenState, turnSectionKey(turn.turn))}
-          resultLabel={resultMode === 'baseline' ? 'Baseline' : 'Run'}
           updateDraft={updateDraft}
           variant='turn'
         />

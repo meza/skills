@@ -18,6 +18,8 @@ const FAILURE_EVIDENCE_TEXT = /Failure evidence for:/;
 const OVERALL_EXPECTATIONS_HEADING_NAME = /Overall Expectations 4\/4 expectations passed/i;
 const TURN_ONE_OVERALL_HEAVY_HEADING_NAME = /Turn 1 4\/4 expectations passed/i;
 const SKILL_EVALUATION_HEADING_NAME = /skill evaluation/i;
+const FAILING_RUN_EXPECTATION_COUNT = 4;
+const FAILING_RUN_FAILURE_EVIDENCE_COUNT = 1;
 
 test.beforeEach(async () => {
   await resetFeedbackArtifact();
@@ -51,9 +53,10 @@ test('failed expectation state composes evidence with the full page', async ({ p
   await expect(page.locator('.run-pager > span')).toHaveText('1 / 1');
   await expect(page.getByText('3/4 requirements passed')).toBeVisible();
   await expect(page.locator('.expectation.fail')).toHaveCount(1);
-  await expect(page.getByText('Run Evidence')).toBeVisible();
-  await expect(page.getByText('Baseline Evidence')).toBeVisible();
-  await expect(page.getByText(FAILURE_EVIDENCE_TEXT)).toHaveCount(2);
+  await expect(page.getByText('Evidence', { exact: true })).toHaveCount(FAILING_RUN_EXPECTATION_COUNT);
+  await expect(page.getByText('Run Evidence')).toHaveCount(0);
+  await expect(page.getByText('Baseline Evidence')).toHaveCount(0);
+  await expect(page.getByText(FAILURE_EVIDENCE_TEXT)).toHaveCount(FAILING_RUN_FAILURE_EVIDENCE_COUNT);
   await expectNoHorizontalOverflow(page);
 
   await expect(page).toHaveScreenshot('viewer-failure-evidence-state.png', {

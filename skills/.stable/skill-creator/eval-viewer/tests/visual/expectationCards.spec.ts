@@ -146,8 +146,9 @@ test('failed expectation card starts with feedback and evidence open', async ({ 
   const expectation = page.locator('.expectation.fail').first();
   await expect(expectation).toBeVisible();
   await expect(expectation.locator('.inline-feedback')).toHaveAttribute('aria-hidden', 'false');
-  await expect(expectation.getByText('Run Evidence')).toBeVisible();
-  await expect(expectation.getByText('Baseline Evidence')).toBeVisible();
+  await expect(expectation.getByText('Evidence', { exact: true })).toBeVisible();
+  await expect(expectation.getByText('Run Evidence')).toHaveCount(0);
+  await expect(expectation.getByText('Baseline Evidence')).toHaveCount(0);
 
   await expect(expectation).toHaveScreenshot('viewer-failed-expectation-open-state.png');
 });

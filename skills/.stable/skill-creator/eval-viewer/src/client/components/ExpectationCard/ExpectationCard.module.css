@@ -193,7 +193,7 @@
 
 .evidenceGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--stack-gap);
   margin-left: 54px;
 }
@@ -203,11 +203,6 @@
   background: oklch(from var(--color-code-surface) l c h / 62%);
   border: var(--border-accent-subtle);
   border-radius: var(--radius-control);
-}
-
-.mutedEvidence {
-  border-color: oklch(from var(--color-divider) l c h / 35%);
-  opacity: 0.8;
 }
 
 .evidenceLabel {
@@ -318,7 +313,6 @@
 
 @media (width <= 900px) {
   .evidenceGrid {
-    grid-template-columns: 1fr;
     margin-left: 0;
   }
 

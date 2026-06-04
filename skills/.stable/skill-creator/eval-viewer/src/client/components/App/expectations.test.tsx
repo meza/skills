@@ -21,8 +21,9 @@ it('switches the expectations breakdown between skill and baseline results', asy
   expect(screen.getByRole('button', { name: 'baseline' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('0/1 requirements passed')).toBeInTheDocument();
   expect(screen.getAllByText(FAIL_STATUS_TEXT_PATTERN)[0]).toHaveTextContent('Skill: PASS');
-  expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
   expect(screen.getByText('The answer uses fix: and omits the breaking-change impact.')).toBeInTheDocument();
+  expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
 });
 
@@ -133,7 +134,7 @@ it('renders failed expectations and missing final responses', () => {
   renderApp({ initialIteration: view });
 
   expect(screen.getAllByText(FAIL_STATUS_TEXT_PATTERN).length).toBeGreaterThan(0);
-  expect(screen.getByText('Baseline Evidence')).toBeInTheDocument();
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
   expect(screen.getByText('No response artifact was available.')).toBeInTheDocument();
 });
 
@@ -184,7 +185,8 @@ it('omits empty baseline evidence while keeping skill evidence', () => {
 
   renderApp({ initialIteration: view });
 
-  expect(screen.getByText('Run Evidence')).toBeInTheDocument();
+  expect(screen.getByText('Evidence')).toBeInTheDocument();
   expect(screen.getByText('The response missed the required breaking-change footer.')).toBeInTheDocument();
   expect(screen.queryByText('Baseline Evidence')).not.toBeInTheDocument();
+  expect(screen.queryByText('Run Evidence')).not.toBeInTheDocument();
 });

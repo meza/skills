@@ -12,7 +12,6 @@ export function ExpectationSection({
   isOpen,
   label,
   onToggle,
-  resultLabel,
   updateDraft,
   variant
 }: {
@@ -24,7 +23,6 @@ export function ExpectationSection({
   isOpen: boolean;
   label: string;
   onToggle: () => void;
-  resultLabel: string;
   updateDraft: FeedbackDraftUpdater;
   variant: 'overall' | 'turn';
 }) {
@@ -71,7 +69,6 @@ export function ExpectationSection({
             expectations={expectations}
             index={index}
             key={expectation.id}
-            resultLabel={resultLabel}
             updateDraft={updateDraft}
           />
         ))}
