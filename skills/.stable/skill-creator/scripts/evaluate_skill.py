@@ -172,6 +172,12 @@ def prepared_run_without_failed_prepare_hooks(prepared_run, failed_eval_ids: set
     )
 
 
+def expand_skill_path(args: argparse.Namespace) -> argparse.Namespace:
+    """Resolve the skill path at the CLI boundary before orchestration."""
+    args.skill_path = args.skill_path.expanduser().resolve(strict=False)
+    return args
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare fixtures and run skill evals."
@@ -229,7 +235,7 @@ def main() -> None:
 
     try:
         with interrupt_signals_raise_keyboard_interrupt():
-            result = execute(parser.parse_args())
+            result = execute(expand_skill_path(parser.parse_args()))
     except RunRootInsideGitWorkspaceError as error:
         print(f"Error: {error}", file=sys.stderr)
         raise SystemExit(1) from error

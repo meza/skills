@@ -198,6 +198,54 @@ class RunSkillEvalsContractTests(unittest.TestCase):
         self.assertTrue(hasattr(eval_definitions, "load_evals_data_or_exit"))
         self.assertTrue(hasattr(eval_definitions, "select_evals_or_exit"))
 
+    def test_validate_evals_schema_exits_with_artifact_validation_error(self):
+        with (
+            mock.patch.object(
+                eval_definitions,
+                "validate_artifact",
+                side_effect=eval_definitions.ArtifactValidationError("schema mismatch"),
+            ),
+            self.assertRaises(SystemExit),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            eval_definitions.validate_evals_schema_or_exit({"evals": []})
+
+        self.assertIn("schema mismatch", stderr.getvalue())
+
+    def test_eval_definition_validation_rejects_malformed_eval_shapes(self):
+        invalid_cases = [
+            (
+                lambda: eval_definitions.validate_eval_definition_or_exit("bad", 1),
+                "eval 1 must be an object",
+            ),
+            (
+                lambda: eval_definitions.validate_eval_definition_or_exit({}, 1),
+                "eval 1 must include integer id",
+            ),
+            (
+                lambda: eval_definitions.require_turns_or_exit({"turns": []}, 7),
+                "eval id=7 must include non-empty turns",
+            ),
+            (
+                lambda: eval_definitions.validate_turn_or_exit("bad", 7, 1),
+                "eval id=7 turn 1 must be an object",
+            ),
+            (
+                lambda: eval_definitions.validate_timeout_or_exit(0, "eval id=7"),
+                "eval id=7 timeout must be a positive integer",
+            ),
+        ]
+
+        for action, expected_message in invalid_cases:
+            with (
+                self.subTest(expected_message=expected_message),
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                action()
+
+            self.assertIn(expected_message, stderr.getvalue())
+
     def _execute_with_fake_provider(
         self,
         prepared_run: PreparedRun,
@@ -505,6 +553,22 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                 (run_type_dir / "raw_output.jsonl").read_text(encoding="utf-8"),
                 '{"event": "TOKEN=[REDACTED]"}\n{"event": "two"}',
             )
+
+    def test_redact_artifact_value_preserves_non_string_scalars(self):
+        self.assertEqual(
+            eval_job._redact_artifact_value(
+                {
+                    "token": "TOKEN=secret-value",
+                    "items": ["Authorization: Bearer secret-value", 3, None],
+                    "ok": True,
+                }
+            ),
+            {
+                "token": "TOKEN=[REDACTED]",
+                "items": ["Authorization: Bearer [REDACTED]", 3, None],
+                "ok": True,
+            },
+        )
 
     def test_eval_job_redacts_successful_turn_artifacts(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2345,6 +2409,28 @@ class GitEnvironmentTests(unittest.TestCase):
             kill_process_tree.call_args_list,
             [mock.call(111), mock.call(222)],
         )
+
+    def test_next_iteration_returns_one_when_results_dir_is_missing_or_empty(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir) / "results"
+
+            self.assertEqual(run_skill_evals.next_iteration(results_dir), 1)
+            results_dir.mkdir()
+            (results_dir / "not-an-iteration").mkdir()
+
+            self.assertEqual(run_skill_evals.next_iteration(results_dir), 1)
+
+    def test_reserve_next_iteration_retries_when_directory_is_reserved_first(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_dir = Path(temp_dir) / "results"
+            results_dir.mkdir()
+            (results_dir / "iteration-1").mkdir()
+
+            with mock.patch.object(run_skill_evals, "next_iteration", return_value=1):
+                reserved = run_skill_evals.reserve_next_iteration(results_dir)
+
+            self.assertEqual(reserved, 2)
+            self.assertTrue((results_dir / "iteration-2").is_dir())
 
 
 if __name__ == "__main__":

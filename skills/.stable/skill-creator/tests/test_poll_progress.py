@@ -1,8 +1,11 @@
 import contextlib
 import io
 import json
+import runpy
+import sys
 import tempfile
 import unittest
+import warnings
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
@@ -109,6 +112,66 @@ class PollProgressTests(unittest.TestCase):
 
             self.assertEqual(result, (1, 10, True))
             self.assertIn("No progress for 5s", stdout.getvalue())
+
+    def test_poll_progress_sleeps_until_poll_once_reports_done(self):
+        args = Namespace(interval=3)
+
+        with (
+            mock.patch.object(
+                poll_progress,
+                "poll_once",
+                side_effect=[(0, 10, False), (1, 11, True)],
+            ) as poll_once,
+            mock.patch.object(poll_progress.time, "time", return_value=10),
+            mock.patch.object(poll_progress.time, "sleep") as sleep,
+        ):
+            poll_progress.poll_progress(args)
+
+        self.assertEqual(
+            poll_once.call_args_list,
+            [
+                mock.call(args, -1, 10),
+                mock.call(args, 0, 10),
+            ],
+        )
+        sleep.assert_called_once_with(3)
+
+    def test_main_parses_progress_file_and_polling_options(self):
+        argv = [
+            "poll_progress.py",
+            "S:/TMP/evals/results/iteration-1/progress.json",
+            "--interval",
+            "2",
+            "--stale-timeout",
+            "5",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(poll_progress, "poll_progress") as run_poll_progress,
+        ):
+            poll_progress.main()
+
+        args = run_poll_progress.call_args.args[0]
+        self.assertEqual(
+            args.progress_file,
+            Path("S:/TMP/evals/results/iteration-1/progress.json"),
+        )
+        self.assertEqual(args.interval, 2)
+        self.assertEqual(args.stale_timeout, 5)
+
+    def test_module_entrypoint_runs_main(self):
+        with (
+            mock.patch.object(sys, "argv", ["poll_progress.py"]),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            warnings.catch_warnings(),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            warnings.simplefilter("ignore", RuntimeWarning)
+            runpy.run_module("scripts.poll_progress", run_name="__main__")
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("progress_file", stderr.getvalue())
 
 
 if __name__ == "__main__":
