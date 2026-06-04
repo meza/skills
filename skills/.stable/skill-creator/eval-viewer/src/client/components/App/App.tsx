@@ -6,12 +6,12 @@ import type {
   RunFeedbackView,
   RunView
 } from '../../../shared/viewModel.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadIterationFromServer, loadIterationIndexFromServer, saveFeedbackToServer } from '../../api.js';
 import { type FeedbackDraftUpdater, feedbackDraftFromRun, runKey } from '../../feedbackDraft.js';
 import { defaultReviewFilter, type RunFilter, visibleReviewRuns } from '../../runFilters.js';
 import { AppHeader } from '../AppHeader/AppHeader.js';
-import { ExpectationsPanel } from '../ExpectationsPanel/ExpectationsPanel.js';
+import { type ExpectationResultMode, ExpectationsPanel } from '../ExpectationsPanel/ExpectationsPanel.js';
 import { FeedbackPanel } from '../FeedbackPanel/FeedbackPanel.js';
 import { NewIterationDialog } from '../NewIterationDialog/NewIterationDialog.js';
 import { ReviewCompleteDialog } from '../ReviewCompleteDialog/ReviewCompleteDialog.js';
@@ -182,6 +182,11 @@ function ReviewDetail({
   visibleRuns: RunView[];
   workflow: FeedbackWorkflow;
 }) {
+  const [resultMode, setResultMode] = useState<ExpectationResultMode>('skill');
+  const selectedTranscriptRun = transcriptRunForMode(iterationView.runs, selectedRun, resultMode);
+  const handleResultModeChange = useCallback((nextResultMode: ExpectationResultMode) => {
+    setResultMode(nextResultMode);
+  }, []);
   const transitionClassName = {
     entering: styles.detailEntering,
     exiting: styles.detailExiting,
@@ -205,7 +210,13 @@ function ReviewDetail({
         selectedIndex={selectedIndex}
         selectRunAt={selectRunAt}
       />
-      <ExpectationsPanel draft={workflow.feedbackDraft} run={selectedRun} updateDraft={workflow.updateFeedbackDraft} />
+      <ExpectationsPanel
+        draft={workflow.feedbackDraft}
+        onResultModeChange={handleResultModeChange}
+        resultMode={resultMode}
+        run={selectedRun}
+        updateDraft={workflow.updateFeedbackDraft}
+      />
       <FeedbackPanel
         draft={workflow.feedbackDraft}
         hasPrevious={selectedIndex > 0}
@@ -226,7 +237,7 @@ function ReviewDetail({
         saveState={workflow.saveState}
         updateDraft={workflow.updateFeedbackDraft}
       />
-      <TranscriptPanel iteration={iterationView.summary.iteration} run={selectedRun} />
+      <TranscriptPanel iteration={iterationView.summary.iteration} run={selectedTranscriptRun} />
     </div>
   );
 }
@@ -410,6 +421,13 @@ function selectedRunAfterIterationLoad(nextIteration: IterationView, selectedEva
     .filter((run) => run.runType === 'skill')
     .sort((left, right) => left.evalId - right.evalId);
   return (nextReviewRuns.find((run) => run.evalId === selectedEvalId) ?? nextReviewRuns[0]) as RunView;
+}
+
+function transcriptRunForMode(runs: RunView[], selectedRun: RunView, resultMode: ExpectationResultMode): RunView {
+  if (resultMode !== 'baseline') {
+    return selectedRun;
+  }
+  return runs.find((run) => run.evalId === selectedRun.evalId && run.runType === 'baseline') ?? selectedRun;
 }
 
 function useIterationEventStream({

@@ -4,21 +4,25 @@ import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 
 import { ExpectationSection } from '../ExpectationSection/ExpectationSection.js';
 import styles from './ExpectationsPanel.module.css';
 
-type ExpectationResultMode = 'skill' | 'baseline';
+export type ExpectationResultMode = 'skill' | 'baseline';
 interface SectionOpenState extends Record<string, boolean> {
   overall: boolean;
 }
 
 export function ExpectationsPanel({
   draft,
+  onResultModeChange,
   run,
+  resultMode: controlledResultMode,
   updateDraft
 }: {
   draft: RunFeedbackView;
+  onResultModeChange?: (resultMode: ExpectationResultMode) => void;
   run: RunView;
+  resultMode?: ExpectationResultMode;
   updateDraft: FeedbackDraftUpdater;
 }) {
-  const [requestedResultMode, setRequestedResultMode] = useState<ExpectationResultMode>('skill');
+  const [uncontrolledResultMode, setUncontrolledResultMode] = useState<ExpectationResultMode>('skill');
   const [sectionOpenState, setSectionOpenState] = useState<SectionOpenState>(() =>
     defaultSectionOpenState(run.expectations, draft)
   );
@@ -26,6 +30,7 @@ export function ExpectationsPanel({
   latestDraftRef.current = draft;
   const baselineExpectations = run.comparisons.baseline?.expectations ?? [];
   const canShowBaseline = baselineExpectations.length > 0;
+  const requestedResultMode = controlledResultMode ?? uncontrolledResultMode;
   const resultMode = requestedResultMode === 'baseline' && canShowBaseline ? 'baseline' : 'skill';
   const displayedExpectations = resultMode === 'baseline' ? baselineExpectations : run.expectations;
   const comparisonExpectations = resultMode === 'baseline' ? run.expectations : baselineExpectations;
@@ -34,9 +39,15 @@ export function ExpectationsPanel({
   const passed = displayedExpectations.filter((expectation) => expectation.passed).length;
 
   useEffect(() => {
-    setRequestedResultMode('skill');
+    setUncontrolledResultMode('skill');
+    onResultModeChange?.('skill');
     setSectionOpenState(defaultSectionOpenState(run.expectations, latestDraftRef.current));
-  }, [run.expectations]);
+  }, [onResultModeChange, run.expectations]);
+
+  function requestResultMode(nextResultMode: ExpectationResultMode): void {
+    setUncontrolledResultMode(nextResultMode);
+    onResultModeChange?.(nextResultMode);
+  }
 
   return (
     <section className={`${styles.panel} expectations`}>
@@ -56,7 +67,7 @@ export function ExpectationsPanel({
                 className={styles.resultButton}
                 disabled={mode === 'baseline' && !canShowBaseline}
                 key={mode}
-                onClick={() => setRequestedResultMode(mode)}
+                onClick={() => requestResultMode(mode)}
                 type='button'>
                 {mode}
               </button>

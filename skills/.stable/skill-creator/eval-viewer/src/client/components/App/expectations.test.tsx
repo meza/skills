@@ -26,6 +26,62 @@ it('switches the expectations breakdown between skill and baseline results', asy
   expect(screen.queryByLabelText('Feedback for turn 1 expectation 1')).not.toBeInTheDocument();
 });
 
+it('switches the execution history and metadata between skill and baseline results', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const skillRun = view.runs.find((run) => run.runType === 'skill');
+  const baselineRun = view.runs.find((run) => run.runType === 'baseline');
+  if (!skillRun || !baselineRun) {
+    throw new Error('Expected skill and baseline runs in the test fixture.');
+  }
+
+  renderApp({ initialIteration: view });
+
+  expect(screen.getByText(skillRun.providerSessionId as string)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Raw JSON Output' })).toHaveAttribute(
+    'href',
+    `/api/artifacts?iteration=4&path=${encodeURIComponent(skillRun.artifactPaths.rawOutput as string)}`
+  );
+
+  await user.click(screen.getByRole('button', { name: 'baseline' }));
+
+  expect(screen.getByText('Final Response')).toBeInTheDocument();
+  expect(screen.getByText(baselineRun.finalResponse)).toBeInTheDocument();
+  expect(screen.getByText(baselineRun.providerSessionId as string)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Raw JSON Output' })).toHaveAttribute(
+    'href',
+    `/api/artifacts?iteration=4&path=${encodeURIComponent(baselineRun.artifactPaths.rawOutput as string)}`
+  );
+
+  await user.click(screen.getByRole('button', { name: 'skill' }));
+
+  expect(screen.getByText(skillRun.providerSessionId as string)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Raw JSON Output' })).toHaveAttribute(
+    'href',
+    `/api/artifacts?iteration=4&path=${encodeURIComponent(skillRun.artifactPaths.rawOutput as string)}`
+  );
+});
+
+it('keeps skill execution history when baseline artifact details are unavailable', async () => {
+  const user = userEvent.setup();
+  const view = iterationView();
+  const skillRun = view.runs.find((run) => run.runType === 'skill');
+  if (!skillRun) {
+    throw new Error('Expected a skill run in the test fixture.');
+  }
+  view.runs = [skillRun];
+
+  renderApp({ initialIteration: view });
+
+  await user.click(screen.getByRole('button', { name: 'baseline' }));
+
+  expect(screen.getByText(skillRun.providerSessionId as string)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Raw JSON Output' })).toHaveAttribute(
+    'href',
+    `/api/artifacts?iteration=4&path=${encodeURIComponent(skillRun.artifactPaths.rawOutput as string)}`
+  );
+});
+
 it('disables baseline expectation viewing when no baseline grading exists', () => {
   const view = iterationView();
   const run = view.runs[0];
