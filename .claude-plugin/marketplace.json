@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Meza's agent skills",
-    "version": "0.0.6"
+    "version": "0.0.8"
   },
   "plugins": [
     {
@@ -25,6 +25,12 @@
       "skills": [
         "./skills/.stable/conventional-commit-message"
       ]
+    },
+    {
+      "name": "review-swarm",
+      "source": "./plugins/review-swarm",
+      "description": "Symptom-based multi-agent code review: fans out one investigator per quality symptom, then distills the findings into an actionable review",
+      "strict": false
     }
   ]
 }

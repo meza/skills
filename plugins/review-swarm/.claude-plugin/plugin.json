@@ -1,0 +1,8 @@
+{
+  "name": "review-swarm",
+  "description": "Symptom-based multi-agent code review: fans out one investigator per quality symptom, then distills the findings into an actionable review.",
+  "version": "0.1.0",
+  "author": {
+    "name": "meza"
+  }
+}
