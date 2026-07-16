@@ -14,6 +14,23 @@
           ]
         }
       ]
+    },
+    {
+      "id": 2,
+      "eval_name": "minimal new skill",
+      "outcome_expectations": [
+        "After a requirement-by-requirement inspection, the created skill conforms to the \"writing skills\" guidelines of the skill-creator"
+      ],
+      "turns": [
+        {
+          "prompt": "Create a skill called dependency-upgrade-reviewer. It should trigger when reviewing dependency update PRs. It should check changelogs, breaking changes, security notes, test coverage, and rollback risk. The output should be a concise PR review with blockers first, then warnings, then follow-up suggestions.",
+          "expectations": [
+            "The agent created a skill with the correct name.",
+            "The newly created skill adheres to the \"writing skills\" guidelines of the skill-creator",
+            "The newly created skill doesn't contain meta-language or self-reflection.",
+            "The newly created skill is concise and actionable."
+          ]
+        }]
     }
   ]
 }
