@@ -10,27 +10,18 @@
   "plugins": [
     {
       "name": "skill-creator",
-      "source": "./",
-      "description": "Meza's skill creator",
-      "strict": false,
-      "skills": [
-        "./skills/.stable/skill-creator"
-      ]
+      "source": "./skills/.stable/skill-creator",
+      "description": "Meza's skill creator"
     },
     {
       "name": "conventional-commit-message",
-      "source": "./",
-      "description": "Conventional Commit Message creator",
-      "strict": false,
-      "skills": [
-        "./skills/.stable/conventional-commit-message"
-      ]
+      "source": "./skills/.stable/conventional-commit-message",
+      "description": "Conventional Commit Message creator"
     },
     {
       "name": "review-swarm",
       "source": "./plugins/review-swarm",
-      "description": "Symptom-based multi-agent code review: fans out one investigator per quality symptom, then distills the findings into an actionable review",
-      "strict": false
+      "description": "Symptom-based multi-agent code review: fans out one investigator per quality symptom, then distills the findings into an actionable review"
     }
   ]
 }

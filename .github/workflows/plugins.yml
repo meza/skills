@@ -1,0 +1,69 @@
+name: plugins
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .claude-plugin/**
+      - plugins/**
+      - skills/.stable/**
+      - .github/workflows/plugins.yml
+      - .github/scripts/**
+  push:
+    branches: [main]
+    paths:
+      - .claude-plugin/**
+      - plugins/**
+      - skills/.stable/**
+      - .github/workflows/plugins.yml
+      - .github/scripts/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  manifests:
+    name: manifests
+    runs-on: meza-ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      # Invariants the CLI does not cover. Verified against 2.1.104: validating a
+      # marketplace root does not recurse into plugin.json and does not check that a
+      # `source` exists, so a plugin with a wrong name, a non-semver version, and a
+      # dangling source passes with exit 0. This step is the real gate.
+      - name: Check plugin invariants
+        run: node .github/scripts/check-plugins.mjs .
+
+      # Schema validation from upstream. The runner has Node but no `claude` CLI, so
+      # this runs via npx, pinned. CLAUDE_CONFIG_DIR points at a throwaway directory so
+      # the run cannot touch runner state. Verified to work unauthenticated.
+      - name: Validate marketplace manifest
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
+        run: npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate .
+
+      # Each plugin must be validated on its own path — see the note above about the
+      # marketplace-level check not recursing. Sources are read from the manifest so
+      # this stays correct when a plugin is added or moved.
+      - name: Validate each plugin manifest
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
+        run: |
+          set -euo pipefail
+          sources=$(node -e 'for (const p of JSON.parse(require("fs").readFileSync(".claude-plugin/marketplace.json","utf8")).plugins) console.log(p.source)')
+          for src in $sources; do
+            echo "── $src"
+            npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate "$src"
+          done
