@@ -1,6 +1,6 @@
+import type { IterationIndexView } from '../shared/viewModel.js';
 import { type FSWatcher, watch } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import type { IterationIndexView } from '../shared/viewModel.js';
 import { loadIteration, loadIterationIndex } from './iterationRepository.js';
 import {
   iterationDirectoryKind,
@@ -11,11 +11,18 @@ import {
 } from './iterationWorkspace.js';
 
 type IterationEventSink = (index: IterationIndexView) => void;
-export type IterationEventLogger = {
+export interface IterationEventLogger {
   error: (value: Record<string, unknown>, message: string) => void;
   info: (value: Record<string, unknown>, message: string) => void;
   warn: (value: Record<string, unknown>, message: string) => void;
-};
+}
+
+const SHORT_ITERATION_WRITE_SETTLE_DELAY_MS = 250;
+const LONG_ITERATION_WRITE_SETTLE_DELAY_MS = 1000;
+const ITERATION_WRITE_SETTLE_DELAYS_MS = [
+  SHORT_ITERATION_WRITE_SETTLE_DELAY_MS,
+  LONG_ITERATION_WRITE_SETTLE_DELAY_MS
+] as const;
 
 /**
  * Watches an evaluation workspace and publishes iteration index updates to subscribers.
@@ -89,7 +96,7 @@ class IterationEventHub {
     this.runIterationCheck('immediate');
     // New iteration directories may be created before run_manifest.json is visible.
     // The delayed checks re-read the workspace after that short write window.
-    for (const delayMs of [250, 1000]) {
+    for (const delayMs of ITERATION_WRITE_SETTLE_DELAYS_MS) {
       const check = setTimeout(() => {
         this.pendingChecks.delete(check);
         this.runIterationCheck(`delayed-${delayMs}ms`);

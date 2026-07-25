@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import runpy
 import sys
 import tempfile
@@ -481,6 +482,39 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertFalse(args.skip_baseline)
         self.assertEqual(args.max_parallel, 10)
         self.assertEqual(args.timeout, 600)
+
+    def test_main_expands_relative_skill_path_at_entrypoint(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_cwd = Path.cwd()
+            skill_dir = Path(temp_dir) / "sample-skill"
+            skill_dir.mkdir()
+            os.chdir(skill_dir)
+            argv = [
+                "evaluate_skill.py",
+                "--skill-path",
+                ".",
+                "--run-root",
+                "F:/runs",
+                "--provider",
+                "codex",
+                "--model",
+                "gpt-5.5",
+            ]
+
+            try:
+                with (
+                    mock.patch.object(sys, "argv", argv),
+                    mock.patch.object(
+                        evaluate_skill, "execute", return_value={}
+                    ) as execute,
+                    contextlib.redirect_stdout(io.StringIO()),
+                ):
+                    evaluate_skill.main()
+            finally:
+                os.chdir(original_cwd)
+
+        args = execute.call_args.args[0]
+        self.assertEqual(args.skill_path, skill_dir.resolve())
 
     def test_main_reports_run_root_git_workspace_errors(self):
         argv = [

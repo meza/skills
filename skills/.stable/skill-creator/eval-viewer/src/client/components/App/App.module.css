@@ -1,0 +1,83 @@
+.shell {
+  display: grid;
+  grid-template-rows: var(--layout-topbar-height) auto;
+  grid-template-columns: var(--layout-sidebar-width) minmax(0, 1fr);
+  align-items: start;
+  min-height: 100vh;
+}
+
+.mainLayout {
+  display: contents;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  grid-row: 2;
+  grid-column: 2;
+  gap: var(--page-section-gap);
+  min-width: 0;
+  padding: var(--page-top-padding) var(--page-gutter) var(--page-bottom-padding);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-section-gap);
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--transition-default),
+    transform var(--transition-default);
+  will-change: opacity, transform;
+}
+
+.detailExiting {
+  opacity: 0;
+  transform: translateY(var(--tight-gap));
+}
+
+.detailEntering {
+  animation: detail-enter var(--transition-default) both;
+}
+
+@keyframes detail-enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--tight-gap)));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    transition: none;
+  }
+
+  .detailEntering {
+    animation: none;
+  }
+}
+
+@media (width <= 900px) {
+  .shell {
+    grid-template-rows: var(--layout-topbar-height) auto auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mainLayout {
+    display: contents;
+  }
+
+  .content {
+    grid-row: 3;
+    grid-column: 1;
+    padding-top: var(--section-gap);
+    margin-left: 0;
+    overflow: visible;
+  }
+}

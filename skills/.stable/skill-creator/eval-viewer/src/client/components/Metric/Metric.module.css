@@ -1,0 +1,32 @@
+.metric {
+  padding: var(--stack-gap);
+  background: oklch(from var(--color-surface-muted) l c h / 60%);
+  border: var(--border-default);
+  border-radius: var(--radius-control);
+}
+
+.label {
+  display: block;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-meta-size);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.value {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--text-section-title-size);
+  line-height: var(--text-section-title-line-height);
+  color: var(--color-text-muted);
+
+  &.passingValue {
+    color: var(--color-success-emphasis);
+    text-shadow: var(--shadow-success-text);
+  }
+
+  &.primaryValue {
+    color: var(--color-accent);
+    text-shadow: var(--shadow-accent-text);
+  }
+}

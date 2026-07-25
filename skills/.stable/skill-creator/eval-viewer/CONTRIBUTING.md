@@ -24,12 +24,11 @@ Stylelint across the client styles, run the full test suite, run full coverage,
 and run the Playwright visual test suite:
 
 ```bash
-npm run biome:fix
-npm run style:check
-npm run test
-npm run coverage
+npm run validate
 npm run test:visual
 ```
+
+Do not run individual parts of these commands for actual verification.
 
 Always run these commands against the whole viewer project. Do not narrow Biome,
 Stylelint, Vitest, coverage, or Playwright verification to individual files,
@@ -88,7 +87,7 @@ component-specific styling must own that styling in a colocated
 `*.module.css` file. Do not add component selectors to a shared global
 stylesheet.
 
-CSS Module class names must use BEM. The block name should match the component
+CSS Module class names must use BEM-ish architecture without the enforced selector format. The block name should match the component
 or a stable domain concept owned by that component. Elements and modifiers
 should describe structure and state without depending on generated CSS Module
 hashes:

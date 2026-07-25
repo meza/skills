@@ -1,0 +1,79 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--section-gap);
+  background: oklch(from var(--color-black) l c h / 48%);
+}
+
+.dialog {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--stack-gap);
+  align-items: flex-start;
+  width: min(100%, 620px);
+  max-width: 620px;
+  padding: var(--section-gap);
+  background: var(--color-surface);
+  border: var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+
+  @media (width <= 560px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--color-accent);
+  background: oklch(from var(--color-accent) l c h / 12%);
+  border: var(--border-accent);
+  border-radius: var(--radius-control);
+}
+
+.body {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-heading-size);
+  line-height: 1.2;
+  color: var(--color-text);
+  letter-spacing: 0;
+}
+
+.completionMessage {
+  max-width: 44ch;
+  margin: 8px 0 0;
+  font-size: var(--text-body-size);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  grid-column: 2;
+  gap: var(--inline-gap);
+  justify-content: flex-end;
+
+  @media (width <= 560px) {
+    grid-column: 1;
+  }
+}
+
+.primaryAction {
+  width: auto;
+  min-width: 160px;
+  max-width: none;
+  padding: 0 24px;
+  margin: 0;
+}

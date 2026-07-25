@@ -211,6 +211,29 @@ class PrepareFixtureUnitTests(unittest.TestCase):
             prepare_fixture.GIT_COMMAND_TIMEOUT_SECONDS,
         )
 
+    def test_resolve_ref_ignores_timed_out_candidate(self):
+        results = [
+            prepare_fixture.subprocess.TimeoutExpired(["git"], 1),
+            self._completed_process(stdout="next-commit\n"),
+        ]
+
+        with mock.patch.object(
+            prepare_fixture.subprocess,
+            "run",
+            side_effect=results,
+        ):
+            resolved = prepare_fixture.resolve_ref_or_exit(Path("repo"), "v1")
+
+        self.assertEqual(resolved, "next-commit")
+
+    def test_fetch_ref_returns_false_when_fetch_times_out(self):
+        with mock.patch.object(
+            prepare_fixture.subprocess,
+            "run",
+            side_effect=prepare_fixture.subprocess.TimeoutExpired(["git"], 1),
+        ):
+            self.assertFalse(prepare_fixture.fetch_ref(Path("repo"), "main"))
+
     def test_resolve_ref_fetches_ref_when_initial_candidates_fail(self):
         failed_candidates = [self._completed_process(returncode=1) for _ in range(6)]
         fetch_success = self._completed_process()
@@ -299,6 +322,27 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                     ),
                 ],
             )
+
+    def test_git_clone_or_pull_exits_when_clone_times_out(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dest = Path(temp_dir) / "fixtures"
+
+            with (
+                mock.patch.object(
+                    prepare_fixture.subprocess,
+                    "run",
+                    side_effect=prepare_fixture.subprocess.TimeoutExpired(
+                        ["git", "clone"], 1
+                    ),
+                ),
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.git_clone_or_pull(
+                    "https://example.invalid/repo.git", dest, "main"
+                )
+
+        self.assertIn("git clone timed out", stderr.getvalue())
 
     def test_git_clone_or_pull_fetches_when_destination_is_git_repo(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -776,6 +820,28 @@ class PrepareFixtureUnitTests(unittest.TestCase):
 
             self.assertIn("escapes the skill root", stderr.getvalue())
 
+    def test_require_fixture_path_inside_root_exits_for_escaped_path(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            fixture_root = temp_path / "fixtures"
+            fixture_root.mkdir()
+            escaped_path = temp_path / "outside" / "project"
+            escaped_path.mkdir(parents=True)
+
+            with (
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as stderr,
+            ):
+                prepare_fixture.require_fixture_path_inside_root_or_exit(
+                    escaped_path,
+                    fixture_root,
+                    "project",
+                    "1",
+                    "fixture source root",
+                )
+
+        self.assertIn("escapes the fixture source root", stderr.getvalue())
+
     def test_copy_skill_requires_explicit_skill_root(self):
         skill_root = inspect.signature(prepare_fixture.copy_skill).parameters[
             "skill_root"
@@ -876,6 +942,13 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 "skill_name": "demo",
                 "eval_count": 1,
             },
+        )
+
+    def test_optional_string_to_path_returns_path_or_none(self):
+        self.assertIsNone(prepare_fixture._optional_string_to_path(None))
+        self.assertEqual(
+            prepare_fixture._optional_string_to_path("fixtures/project"),
+            Path("fixtures/project"),
         )
 
     def test_prepare_resolves_skill_root_from_provider_registry(self):
@@ -1068,6 +1141,26 @@ class PrepareFixtureUnitTests(unittest.TestCase):
                 eval_dir.resolve(),
                 eval_dir,
             )
+
+    def test_reset_prepared_eval_dir_ignores_missing_eval_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_root = Path(temp_dir)
+
+            prepare_fixture.reset_prepared_eval_dir(run_root, 1)
+
+            self.assertFalse((run_root / "eval-1").exists())
+
+    def test_retry_read_only_delete_makes_path_writable_before_retry(self):
+        calls = []
+
+        def delete(path):
+            calls.append(path)
+
+        with mock.patch.object(prepare_fixture.os, "chmod") as chmod:
+            prepare_fixture.retry_read_only_delete(delete, "locked.txt", None)
+
+        chmod.assert_called_once_with("locked.txt", prepare_fixture.stat.S_IWRITE)
+        self.assertEqual(calls, ["locked.txt"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-import { feedbackTurnShape, turnExpectationIndex } from '../shared/feedbackModel.js';
 import type { ExpectationView, FeedbackTurnView, RunFeedbackView, RunView } from '../shared/viewModel.js';
+import { feedbackTurnShape, turnExpectationIndex } from '../shared/feedbackModel.js';
 
 export type FeedbackDraftUpdater = (updater: (draft: RunFeedbackView) => RunFeedbackView) => void;
 
@@ -11,7 +11,7 @@ export function feedbackDraftFromRun(run: RunView): RunFeedbackView {
   const overallExpectations = run.expectations.filter((expectation) => expectation.scope === 'overall');
   const turnShape = feedbackTurnShape(run.expectations);
   return {
-    comments: run.feedback.comments || run.userComments || '',
+    comments: feedbackComments(run),
     overall: overallExpectations.map((expectation, index) => ({
       comment: feedbackComment(run.feedback.overall, expectation.id, index),
       expectation_id: expectation.id
@@ -37,7 +37,7 @@ export function expectationComment(
   index: number
 ): string {
   if (expectation.scope === 'overall') {
-    return draft.overall[index]!.comment;
+    return draft.overall[index]?.comment ?? '';
   }
   const turn = expectation.turn;
   const feedbackTurn = draft.turns.find((candidate) => candidate.turn === turn) as FeedbackTurnView | undefined;
@@ -74,6 +74,13 @@ export function updateExpectationComment(
         : candidate
     )
   };
+}
+
+function feedbackComments(run: RunView): string {
+  if (run.feedback.comments !== '') {
+    return run.feedback.comments;
+  }
+  return run.userComments ?? '';
 }
 
 function feedbackComment(

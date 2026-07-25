@@ -1,6 +1,6 @@
 import type { Dirent } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
 import type { IterationNumber } from '../shared/viewModel.js';
+import { basename, dirname, join } from 'node:path';
 
 const ITERATION_DIRECTORY_PATTERN = /^iteration-\d+$/;
 

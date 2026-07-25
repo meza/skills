@@ -1,6 +1,6 @@
+import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { IterationNumber } from '../../src/shared/viewModel.js';
 
 interface RichRun {
   duration: number;
@@ -31,12 +31,17 @@ interface RichTurn {
   transcript: string;
 }
 
+const PREVIOUS_RICH_ITERATION = 2;
+const CURRENT_RICH_ITERATION = 3;
+const MILLISECONDS_PER_SECOND = 1000;
+const UUID_SEGMENT_PAD_LENGTH = 4;
+
 export async function writeRichEvaluationWorkspace(workspaceRoot: string): Promise<string> {
   await rm(workspaceRoot, { force: true, recursive: true });
   const currentRoot = join(workspaceRoot, 'results', 'iteration-3');
   const previousRoot = join(workspaceRoot, 'results', 'iteration-2');
-  await writeRichIteration(previousRoot, previousRuns(), 2);
-  await writeRichIteration(currentRoot, currentRuns(), 3);
+  await writeRichIteration(previousRoot, previousRuns(), PREVIOUS_RICH_ITERATION);
+  await writeRichIteration(currentRoot, currentRuns(), CURRENT_RICH_ITERATION);
   return currentRoot;
 }
 
@@ -49,7 +54,7 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: Iter
     model: 'gpt-5.5',
     provider: 'codex',
     runs: runs.map((run) => ({
-      duration_ms: run.duration * 1000,
+      duration_ms: run.duration * MILLISECONDS_PER_SECOND,
       eval_id: run.evalId,
       eval_name: run.evalName,
       run_type: run.runType,
@@ -102,12 +107,8 @@ async function writeRichIteration(root: string, runs: RichRun[], iteration: Iter
   });
 
   const evals = new Map(runs.map((run) => [run.evalId, run]));
-  for (const run of evals.values()) {
-    await writeEvalMetadata(root, run);
-  }
-  for (const run of runs) {
-    await writeRun(root, run);
-  }
+  await Promise.all(Array.from(evals.values()).map((run) => writeEvalMetadata(root, run)));
+  await Promise.all(runs.map((run) => writeRun(root, run)));
 }
 
 function currentRuns(): RichRun[] {
@@ -237,7 +238,7 @@ function richRun(
 
 function richExpectationId(evalId: number, runType: string, index: number): string {
   const runTypePart = runType === 'baseline' ? 2 : 1;
-  return `00000000-0000-5000-8000-${String(evalId).padStart(4, '0')}${String(runTypePart).padStart(4, '0')}${String(index).padStart(4, '0')}`;
+  return `00000000-0000-5000-8000-${String(evalId).padStart(UUID_SEGMENT_PAD_LENGTH, '0')}${String(runTypePart).padStart(UUID_SEGMENT_PAD_LENGTH, '0')}${String(index).padStart(UUID_SEGMENT_PAD_LENGTH, '0')}`;
 }
 
 function pass(text: string, turn?: number): RichExpectation {
@@ -276,9 +277,9 @@ async function writeEvalMetadata(root: string, run: RichRun): Promise<void> {
 
 async function writeRun(root: string, run: RichRun): Promise<void> {
   const runTypeRoot = join(root, `eval-${run.evalId}`, run.runType);
-  for (const [index] of run.turns.entries()) {
-    await mkdir(join(runTypeRoot, `turn-${index + 1}`, 'outputs'), { recursive: true });
-  }
+  await Promise.all(
+    run.turns.map((_turn, index) => mkdir(join(runTypeRoot, `turn-${index + 1}`, 'outputs'), { recursive: true }))
+  );
   await writeJson(join(runTypeRoot, 'run_artifacts.json'), {
     eval: {
       id: run.evalId,
@@ -318,7 +319,7 @@ async function writeRun(root: string, run: RichRun): Promise<void> {
   });
   await writeJson(join(runTypeRoot, 'timing.json'), {
     cost_usd: 0,
-    duration_ms: run.duration * 1000,
+    duration_ms: run.duration * MILLISECONDS_PER_SECOND,
     input_tokens: Math.floor(run.totalTokens / 2),
     output_tokens: Math.ceil(run.totalTokens / 2),
     total_duration_seconds: run.duration,

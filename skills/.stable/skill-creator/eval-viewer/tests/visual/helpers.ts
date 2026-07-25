@@ -1,10 +1,20 @@
+import type { IterationView, RunView } from '../../src/shared/viewModel.js';
 import { readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { isPassingRun } from '../../src/client/runFilters.js';
-import type { IterationView, RunView } from '../../src/shared/viewModel.js';
 
 export const feedbackPath = resolve('.tmp', 'visual-fixture', 'results', 'iteration-3', 'viewer_feedback.json');
+const SKILL_EVALUATION_HEADING_NAME = /skill evaluation/i;
+const RAW_JSON_OUTPUT_LINK_NAME = /raw json output/i;
+const VIEW_ALL_ARTIFACTS_LINK_NAME = /view all artifacts/i;
+const INTERNAL_REFACTOR_RUN_NAME = /internal-refactor-stays-refactor/i;
+const SCROLLABLE_OVERFLOW_PATTERN = /auto|scroll/u;
+const TOGGLE_FEEDBACK_BUTTON_NAME = /toggle feedback/i;
+const DESKTOP_TOP_BAR_HEIGHT_PX = 64;
+const DESKTOP_SIDEBAR_WIDTH_PX = 288;
+const MAX_RUN_HEADER_HEADING_HEIGHT_PX = 40;
+const MIN_RUN_PAGER_COUNT_WIDTH_PX = 72;
 
 export async function resetFeedbackArtifact() {
   await rm(feedbackPath, { force: true });
@@ -19,12 +29,12 @@ export async function showPassingRuns(page: Page) {
 }
 
 export async function expectPrototypeShell(page: Page) {
-  await expect(page.getByRole('heading', { name: /skill evaluation/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: SKILL_EVALUATION_HEADING_NAME })).toBeVisible();
   await expect(page.locator('.metadata').getByText('Working Directory')).toBeVisible();
   await expect(page.locator('.metadata').getByText('Provider UUID')).toBeVisible();
-  await expect(page.locator('.metadata').getByRole('link', { name: /raw json output/i })).toBeVisible();
-  await expect(page.locator('.metadata').getByRole('link', { name: /view all artifacts/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /internal-refactor-stays-refactor/i })).toBeVisible();
+  await expect(page.locator('.metadata').getByRole('link', { name: RAW_JSON_OUTPUT_LINK_NAME })).toBeVisible();
+  await expect(page.locator('.metadata').getByRole('link', { name: VIEW_ALL_ARTIFACTS_LINK_NAME })).toBeVisible();
+  await expect(page.getByRole('button', { name: INTERNAL_REFACTOR_RUN_NAME })).toBeVisible();
   await expect(page.getByText('Evals', { exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Evals' }).locator('.run-link > span:first-child')).toHaveText([
     'internal-refactor-stays-refactor',
@@ -75,13 +85,13 @@ export async function expectDesktopLayout(page: Page) {
     };
   });
 
-  expect(layout.header.height).toBe(64);
+  expect(layout.header.height).toBe(DESKTOP_TOP_BAR_HEIGHT_PX);
   expect(layout.sidebar.left).toBe(0);
-  expect(layout.sidebar.top).toBeGreaterThanOrEqual(64);
-  expect(layout.sidebar.width).toBe(288);
-  expect(layout.content.left).toBeGreaterThanOrEqual(288);
-  expect(layout.contentOverflowY).not.toMatch(/auto|scroll/u);
-  expect(layout.sidebarOverflowY).not.toMatch(/auto|scroll/u);
+  expect(layout.sidebar.top).toBeGreaterThanOrEqual(DESKTOP_TOP_BAR_HEIGHT_PX);
+  expect(layout.sidebar.width).toBe(DESKTOP_SIDEBAR_WIDTH_PX);
+  expect(layout.content.left).toBeGreaterThanOrEqual(DESKTOP_SIDEBAR_WIDTH_PX);
+  expect(layout.contentOverflowY).not.toMatch(SCROLLABLE_OVERFLOW_PATTERN);
+  expect(layout.sidebarOverflowY).not.toMatch(SCROLLABLE_OVERFLOW_PATTERN);
   expect(layout.summary.top).toBeLessThan(layout.expectations.top);
   expect(layout.expectations.bottom).toBeLessThan(layout.feedback.top);
   expect(layout.feedback.bottom).toBeLessThan(layout.history.top);
@@ -113,9 +123,9 @@ export async function expectRunHeaderLayout(page: Page) {
     };
   });
 
-  expect(header.heading.height).toBeLessThanOrEqual(40);
+  expect(header.heading.height).toBeLessThanOrEqual(MAX_RUN_HEADER_HEADING_HEIGHT_PX);
   expect(header.heading.right).toBeLessThan(header.pager.left);
-  expect(header.pagerCount.width).toBeGreaterThanOrEqual(72);
+  expect(header.pagerCount.width).toBeGreaterThanOrEqual(MIN_RUN_PAGER_COUNT_WIDTH_PX);
   expect(header.pagerCountWhiteSpace).toBe('nowrap');
   expect(header.pager.right).toBeLessThanOrEqual(header.content.right);
 }
@@ -136,7 +146,7 @@ export async function expectHoverStyleChange(page: Page, locator: Locator, prope
   await expect.poll(() => readComputedStyle(locator, property, pseudoElement)).not.toBe(before);
 }
 
-export async function readComputedStyle(locator: Locator, property: string, pseudoElement?: string) {
+export function readComputedStyle(locator: Locator, property: string, pseudoElement?: string) {
   return locator.evaluate(
     (node, { cssProperty, pseudo }) => getComputedStyle(node, pseudo).getPropertyValue(cssProperty),
     { cssProperty: property, pseudo: pseudoElement }
@@ -194,7 +204,7 @@ export async function openExpectationFeedback(feedback: Locator) {
   if (isOpen !== 'false') {
     await feedback
       .locator('xpath=ancestor::article[contains(concat(" ", normalize-space(@class), " "), " expectation ")]')
-      .getByRole('button', { name: /toggle feedback/i })
+      .getByRole('button', { name: TOGGLE_FEEDBACK_BUTTON_NAME })
       .click();
     await expect(feedback.locator('xpath=ancestor::div[contains(@class, "inline-feedback")]')).toHaveAttribute(
       'aria-hidden',

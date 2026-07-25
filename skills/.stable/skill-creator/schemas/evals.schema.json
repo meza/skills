@@ -12,6 +12,7 @@
     },
     "skill_name": {
       "type": "string",
+      "description": "The name of the skill being evaluated. This is used for organizational purposes and may be displayed in the UI.",
       "minLength": 1,
       "not": {
         "enum": [".", ".."]
@@ -20,19 +21,23 @@
     },
     "fixture_repo": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Optional URL of the git repository containing fixture files needed for the evals. This allows the system to fetch necessary files for setting up eval environments."
     },
     "fixture_ref": {
       "type": "string",
-      "pattern": "^[0-9a-fA-F]{40}$"
+      "pattern": "^[0-9a-fA-F]{40}$",
+      "description": "The git commit hash (40 hexadecimal characters) to checkout from the fixture repository. This ensures that the correct version of the fixtures is used for the evals."
     },
     "fixture_base_path": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+        "description": "Optional base path within the fixture repository where the relevant fixture files are located. This allows for better organization of fixtures within the repository."
     },
     "evals": {
       "type": "array",
       "minItems": 1,
+      "description": "An array of eval definitions. Each eval represents a specific test case or scenario for evaluating the skill, including the prompts, expected outcomes, and any necessary setup.",
       "items": {
         "$ref": "#/$defs/eval"
       }
@@ -43,38 +48,47 @@
       "type": "object",
       "additionalProperties": true,
       "required": ["id", "turns"],
+      "description": "An eval definition representing a specific test case or scenario for evaluating the skill. It includes an identifier, a sequence of turns (prompts and expectations), and optional configuration such as timeouts and fixture information.",
       "properties": {
         "id": {
-          "type": "integer"
+          "type": "integer",
+          "description": "A unique identifier for the eval. This is used to distinguish between different evals and may be referenced in the UI or logs."
         },
         "eval_name": {
           "type": "string",
+              "description": "A human-readable name for the eval. This can be used in the UI to provide a more descriptive label for the eval instead of just the ID.",
           "minLength": 1
         },
         "timeout": {
           "type": "integer",
+          "description": "The maximum time in seconds that the eval is allowed to run before it is terminated. This helps prevent hanging evals and ensures timely feedback.",
           "minimum": 1
         },
         "fixture": {
           "type": "string",
+          "description": "The path to a fixture file needed for this eval, relative to the fixture_base_path in the root of the schema. This allows for specifying different fixtures for different evals if needed.",
           "minLength": 1
         },
         "fixture_in_workdir": {
+          "description": "If true, the fixture file specified in the 'fixture' property will be copied to the working directory for the eval instead of being accessed from its original location. This can be useful if the eval needs to modify the fixture file during execution without affecting the original.",
           "type": "boolean"
         },
         "files": {
           "type": "array",
+              "description": "An array of file paths that should be made available in the eval environment. This can be used to specify additional files needed for the eval that are not covered by the fixture property.",
           "items": {
             "type": "string",
             "minLength": 1
           }
         },
         "outcome_expectations": {
-          "$ref": "#/$defs/expectations"
+          "$ref": "#/$defs/expectations",
+          "description": "An array of expected outcomes for the eval overall. These are high-level expectations that should be met by the end of the eval, and can be used to determine if the skill is performing as intended."
         },
         "turns": {
           "type": "array",
           "minItems": 1,
+          "description": "An array of turns that make up the eval. Each turn represents a single interaction with the skill, including a prompt and expected outcomes. The sequence of turns defines the flow of the eval and allows for testing complex scenarios.",
           "items": {
             "$ref": "#/$defs/turn"
           }
@@ -85,9 +99,11 @@
       "type": "object",
       "additionalProperties": true,
       "required": ["prompt"],
+      "description": "A turn definition representing a single interaction with the skill during an eval. It includes a prompt that is sent to the skill, expectations for the response, and optional configuration such as timeouts.",
       "properties": {
         "prompt": {
           "type": "string",
+          "description": "The prompt to send to the skill for this turn. This is the input that will be used to evaluate the skill's response and determine if it meets the expectations.",
           "minLength": 1
         },
         "expectations": {
@@ -95,14 +111,17 @@
         },
         "timeout": {
           "type": "integer",
+          "description": "The maximum time in seconds that the turn is allowed to run before it is terminated. This helps prevent hanging turns and ensures timely feedback for each interaction.",
           "minimum": 1
         }
       }
     },
     "expectations": {
       "type": "array",
+      "description": "An array of expected outcomes that should be met for a turn or an entire eval. These expectations are used to evaluate the skill's performance and determine if it is meeting the desired criteria. Each expectation is a string that describes a specific outcome that should be achieved.",
       "items": {
         "type": "string",
+        "description": "A specific expected outcome that should be met. This is used to evaluate the skill's response and determine if it meets the desired criteria for success.",
         "minLength": 1
       }
     }
