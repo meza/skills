@@ -2,6 +2,7 @@ import contextlib
 import io
 import inspect
 import json
+import os
 import sys
 import tempfile
 import time
@@ -37,6 +38,11 @@ from scripts.evaluate.providers.codex import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
 
 
 def timed_process_result(
@@ -852,8 +858,8 @@ class RunSkillEvalsContractTests(unittest.TestCase):
 
     def test_run_skill_evals_delegates_to_runner(self):
         prepared_run = PreparedRun(
-            eval_definitions_path=Path("F:/skills/sample/evals/evals.json"),
-            run_root=Path("F:/runs/prepared"),
+            eval_definitions_path=FAKE_ROOT / "skills/sample/evals/evals.json",
+            run_root=FAKE_ROOT / "runs/prepared",
             provider="codex",
             skill_name="sample",
             evals=[],
@@ -906,13 +912,14 @@ class EvalLibTests(unittest.TestCase):
         )
 
     def test_build_prompt_handles_fixture_path_variants(self):
+        fixture_path = str(FAKE_ROOT / "fixture")
         self.assertEqual(
             build_prompt(
                 "Open {{FIXTURE_PATH}}.",
                 {"turns": [{"prompt": "Open {{FIXTURE_PATH}}."}]},
-                "F:/fixture",
+                fixture_path,
             ),
-            "Open F:/fixture.",
+            f"Open {fixture_path}.",
         )
         self.assertEqual(
             build_prompt(
@@ -921,13 +928,13 @@ class EvalLibTests(unittest.TestCase):
                     "fixture_in_workdir": False,
                     "turns": [{"prompt": "Open the project."}],
                 },
-                "F:/fixture",
+                fixture_path,
             ),
             "Open the project.",
         )
         self.assertEqual(
-            build_prompt("Open the project.", {"turns": []}, "F:/fixture"),
-            "The codebase is at F:/fixture.\n\nOpen the project.",
+            build_prompt("Open the project.", {"turns": []}, fixture_path),
+            f"The codebase is at {fixture_path}.\n\nOpen the project.",
         )
 
     def test_git_config_candidates_and_missing_global_config(self):
@@ -978,24 +985,48 @@ class EvalLibTests(unittest.TestCase):
                 )
             )
 
-    def test_process_tree_helpers_handle_windows_and_unix_failures(self):
-        with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", True),
-            mock.patch.object(eval_job.subprocess, "run", side_effect=OSError),
+    def test_process_tree_helpers_signal_every_descendant(self):
+        child = mock.Mock()
+        grandchild = mock.Mock()
+        parent = mock.Mock()
+        parent.children.return_value = [child, grandchild]
+
+        with mock.patch.object(eval_job.psutil, "Process", return_value=parent):
+            eval_job._kill_process_tree(123)
+
+        parent.children.assert_called_once_with(recursive=True)
+        for process in (child, grandchild, parent):
+            process.terminate.assert_called_once_with()
+            process.kill.assert_not_called()
+
+        parent.reset_mock()
+        parent.children.return_value = [child, grandchild]
+        with mock.patch.object(eval_job.psutil, "Process", return_value=parent):
+            eval_job._force_kill_process_tree(123)
+
+        for process in (child, grandchild, parent):
+            process.kill.assert_called_once_with()
+
+    def test_process_tree_helpers_survive_psutil_failures(self):
+        with mock.patch.object(
+            eval_job.psutil, "Process", side_effect=eval_job.psutil.NoSuchProcess(123)
         ):
             eval_job._kill_process_tree(123)
             eval_job._force_kill_process_tree(123)
 
-        with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", False),
-            mock.patch.object(eval_job.os, "getpgid", return_value=456, create=True),
-            mock.patch.object(eval_job.os, "killpg", side_effect=OSError, create=True),
-            mock.patch.object(eval_job.signal, "SIGKILL", 9, create=True),
-        ):
+        unreachable = mock.Mock()
+        unreachable.terminate.side_effect = eval_job.psutil.AccessDenied(123)
+        unreachable.kill.side_effect = eval_job.psutil.AccessDenied(123)
+        parent = mock.Mock()
+        parent.children.return_value = [unreachable]
+        parent.terminate.side_effect = eval_job.psutil.NoSuchProcess(123)
+        parent.kill.side_effect = eval_job.psutil.NoSuchProcess(123)
+
+        with mock.patch.object(eval_job.psutil, "Process", return_value=parent):
             eval_job._kill_process_tree(123)
             eval_job._force_kill_process_tree(123)
 
-    def test_run_with_timeout_handles_non_windows_process_errors(self):
+    def test_run_with_timeout_handles_process_errors(self):
         class BrokenProcess:
             pid = 123
             returncode = None
@@ -1010,7 +1041,6 @@ class EvalLibTests(unittest.TestCase):
                 self.returncode = -9
 
         with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", False),
             mock.patch.object(
                 eval_job.subprocess, "Popen", return_value=BrokenProcess()
             ) as popen,
@@ -1021,7 +1051,7 @@ class EvalLibTests(unittest.TestCase):
             result = run_with_timeout(
                 ["fake"],
                 "prompt",
-                "F:/tmp",
+                str(FAKE_ROOT / "tmp"),
                 5,
             )
 
@@ -1030,7 +1060,8 @@ class EvalLibTests(unittest.TestCase):
         self.assertEqual(result.returncode, -9)
         self.assertFalse(result.timed_out)
         self.assertGreaterEqual(result.duration_ms, 0)
-        self.assertTrue(popen.call_args.kwargs["start_new_session"])
+        self.assertNotIn("start_new_session", popen.call_args.kwargs)
+        self.assertNotIn("creationflags", popen.call_args.kwargs)
         kill_process_tree.assert_called_once_with(123)
 
     def test_run_with_timeout_returns_named_process_result(self):
@@ -1042,14 +1073,13 @@ class EvalLibTests(unittest.TestCase):
                 return None, None
 
         with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", False),
             mock.patch.object(
                 eval_job.subprocess, "Popen", return_value=CompletedProcess()
             ) as popen,
             mock.patch.object(eval_job.threading, "Timer") as timer,
         ):
             timer.return_value = mock.Mock()
-            result = run_with_timeout(["fake"], "prompt", "F:/tmp", 5)
+            result = run_with_timeout(["fake"], "prompt", str(FAKE_ROOT / "tmp"), 5)
 
         self.assertIsInstance(result, eval_job.TimedProcessResult)
         self.assertEqual(result.stdout, "")
@@ -1098,7 +1128,6 @@ class EvalLibTests(unittest.TestCase):
             return timer
 
         with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", True),
             mock.patch.object(eval_job.subprocess, "Popen", return_value=SlowProcess()),
             mock.patch.object(eval_job.threading, "Timer", side_effect=timer_factory),
             mock.patch.object(eval_job, "_kill_process_tree") as kill_process_tree,
@@ -1106,7 +1135,7 @@ class EvalLibTests(unittest.TestCase):
             result = run_with_timeout(
                 ["fake"],
                 "prompt",
-                "F:/tmp",
+                str(FAKE_ROOT / "tmp"),
                 5,
             )
 
@@ -1140,13 +1169,12 @@ class EvalLibTests(unittest.TestCase):
                     self.function()
 
         with (
-            mock.patch.object(eval_job, "_IS_WINDOWS", True),
             mock.patch.object(eval_job.subprocess, "Popen", return_value=SlowProcess()),
             mock.patch.object(eval_job.threading, "Timer", side_effect=FakeTimer),
             mock.patch.object(eval_job, "_kill_process_tree"),
             mock.patch.object(eval_job, "_force_kill_process_tree"),
         ):
-            result = run_with_timeout(["fake"], "prompt", "F:/tmp", 5)
+            result = run_with_timeout(["fake"], "prompt", str(FAKE_ROOT / "tmp"), 5)
 
         self.assertTrue(result.timed_out)
         self.assertEqual([timer.interval for timer in timers], [5.0, 5.0])
@@ -2066,7 +2094,7 @@ class EvalRunInterruptTests(unittest.TestCase):
             job = EvalJobSpec(
                 {"id": 1, "eval_name": "interrupt"},
                 "skill",
-                "F:/runs/eval-1/skill",
+                str(FAKE_ROOT / "runs/eval-1/skill"),
                 None,
             )
             executor = mock.Mock()
@@ -2074,7 +2102,7 @@ class EvalRunInterruptTests(unittest.TestCase):
             process_registry = mock.Mock()
             run = EvalRun(
                 EvalRunOptions(
-                    eval_definitions_path=Path("F:/skills/evals/evals.json"),
+                    eval_definitions_path=FAKE_ROOT / "skills/evals/evals.json",
                     workspace=iteration_dir,
                     iteration=1,
                     provider_name="fake",
@@ -2084,7 +2112,7 @@ class EvalRunInterruptTests(unittest.TestCase):
                     timeout=600,
                     total_timeout=None,
                     run_types=["skill"],
-                    run_root=Path("F:/runs"),
+                    run_root=FAKE_ROOT / "runs",
                     process_registry=process_registry,
                 ),
                 FakeProvider(),
@@ -2124,7 +2152,7 @@ class CodexProviderTests(unittest.TestCase):
             session_name="eval-1-skill",
             turn_index=0,
             model="gpt-5.4",
-            working_dir="F:/tmp/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
         )
 
         self.assertTrue(
@@ -2152,9 +2180,9 @@ class CodexProviderTests(unittest.TestCase):
                 "-c",
                 "features.plugins=false",
                 "--cd",
-                "F:/tmp/eval-1/skill",
+                str(FAKE_ROOT / "tmp/eval-1/skill"),
                 "--add-dir",
-                "F:/tmp/eval-1/skill",
+                str(FAKE_ROOT / "tmp/eval-1/skill"),
                 "-",
                 "--model",
                 "gpt-5.4",
@@ -2172,7 +2200,7 @@ class CodexProviderTests(unittest.TestCase):
             session_name="eval-1-skill",
             turn_index=1,
             model="gpt-5.4",
-            working_dir="F:/tmp/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
         )
 
         self.assertEqual(
@@ -2338,12 +2366,20 @@ class GitEnvironmentTests(unittest.TestCase):
             "import os; print(os.environ.get('SKILL_CREATOR_ENV_TEST', 'missing'))",
         ]
 
+        env = {"SKILL_CREATOR_ENV_TEST": "present"}
+        # The child is a real interpreter. A relocated CPython (for example the
+        # one actions/setup-python unpacks) resolves libpython through the
+        # loader path, so dropping it would stop the child from starting at all.
+        loader_path = os.environ.get("LD_LIBRARY_PATH")
+        if loader_path:
+            env["LD_LIBRARY_PATH"] = loader_path
+
         result = run_with_timeout(
             command,
             "",
             str(PROJECT_ROOT),
             5,
-            env={"SKILL_CREATOR_ENV_TEST": "present"},
+            env=env,
         )
 
         self.assertEqual(result.stderr, "")

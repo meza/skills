@@ -14,12 +14,17 @@ from unittest import mock
 from scripts import evaluate_skill
 from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
 
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
+
 
 class EvaluateSkillTests(unittest.TestCase):
     def test_execute_prepares_skill_then_runs_prepared_run(self):
         prepared_run = PreparedRun(
-            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
-            run_root=Path("F:/runs/prepared"),
+            eval_definitions_path=FAKE_ROOT / "skills/sample-skill/evals/evals.json",
+            run_root=FAKE_ROOT / "runs/prepared",
             provider="codex",
             skill_name="sample-skill",
             evals=[],
@@ -34,7 +39,10 @@ class EvaluateSkillTests(unittest.TestCase):
         }
         aggregation_result = {
             "json_path": (
-                "F:/runs/sample-skill/results/iteration-3/aggregated_results.json"
+                str(
+                    FAKE_ROOT
+                    / "runs/sample-skill/results/iteration-3/aggregated_results.json"
+                )
             ),
         }
         process_registry = mock.Mock()
@@ -76,8 +84,8 @@ class EvaluateSkillTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as stdout:
                 result = evaluate_skill.execute(
                     argparse.Namespace(
-                        skill_path=Path("F:/skills/sample-skill"),
-                        run_root=Path("F:/runs"),
+                        skill_path=FAKE_ROOT / "skills/sample-skill",
+                        run_root=FAKE_ROOT / "runs",
                         provider="codex",
                         model="gpt-5.4",
                         effort="high",
@@ -99,15 +107,15 @@ class EvaluateSkillTests(unittest.TestCase):
 
         fixture_preparer.return_value.prepare.assert_called_once_with()
         run_skill_prepare_hook.assert_called_once_with(
-            skill_path=Path("F:/skills/sample-skill"),
+            skill_path=FAKE_ROOT / "skills/sample-skill",
             prepared_run=prepared_run,
             eval_ids="1,2",
             timeout=900,
             process_registry=process_registry,
         )
         prepare_options = fixture_preparer.call_args.args[0]
-        self.assertEqual(prepare_options.skill_path, Path("F:/skills/sample-skill"))
-        self.assertEqual(prepare_options.run_root, Path("F:/runs/sample-skill"))
+        self.assertEqual(prepare_options.skill_path, FAKE_ROOT / "skills/sample-skill")
+        self.assertEqual(prepare_options.run_root, FAKE_ROOT / "runs/sample-skill")
         self.assertEqual(prepare_options.provider, "codex")
         self.assertEqual(prepare_options.eval_ids, "1,2")
 
@@ -126,10 +134,12 @@ class EvaluateSkillTests(unittest.TestCase):
         aggregator_args = grading_result_aggregator.call_args.kwargs
         self.assertEqual(
             aggregator_args["iteration_dir"],
-            Path("F:/runs/prepared/results/iteration-3"),
+            FAKE_ROOT / "runs/prepared/results/iteration-3",
         )
         self.assertEqual(aggregator_args["skill_name"], "sample-skill")
-        self.assertEqual(aggregator_args["skill_path"], Path("F:/skills/sample-skill"))
+        self.assertEqual(
+            aggregator_args["skill_path"], FAKE_ROOT / "skills/sample-skill"
+        )
         self.assertEqual(aggregator_args["provider"], "codex")
         self.assertEqual(aggregator_args["model"], "gpt-5.4")
         self.assertEqual(aggregator_args["effort"], "high")
@@ -140,8 +150,8 @@ class EvaluateSkillTests(unittest.TestCase):
 
     def test_execute_kills_active_processes_when_eval_runner_fails(self):
         prepared_run = PreparedRun(
-            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
-            run_root=Path("F:/runs/sample-skill"),
+            eval_definitions_path=FAKE_ROOT / "skills/sample-skill/evals/evals.json",
+            run_root=FAKE_ROOT / "runs/sample-skill",
             provider="codex",
             skill_name="sample-skill",
             evals=[],
@@ -168,8 +178,8 @@ class EvaluateSkillTests(unittest.TestCase):
 
             evaluate_skill.execute(
                 argparse.Namespace(
-                    skill_path=Path("F:/skills/sample-skill"),
-                    run_root=Path("F:/runs"),
+                    skill_path=FAKE_ROOT / "skills/sample-skill",
+                    run_root=FAKE_ROOT / "runs",
                     provider="codex",
                     model="gpt-5.4",
                     effort="high",
@@ -187,24 +197,24 @@ class EvaluateSkillTests(unittest.TestCase):
         first_eval = PreparedEval(
             eval_id=1,
             eval_name="first",
-            skill_run_path=Path("F:/runs/prepared/eval-1/skill"),
-            baseline_run_path=Path("F:/runs/prepared/eval-1/baseline"),
-            skill_file=Path("F:/runs/prepared/eval-1/skill/SKILL.md"),
+            skill_run_path=FAKE_ROOT / "runs/prepared/eval-1/skill",
+            baseline_run_path=FAKE_ROOT / "runs/prepared/eval-1/baseline",
+            skill_file=FAKE_ROOT / "runs/prepared/eval-1/skill/SKILL.md",
             skill_fixture_path=None,
             baseline_fixture_path=None,
         )
         second_eval = PreparedEval(
             eval_id=2,
             eval_name="second",
-            skill_run_path=Path("F:/runs/prepared/eval-2/skill"),
-            baseline_run_path=Path("F:/runs/prepared/eval-2/baseline"),
-            skill_file=Path("F:/runs/prepared/eval-2/skill/SKILL.md"),
+            skill_run_path=FAKE_ROOT / "runs/prepared/eval-2/skill",
+            baseline_run_path=FAKE_ROOT / "runs/prepared/eval-2/baseline",
+            skill_file=FAKE_ROOT / "runs/prepared/eval-2/skill/SKILL.md",
             skill_fixture_path=None,
             baseline_fixture_path=None,
         )
         prepared_run = PreparedRun(
-            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
-            run_root=Path("F:/runs/prepared"),
+            eval_definitions_path=FAKE_ROOT / "skills/sample-skill/evals/evals.json",
+            run_root=FAKE_ROOT / "runs/prepared",
             provider="codex",
             skill_name="sample-skill",
             evals=[first_eval, second_eval],
@@ -241,8 +251,8 @@ class EvaluateSkillTests(unittest.TestCase):
 
             evaluate_skill.execute(
                 argparse.Namespace(
-                    skill_path=Path("F:/skills/sample-skill"),
-                    run_root=Path("F:/runs"),
+                    skill_path=FAKE_ROOT / "skills/sample-skill",
+                    run_root=FAKE_ROOT / "runs",
                     provider="codex",
                     model=None,
                     effort=None,
@@ -259,8 +269,8 @@ class EvaluateSkillTests(unittest.TestCase):
 
     def test_execute_kills_active_processes_when_skill_prepare_hook_fails(self):
         prepared_run = PreparedRun(
-            eval_definitions_path=Path("F:/skills/sample-skill/evals/evals.json"),
-            run_root=Path("F:/runs/sample-skill"),
+            eval_definitions_path=FAKE_ROOT / "skills/sample-skill/evals/evals.json",
+            run_root=FAKE_ROOT / "runs/sample-skill",
             provider="codex",
             skill_name="sample-skill",
             evals=[],
@@ -290,8 +300,8 @@ class EvaluateSkillTests(unittest.TestCase):
 
             evaluate_skill.execute(
                 argparse.Namespace(
-                    skill_path=Path("F:/skills/sample-skill"),
-                    run_root=Path("F:/runs"),
+                    skill_path=FAKE_ROOT / "skills/sample-skill",
+                    run_root=FAKE_ROOT / "runs",
                     provider="codex",
                     model="gpt-5.4",
                     effort="high",
@@ -406,7 +416,7 @@ class EvaluateSkillTests(unittest.TestCase):
     def test_main_parses_cli_options_and_prints_execution_summary(self):
         expected_result = {
             "prepare": {
-                "run_root": "F:/runs/prepared",
+                "run_root": str(FAKE_ROOT / "runs/prepared"),
                 "provider": "codex",
                 "skill_name": "sample-skill",
                 "eval_count": 1,
@@ -416,9 +426,9 @@ class EvaluateSkillTests(unittest.TestCase):
         argv = [
             "evaluate_skill.py",
             "--skill-path",
-            "F:/skills/sample-skill",
+            str(FAKE_ROOT / "skills/sample-skill"),
             "--run-root",
-            "F:/runs",
+            str(FAKE_ROOT / "runs"),
             "--provider",
             "codex",
             "--model",
@@ -444,8 +454,8 @@ class EvaluateSkillTests(unittest.TestCase):
             evaluate_skill.main()
 
         args = execute.call_args.args[0]
-        self.assertEqual(args.skill_path, Path("F:/skills/sample-skill"))
-        self.assertEqual(args.run_root, Path("F:/runs"))
+        self.assertEqual(args.skill_path, FAKE_ROOT / "skills/sample-skill")
+        self.assertEqual(args.run_root, FAKE_ROOT / "runs")
         self.assertEqual(args.provider, "codex")
         self.assertEqual(args.model, "gpt-5.5")
         self.assertEqual(args.effort, "high")
@@ -459,9 +469,9 @@ class EvaluateSkillTests(unittest.TestCase):
         argv = [
             "evaluate_skill.py",
             "--skill-path",
-            "F:/skills/sample-skill",
+            str(FAKE_ROOT / "skills/sample-skill"),
             "--run-root",
-            "F:/runs",
+            str(FAKE_ROOT / "runs"),
             "--provider",
             "codex",
             "--model",
@@ -494,7 +504,7 @@ class EvaluateSkillTests(unittest.TestCase):
                 "--skill-path",
                 ".",
                 "--run-root",
-                "F:/runs",
+                str(FAKE_ROOT / "runs"),
                 "--provider",
                 "codex",
                 "--model",
@@ -520,9 +530,9 @@ class EvaluateSkillTests(unittest.TestCase):
         argv = [
             "evaluate_skill.py",
             "--skill-path",
-            "F:/skills/sample-skill",
+            str(FAKE_ROOT / "skills/sample-skill"),
             "--run-root",
-            "F:/runs",
+            str(FAKE_ROOT / "runs"),
             "--provider",
             "codex",
             "--model",
@@ -556,9 +566,9 @@ class EvaluateSkillTests(unittest.TestCase):
         argv = [
             "evaluate_skill.py",
             "--skill-path",
-            "F:/skills/sample-skill",
+            str(FAKE_ROOT / "skills/sample-skill"),
             "--run-root",
-            "F:/runs",
+            str(FAKE_ROOT / "runs"),
             "--provider",
             "codex",
             "--model",

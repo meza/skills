@@ -15,6 +15,11 @@ from scripts.evaluate.grading import (
 )
 from scripts.evaluate.providers import TurnResult
 
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
+
 
 def timed_process_result(
     stdout: str = "",
@@ -174,8 +179,8 @@ class GradingJobTests(unittest.TestCase):
         eval_job = mock.Mock()
         eval_job.eval_def = {"id": 1}
         eval_job.run_type = "skill"
-        eval_job.run_type_dir = Path("F:/runs/eval-1/skill")
-        eval_job.run_dir = "F:/runs/workdirs/eval-1/skill"
+        eval_job.run_type_dir = FAKE_ROOT / "runs/eval-1/skill"
+        eval_job.run_dir = str(FAKE_ROOT / "runs/workdirs/eval-1/skill")
         provider = FakeProvider()
 
         grading_job = create_grading_job_factory(
@@ -189,8 +194,10 @@ class GradingJobTests(unittest.TestCase):
         self.assertIsInstance(grading_job, GradingJob)
         self.assertEqual(grading_job.eval_def, {"id": 1})
         self.assertEqual(grading_job.run_type, "skill")
-        self.assertEqual(grading_job.run_type_dir, Path("F:/runs/eval-1/skill"))
-        self.assertEqual(grading_job.run_dir, "F:/runs/workdirs/eval-1/skill")
+        self.assertEqual(grading_job.run_type_dir, FAKE_ROOT / "runs/eval-1/skill")
+        self.assertEqual(
+            grading_job.run_dir, str(FAKE_ROOT / "runs/workdirs/eval-1/skill")
+        )
         self.assertEqual(grading_job.skill_name, "sample-skill")
         self.assertIs(grading_job.provider, provider)
         self.assertEqual(grading_job.model, "gpt-test")

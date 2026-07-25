@@ -9,6 +9,11 @@ from scripts.evaluate.results_aggregation import (
     load_eval_metadata,
 )
 
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
+
 
 class GradingResultAggregatorTests(unittest.TestCase):
     def test_calculate_stats_handles_empty_and_multiple_values(self):
@@ -97,7 +102,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
             result = GradingResultAggregator(
                 iteration_dir=iteration_dir,
                 skill_name="sample-skill",
-                skill_path=Path("F:/skills/sample-skill"),
+                skill_path=FAKE_ROOT / "skills/sample-skill",
                 provider="codex",
                 model="gpt-5.5",
                 effort="high",
@@ -118,7 +123,7 @@ class GradingResultAggregatorTests(unittest.TestCase):
             self.assertEqual(aggregated["metadata"]["effort"], "high")
             self.assertEqual(
                 aggregated["metadata"]["skill_path"],
-                str(Path("F:/skills/sample-skill")),
+                str(FAKE_ROOT / "skills/sample-skill"),
             )
             self.assertEqual(
                 aggregated["graded_runs"][0]["grading"],

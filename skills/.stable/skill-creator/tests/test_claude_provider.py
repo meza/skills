@@ -1,8 +1,14 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.evaluate.providers.claude import ClaudeProvider
+
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
 
 
 def stream_json(*events: dict, invalid_line: bool = False) -> str:
@@ -20,7 +26,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
             turn_index=0,
             model="claude-sonnet-4-5",
             effort="high",
-            working_dir="F:/tmp/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
         )
 
         self.assertEqual(
@@ -40,7 +46,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "--permission-mode",
                 "acceptEdits",
                 "--add-dir",
-                "F:/tmp/eval-1/skill",
+                str(FAKE_ROOT / "tmp/eval-1/skill"),
                 "--model",
                 "claude-sonnet-4-5",
             ],
@@ -89,8 +95,8 @@ class ClaudeProviderCommandTests(unittest.TestCase):
         command = ClaudeProvider().build_grading_command(
             model="claude-sonnet-4-5",
             effort="high",
-            working_dir="F:/tmp/eval-1/skill",
-            output_schema="F:/schemas/grading.schema.json",
+            working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
+            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
 
         self.assertEqual(
@@ -106,7 +112,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
                 "--permission-mode",
                 "acceptEdits",
                 "--add-dir",
-                "F:/tmp/eval-1/skill",
+                str(FAKE_ROOT / "tmp/eval-1/skill"),
                 "--model",
                 "claude-sonnet-4-5",
             ],
@@ -118,7 +124,7 @@ class ClaudeProviderCommandTests(unittest.TestCase):
             session_name="eval-1-skill",
             turn_index=0,
             model=None,
-            working_dir="F:/tmp/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
         )
 
         self.assertNotIn("bypassPermissions", command)
@@ -134,8 +140,8 @@ class ClaudeProviderCommandTests(unittest.TestCase):
 
         with ClaudeProvider().process_environment(
             base_env,
-            "F:/tmp/eval-1/skill",
-            Path("F:/tmp/eval-1/artifacts"),
+            str(FAKE_ROOT / "tmp/eval-1/skill"),
+            FAKE_ROOT / "tmp/eval-1/artifacts",
         ) as env:
             self.assertEqual(env["PATH"], "bin")
             self.assertEqual(env["ANTHROPIC_API_KEY"], "anthropic-secret")

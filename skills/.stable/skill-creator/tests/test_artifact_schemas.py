@@ -12,6 +12,11 @@ from scripts.evaluate.artifact_validation import (
     write_json_artifact,
 )
 
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
+
 
 class ArtifactSchemaTests(unittest.TestCase):
     def test_all_schema_files_are_valid_json_schemas(self):
@@ -78,7 +83,9 @@ class ArtifactSchemaTests(unittest.TestCase):
             "eval_name": "sample-eval",
             "turns": [{"prompt": "Do it", "expectations": ["It works"]}],
         }
-        turn_output_root = "F:/runs/iteration-1/eval-1/skill/turn-1/outputs"
+        turn_output_root = str(
+            FAKE_ROOT / "runs/iteration-1/eval-1/skill/turn-1/outputs"
+        )
         run_artifacts = {
             "skill_name": "sample-skill",
             "eval": {
@@ -88,11 +95,17 @@ class ArtifactSchemaTests(unittest.TestCase):
             },
             "run_type": "skill",
             "artifacts": {
-                "results_dir_path": "F:/runs/iteration-1/eval-1/skill",
-                "working_dir_path": "F:/runs/work/eval-1/skill",
-                "run_transcript_path": "F:/runs/iteration-1/eval-1/skill/transcript.md",
-                "raw_output_path": "F:/runs/iteration-1/eval-1/skill/raw_output.jsonl",
-                "timing_path": "F:/runs/iteration-1/eval-1/skill/timing.json",
+                "results_dir_path": str(FAKE_ROOT / "runs/iteration-1/eval-1/skill"),
+                "working_dir_path": str(FAKE_ROOT / "runs/work/eval-1/skill"),
+                "run_transcript_path": str(
+                    FAKE_ROOT / "runs/iteration-1/eval-1/skill/transcript.md"
+                ),
+                "raw_output_path": str(
+                    FAKE_ROOT / "runs/iteration-1/eval-1/skill/raw_output.jsonl"
+                ),
+                "timing_path": str(
+                    FAKE_ROOT / "runs/iteration-1/eval-1/skill/timing.json"
+                ),
                 "turns": [
                     {
                         "turn": 1,
@@ -101,11 +114,11 @@ class ArtifactSchemaTests(unittest.TestCase):
                     }
                 ],
             },
-            "schema_path": "F:/skill-creator/schemas/grading.schema.json",
+            "schema_path": str(FAKE_ROOT / "skill-creator/schemas/grading.schema.json"),
         }
         manifest = {
             "skill_name": "sample-skill",
-            "eval_definitions_path": "F:/skills/sample/evals/evals.json",
+            "eval_definitions_path": str(FAKE_ROOT / "skills/sample/evals/evals.json"),
             "iteration": 1,
             "provider": "codex",
             "model": "gpt-5",
@@ -128,7 +141,7 @@ class ArtifactSchemaTests(unittest.TestCase):
         aggregated = {
             "metadata": {
                 "skill_name": "sample-skill",
-                "skill_path": "F:/skills/sample",
+                "skill_path": str(FAKE_ROOT / "skills/sample"),
                 "provider": "codex",
                 "model": "gpt-5",
                 "effort": "high",
