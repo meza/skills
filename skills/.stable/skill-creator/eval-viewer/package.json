@@ -49,7 +49,7 @@
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "4.1.7",
     "jsdom": "29.1.1",
-    "memfs": "4.57.3",
+    "memfs": "4.64.0",
     "npm-run-all2": "9.0.2",
     "postcss-preset-env": "11.3.2",
     "stylelint": "17.14.0",
