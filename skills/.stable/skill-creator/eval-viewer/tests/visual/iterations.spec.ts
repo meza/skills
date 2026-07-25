@@ -49,9 +49,13 @@ test('older iteration selected state keeps the selected iteration visible', asyn
 test('refresh no-newer status is visible without shifting the header', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByRole('button', { name: CHECK_FOR_NEWER_ITERATION_BUTTON_NAME }).click();
+  const refreshButton = page.getByRole('button', { name: CHECK_FOR_NEWER_ITERATION_BUTTON_NAME });
+  await refreshButton.click();
 
   await expect(page.getByRole('status')).toHaveText('No newer iteration found');
+  // The button is disabled for the duration of the refresh, so screenshotting
+  // on the status text alone races the in-flight state on slower machines.
+  await expect(refreshButton).toBeEnabled();
   await expectNoHorizontalOverflow(page);
   await freezeIterationStatusFade(page);
 
