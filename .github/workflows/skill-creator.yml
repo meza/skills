@@ -100,9 +100,10 @@ jobs:
       - name: Prepare Playwright browser cache
         run: mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 
-      # Browser binary only; OS libs are provisioned on the runner image.
+      # `--with-deps` also installs Chromium's OS libraries (libnspr4 et al),
+      # which the slim runner image does not ship.
       - name: Install Playwright browser
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Visual tests
         run: npm run test:visual
