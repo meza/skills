@@ -1,5 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// The fixed default keeps local runs and CI on one well-known port, but it can
+// collide with anything that happens to hold it (an unrelated process using it
+// as an outbound source port, or an orphaned server from a cancelled run).
+// `reuseExistingServer: false` makes any such collision fatal, so allow an
+// override. The port does not affect rendering, so snapshots are unchanged.
+const DEFAULT_PORT = 4277;
+const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   expect: {
     toHaveScreenshot: {
@@ -8,15 +17,15 @@ export default defineConfig({
   },
   testDir: 'tests/visual',
   use: {
-    baseURL: 'http://127.0.0.1:4277',
+    baseURL,
     trace: 'on-first-retry'
   },
   webServer: {
     command: 'npm run serve:visual',
-    env: { PORT: '4277' },
+    env: { PORT: String(port) },
     reuseExistingServer: false,
     timeout: 240_000,
-    url: 'http://127.0.0.1:4277'
+    url: baseURL
   },
   workers: 1,
   projects: [

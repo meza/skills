@@ -2,6 +2,14 @@ import type { IterationNumber } from '../../src/shared/viewModel.js';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+// The viewer prints the working directory verbatim in its Metadata panel, so
+// this value ends up inside visual snapshots. It must therefore be stable and
+// POSIX-shaped rather than derived from wherever the fixture happens to live:
+// a real checkout path differs in length per machine, which re-wraps the panel
+// and changes the full-page screenshot height. Files are still written to the
+// caller's real root -- only the recorded value is synthetic.
+const FIXTURE_WORKING_DIR_ROOT = '/skill-creator/evals';
+
 interface RichRun {
   duration: number;
   evalId: number;
@@ -301,7 +309,7 @@ async function writeRun(root: string, run: RichRun): Promise<void> {
         transcript_path: join(runTypeRoot, `turn-${index + 1}`, 'outputs', 'transcript.md'),
         turn: index + 1
       })),
-      working_dir_path: join(runTypeRoot, 'work')
+      working_dir_path: `${FIXTURE_WORKING_DIR_ROOT}/eval-${run.evalId}/${run.runType}/work`
     },
     run_type: run.runType,
     schema_path: join(runTypeRoot, 'grading_output_schema.json'),
