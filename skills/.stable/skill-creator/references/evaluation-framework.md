@@ -192,7 +192,7 @@ Rules:
 
 ## Viewer
 
-The viewer exists for human review and provide veedback of eval results. It surfaces the generated artifacts in a user-friendly way, allows drill-down into individual evals, and captures user feedback.
+The viewer exists for human review and provide feedback of eval results. It surfaces the generated artifacts in a user-friendly way, allows drill-down into individual evals, and captures user feedback.
 
 Viewer path:
 
