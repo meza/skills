@@ -6,7 +6,8 @@ export default defineConfig({
   test: {
     coverage: {
       include: ['src/**/*.{ts,tsx}'],
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'json-summary', 'json'],
+      reportsDirectory: 'reports/coverage/unit',
       thresholds: {
         branches: 100,
         functions: 100,
