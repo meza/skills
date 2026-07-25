@@ -47,7 +47,7 @@
     "@types/node": "24.12.4",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
-    "@vitest/coverage-v8": "4.1.7",
+    "@vitest/coverage-v8": "4.1.10",
     "jsdom": "29.1.1",
     "memfs": "4.64.0",
     "npm-run-all2": "9.0.2",
