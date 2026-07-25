@@ -5,11 +5,11 @@
     "includes": [
       "**",
       "!.tmp/**",
-      "!coverage/**",
       "!design/**",
       "!dist/**",
       "!legaci-viewer/**",
       "!node_modules/**",
+      "!reports/**",
       "!test-results/**"
     ]
   }

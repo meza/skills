@@ -7,6 +7,11 @@ from unittest import mock
 from scripts.evaluate.providers import codex as codex_provider
 from scripts.evaluate.providers.codex import CodexProvider
 
+# A Windows drive letter is absolute on Windows but a *relative* path on POSIX
+# (and "/x" is the reverse), so synthetic absolute paths must be anchored to
+# the running platform's filesystem root to stay absolute everywhere.
+FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
+
 
 class CodexProviderEnvironmentTests(unittest.TestCase):
     def test_command_builders_share_codex_eval_policy_args(self):
@@ -17,7 +22,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             session_name="session",
             turn_index=0,
             model=None,
-            working_dir="F:/runs/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
         )
         resume_command = CodexProvider().build_command(
             session_id="thread-123",
@@ -28,8 +33,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         grading_command = CodexProvider().build_grading_command(
             model=None,
             effort=None,
-            working_dir="F:/runs/eval-1/skill",
-            output_schema="F:/schemas/grading.schema.json",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
 
         for command in (start_command, resume_command, grading_command):
@@ -324,7 +329,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             session_name="session",
             turn_index=0,
             model=None,
-            working_dir="F:/runs/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
         )
 
         prompt_index = command.index("-")
@@ -332,7 +337,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertLess(command.index("--add-dir"), prompt_index)
         self.assertEqual(
             command[command.index("--add-dir") + 1],
-            "F:/runs/eval-1/skill",
+            str(FAKE_ROOT / "runs/eval-1/skill"),
         )
         self.assertLess(command.index("--ignore-rules"), prompt_index)
 
@@ -342,7 +347,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             session_name="session",
             turn_index=0,
             model=None,
-            working_dir="F:/runs/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
         )
         resume_command = CodexProvider().build_command(
             session_id="thread-123",
@@ -353,8 +358,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         grading_command = CodexProvider().build_grading_command(
             model=None,
             effort=None,
-            working_dir="F:/runs/eval-1/skill",
-            output_schema="F:/schemas/grading.schema.json",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
 
         for command in (start_command, resume_command, grading_command):
@@ -381,7 +386,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
             session_name="session",
             turn_index=0,
             model=None,
-            working_dir="F:/runs/eval-1/skill",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
         )
         resume_command = CodexProvider().build_command(
             session_id="thread-123",
@@ -392,8 +397,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         grading_command = CodexProvider().build_grading_command(
             model=None,
             effort=None,
-            working_dir="F:/runs/eval-1/skill",
-            output_schema="F:/schemas/grading.schema.json",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
 
         self.assertIn('approval_policy="never"', start_command)
@@ -404,19 +409,19 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         command = CodexProvider().build_grading_command(
             model="gpt-5.5",
             effort=None,
-            working_dir="F:/runs/eval-1/skill",
-            output_schema="F:/schemas/grading.schema.json",
+            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
 
         self.assertIn("--output-schema", command)
         self.assertEqual(
             command[command.index("--output-schema") + 1],
-            "F:/schemas/grading.schema.json",
+            str(FAKE_ROOT / "schemas/grading.schema.json"),
         )
         self.assertIn("--cd", command)
         self.assertEqual(
             command[command.index("--cd") + 1],
-            "F:/runs/eval-1/skill",
+            str(FAKE_ROOT / "runs/eval-1/skill"),
         )
         self.assertIn("--sandbox", command)
         self.assertEqual(command[command.index("--sandbox") + 1], "workspace-write")

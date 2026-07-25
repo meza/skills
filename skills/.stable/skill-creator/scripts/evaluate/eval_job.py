@@ -3,7 +3,6 @@
 import contextlib
 import json
 import os
-import signal
 import subprocess
 import sys
 import tempfile
@@ -15,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+import psutil
+
 from .artifact_validation import write_json_artifact
 from .eval_definitions import (
     EvalDefinition,
@@ -23,7 +24,6 @@ from .eval_definitions import (
 from .providers import Provider
 from .telemetry import redact_sensitive_telemetry
 
-_IS_WINDOWS = sys.platform == "win32"
 DEFAULT_PROVIDER_OUTPUT_LIMIT_BYTES = 20 * 1024 * 1024
 
 
@@ -181,33 +181,35 @@ def stop_git_fsmonitor_daemons(run_root: Path | str) -> None:
             pass
 
 
+def _signal_process_tree(pid, force):
+    """Signal a process and every descendant it still has.
+
+    psutil maps ``terminate``/``kill`` onto the right primitive per platform
+    (SIGTERM/SIGKILL on POSIX, TerminateProcess on Windows), so the caller
+    never has to branch on the host operating system.
+    """
+    try:
+        parent = psutil.Process(pid)
+        processes = parent.children(recursive=True)
+    except psutil.Error:
+        return
+    processes.append(parent)
+    for process in processes:
+        with contextlib.suppress(psutil.Error):
+            if force:
+                process.kill()
+            else:
+                process.terminate()
+
+
 def _kill_process_tree(pid):
-    """Kill a process and all its children."""
-    if _IS_WINDOWS:
-        try:
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/PID", str(pid)],
-                capture_output=True,
-            )
-        except OSError:
-            pass
-    else:
-        try:
-            pgid = os.getpgid(pid)
-            os.killpg(pgid, signal.SIGTERM)
-        except OSError:
-            pass
+    """Ask a process tree to terminate."""
+    _signal_process_tree(pid, force=False)
 
 
 def _force_kill_process_tree(pid):
-    """Force kill a process tree on Unix."""
-    if _IS_WINDOWS:
-        return
-    try:
-        pgid = os.getpgid(pid)
-        os.killpg(pgid, signal.SIGKILL)
-    except OSError:
-        pass
+    """Forcefully kill a process tree that ignored termination."""
+    _signal_process_tree(pid, force=True)
 
 
 @dataclass
@@ -257,7 +259,10 @@ def run_with_timeout(
         tempfile.TemporaryFile(mode="w+b") as stdout_file,
         tempfile.TemporaryFile(mode="w+b") as stderr_file,
     ):
-        popen_kwargs = dict(
+        # No process-group flags: the tree is killed by walking descendants
+        # (see _signal_process_tree), which needs no platform-specific setup.
+        process = subprocess.Popen(
+            cmd,
             stdin=subprocess.PIPE,
             stdout=stdout_file,
             stderr=stderr_file,
@@ -266,12 +271,6 @@ def run_with_timeout(
             text=True,
             encoding="utf-8",
         )
-        if _IS_WINDOWS:
-            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            popen_kwargs["start_new_session"] = True
-
-        process = subprocess.Popen(cmd, **popen_kwargs)
         registry.register(process.pid)
 
         timed_out = False

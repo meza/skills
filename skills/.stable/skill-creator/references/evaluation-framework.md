@@ -54,6 +54,12 @@ Results are written under:
 
 ## Run evaluator
 
+Install once:
+
+```bash
+python -m pip install psutil
+```
+
 Command:
 
 ```bash

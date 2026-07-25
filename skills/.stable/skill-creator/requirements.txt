@@ -4,6 +4,7 @@ coverage
 flake8
 flake8-cognitive-complexity
 jsonschema
+psutil
 pytest
 pytest-cov
 ruff
