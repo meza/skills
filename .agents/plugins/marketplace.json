@@ -1,0 +1,32 @@
+{
+  "name": "mezas-skills",
+  "interface": {
+    "displayName": "Meza's Skills"
+  },
+  "plugins": [
+    {
+      "name": "skill-creator",
+      "source": {
+        "source": "local",
+        "path": "./skills/.stable/skill-creator"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "conventional-commit-message",
+      "source": {
+        "source": "local",
+        "path": "./skills/.stable/conventional-commit-message"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

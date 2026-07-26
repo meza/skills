@@ -1,0 +1,32 @@
+{
+  "name": "review-swarm",
+  "description": "Symptom-based multi-agent code review: fans out one investigator per quality symptom, then distills the findings into an actionable review.",
+  "version": "0.1.0",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/review-swarm",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "code-review",
+    "quality",
+    "multi-agent"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Review Swarm",
+    "shortDescription": "Review changes through many quality lenses",
+    "longDescription": "Run a symptom-based multi-agent code review and distill the investigators' findings into one prioritized, actionable report.",
+    "developerName": "meza",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "websiteURL": "https://github.com/meza/skills",
+    "defaultPrompt": [
+      "Run the review swarm on my current changes."
+    ]
+  }
+}
