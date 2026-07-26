@@ -10,12 +10,12 @@
   "plugins": [
     {
       "name": "skill-creator",
-      "source": "./skills/.stable/skill-creator",
+      "source": "./skills/skill-creator",
       "description": "Meza's skill creator"
     },
     {
       "name": "conventional-commit-message",
-      "source": "./skills/.stable/conventional-commit-message",
+      "source": "./skills/conventional-commit-message",
       "description": "Conventional Commit Message creator"
     },
     {

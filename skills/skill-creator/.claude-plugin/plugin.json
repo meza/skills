@@ -5,7 +5,7 @@
   "author": {
     "name": "meza"
   },
-  "homepage": "https://github.com/meza/skills/tree/main/skills/.stable/skill-creator",
+  "homepage": "https://github.com/meza/skills/tree/main/skills/skill-creator",
   "repository": "https://github.com/meza/skills",
   "license": "Apache-2.0",
   "keywords": [

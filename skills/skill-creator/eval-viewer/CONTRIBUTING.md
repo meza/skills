@@ -3,7 +3,7 @@
 Work from the `eval-viewer` directory:
 
 ```bash
-cd skills/.stable/skill-creator/eval-viewer
+cd skills/skill-creator/eval-viewer
 ```
 
 ## Install Tools

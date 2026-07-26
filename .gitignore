@@ -1,5 +1,4 @@
 tmp/
-skills/.wip/
 **/*/__pycache__/
 .coverage
 .idea

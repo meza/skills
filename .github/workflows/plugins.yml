@@ -7,7 +7,7 @@ on:
       - .claude-plugin/**
       - .agents/**
       - plugins/**
-      - skills/.stable/**
+      - skills/**
       - .github/workflows/plugins.yml
       - .github/scripts/**
   push:
@@ -16,7 +16,7 @@ on:
       - .claude-plugin/**
       - .agents/**
       - plugins/**
-      - skills/.stable/**
+      - skills/**
       - .github/workflows/plugins.yml
       - .github/scripts/**
 
