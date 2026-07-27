@@ -1,5 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef } from 'react';
-import styles from './ActionButton.module.css';
+import * as actionButtonStyles from './ActionButton.module.css';
+
+const { default: styles } = actionButtonStyles;
 
 type ActionButtonVariant = 'primary' | 'secondary';
 

@@ -1,7 +1,9 @@
 import type { IterationNumber } from '../../../shared/viewModel.js';
 import { useEffect, useId, useRef } from 'react';
 import { ActionButton } from '../ActionButton/ActionButton.js';
-import styles from './NewIterationDialog.module.css';
+import * as newIterationDialogStyles from './NewIterationDialog.module.css';
+
+const { default: styles } = newIterationDialogStyles;
 
 export function NewIterationDialog({
   currentIteration,

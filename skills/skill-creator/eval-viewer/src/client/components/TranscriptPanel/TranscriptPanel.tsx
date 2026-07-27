@@ -1,6 +1,8 @@
 import type { IterationNumber, RunView } from '../../../shared/viewModel.js';
 import { artifactHref, displayWorkingDirectory } from '../../formatters.js';
-import styles from './TranscriptPanel.module.css';
+import * as transcriptPanelStyles from './TranscriptPanel.module.css';
+
+const { default: styles } = transcriptPanelStyles;
 
 export function TranscriptPanel({ iteration, run }: { iteration: IterationNumber; run: RunView }) {
   return (

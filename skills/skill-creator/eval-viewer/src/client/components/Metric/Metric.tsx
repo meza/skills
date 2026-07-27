@@ -1,4 +1,6 @@
-import styles from './Metric.module.css';
+import * as metricStyles from './Metric.module.css';
+
+const { default: styles } = metricStyles;
 
 export function Metric({
   label,

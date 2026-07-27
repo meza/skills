@@ -1,7 +1,9 @@
 import type { RunFeedbackView } from '../../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
 import { ActionButton } from '../ActionButton/ActionButton.js';
-import styles from './FeedbackPanel.module.css';
+import * as feedbackPanelStyles from './FeedbackPanel.module.css';
+
+const { default: styles } = feedbackPanelStyles;
 
 export function FeedbackPanel({
   draft,
