@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "allowArbitraryExtensions": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "jsx": "react-jsx",

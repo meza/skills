@@ -1,9 +1,0 @@
-export declare const heading: string;
-export declare const headingIcon: string;
-export declare const headingMain: string;
-export declare const panel: string;
-export declare const resultButton: string;
-export declare const resultToggle: string;
-export declare const summary: string;
-export declare const title: string;
-export declare const titleGroup: string;
