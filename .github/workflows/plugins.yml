@@ -5,16 +5,18 @@ on:
     branches: [main]
     paths:
       - .claude-plugin/**
+      - .agents/**
       - plugins/**
-      - skills/.stable/**
+      - skills/**
       - .github/workflows/plugins.yml
       - .github/scripts/**
   push:
     branches: [main]
     paths:
       - .claude-plugin/**
+      - .agents/**
       - plugins/**
-      - skills/.stable/**
+      - skills/**
       - .github/workflows/plugins.yml
       - .github/scripts/**
 
@@ -37,7 +39,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.18.0
+          node-version: 18.20.8
+
+      - name: Test review-swarm helper
+        run: node --test plugins/review-swarm/shared/review-swarm.test.mjs
 
       # Invariants the CLI does not cover. Verified against 2.1.104: validating a
       # marketplace root does not recurse into plugin.json and does not check that a
@@ -66,4 +71,18 @@ jobs:
           for src in $sources; do
             echo "── $src"
             npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate "$src"
+          done
+
+      - name: Install every Codex marketplace entry
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$CODEX_HOME"
+          npx --yes @openai/codex@0.145.0 plugin marketplace add "$PWD"
+          marketplace=$(node -p 'JSON.parse(require("fs").readFileSync(".agents/plugins/marketplace.json", "utf8")).name')
+          names=$(node -e 'for (const p of JSON.parse(require("fs").readFileSync(".agents/plugins/marketplace.json", "utf8")).plugins) console.log(p.name)')
+          for name in $names; do
+            echo "-- $name@$marketplace"
+            npx --yes @openai/codex@0.145.0 plugin add "$name@$marketplace" --json
           done

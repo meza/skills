@@ -1,0 +1,203 @@
+import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel.js';
+import { useEffect, useId, useRef, useState } from 'react';
+import { turnExpectationIndex } from '../../../shared/feedbackModel.js';
+import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../../feedbackDraft.js';
+import * as styles from './ExpectationCard.module.css';
+
+export function ExpectationCard({
+  allowFeedback,
+  comparisonExpectation,
+  comparisonLabel,
+  draft,
+  expectation,
+  expectations,
+  index,
+  updateDraft
+}: {
+  allowFeedback: boolean;
+  comparisonExpectation: ExpectationView | undefined;
+  comparisonLabel: string;
+  draft: RunFeedbackView;
+  expectation: ExpectationView;
+  expectations: ExpectationView[];
+  index: number;
+  updateDraft: FeedbackDraftUpdater;
+}) {
+  const comment = allowFeedback ? expectationComment(draft, expectation, expectations, index) : '';
+  const feedbackRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackId = useId();
+  const feedbackStartsOpen = !expectation.passed || comment.trim().length > 0;
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(feedbackStartsOpen);
+  const label =
+    expectation.scope === 'overall'
+      ? `Feedback for overall expectation ${index + 1}`
+      : `Feedback for turn ${expectation.turn} expectation ${turnExpectationIndex(expectations, expectation, index) + 1}`;
+
+  useEffect(() => {
+    const feedback = feedbackRef.current;
+    if (feedback) {
+      feedback.textContent = '';
+    }
+  }, []);
+
+  const toggleFeedback = () => {
+    setIsFeedbackOpen((current) => !current);
+  };
+
+  const className = [
+    styles.card,
+    expectation.passed ? styles.passing : styles.failing,
+    allowFeedback ? styles.feedbackEnabled : undefined,
+    'expectation',
+    expectation.passed ? 'pass' : 'fail',
+    allowFeedback ? 'feedback-enabled' : undefined
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <article className={className}>
+      {allowFeedback ? (
+        <button
+          aria-controls={feedbackId}
+          aria-expanded={isFeedbackOpen}
+          aria-label={`Toggle feedback for ${expectation.text}`}
+          className={`${styles.cardContent} ${styles.toggle} expectation-toggle`}
+          onClick={toggleFeedback}
+          type='button'>
+          <ExpectationCardBody
+            comparisonExpectation={comparisonExpectation}
+            comparisonLabel={comparisonLabel}
+            expectation={expectation}
+          />
+        </button>
+      ) : (
+        <ExpectationCardBody
+          comparisonExpectation={comparisonExpectation}
+          comparisonLabel={comparisonLabel}
+          expectation={expectation}
+        />
+      )}
+      {allowFeedback ? (
+        <div
+          aria-hidden={!isFeedbackOpen}
+          className={`${styles.cardContent} ${styles.inlineFeedback} inline-feedback`}
+          id={feedbackId}>
+          <div className={`${styles.feedbackFrame} feedback-input-frame`}>
+            <textarea
+              aria-label={label}
+              className={styles.feedbackInput}
+              onChange={(event) => {
+                const nextComment = event.currentTarget.value;
+                updateDraft((draft) => updateExpectationComment(draft, expectation, expectations, index, nextComment));
+              }}
+              placeholder='Add feedback for this expectation...'
+              ref={feedbackRef}
+              tabIndex={isFeedbackOpen ? undefined : -1}
+              value={comment}
+            />
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function ExpectationCardBody({
+  comparisonExpectation,
+  comparisonLabel,
+  expectation
+}: {
+  comparisonExpectation: ExpectationView | undefined;
+  comparisonLabel: string;
+  expectation: ExpectationView;
+}) {
+  const hasEvidence = Boolean(expectation.evidence);
+
+  return (
+    <>
+      <div className={`${styles.cardContent} ${styles.main} expectation-main`}>
+        <ExpectationCardHeader
+          comparisonExpectation={comparisonExpectation}
+          comparisonLabel={comparisonLabel}
+          expectation={expectation}
+        />
+      </div>
+      {hasEvidence ? (
+        <div className={`${styles.cardContent} ${styles.evidenceGrid} evidence-grid`}>
+          <EvidenceBlock label='Evidence' text={expectation.evidence} />
+        </div>
+      ) : null}
+      {!hasEvidence ? (
+        <p className={`${styles.cardContent} ${styles.emptyCopy} empty-copy`}>
+          No evidence was recorded for this expectation.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function ExpectationCardHeader({
+  comparisonExpectation,
+  comparisonLabel,
+  expectation
+}: {
+  comparisonExpectation: ExpectationView | undefined;
+  comparisonLabel: string;
+  expectation: ExpectationView;
+}) {
+  return (
+    <>
+      <div className={`${styles.statusIcon} status-icon`}>
+        <span aria-hidden='true' className='material-symbols-outlined'>
+          {expectation.passed ? 'check' : 'close'}
+        </span>
+      </div>
+      <div>
+        <p className={`${styles.text} expectation-text`}>{expectation.text}</p>
+      </div>
+      <StatusBadge comparison={comparisonExpectation} comparisonLabel={comparisonLabel} passed={expectation.passed} />
+    </>
+  );
+}
+
+function StatusBadge({
+  comparison,
+  comparisonLabel,
+  passed
+}: {
+  comparison: ExpectationView | undefined;
+  comparisonLabel: string;
+  passed: boolean;
+}) {
+  return (
+    <span
+      className={[
+        styles.badge,
+        passed ? styles.passingBadge : styles.failingBadge,
+        'status-badge',
+        passed ? 'pass' : 'fail'
+      ].join(' ')}>
+      {passed ? 'PASS' : 'FAIL'} |{' '}
+      <em>
+        {comparisonLabel}: {expectationStatus(comparison)}
+      </em>
+    </span>
+  );
+}
+
+function EvidenceBlock({ label, text }: { label: string; text: string }) {
+  return (
+    <div className={`${styles.evidence} evidence`}>
+      <span className={styles.evidenceLabel}>{label}</span>
+      <p className={styles.evidenceText}>{text}</p>
+    </div>
+  );
+}
+
+function expectationStatus(expectation: ExpectationView | undefined): 'FAIL' | 'N/A' | 'PASS' {
+  if (!expectation) {
+    return 'N/A';
+  }
+  return expectation.passed ? 'PASS' : 'FAIL';
+}

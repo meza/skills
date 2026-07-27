@@ -1,0 +1,31 @@
+{
+  "name": "skill-creator",
+  "version": "1.0.0",
+  "description": "Meza's skill creator",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/skills/skill-creator",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "skills",
+    "authoring",
+    "evals"
+  ],
+  "interface": {
+    "displayName": "Skill Creator",
+    "shortDescription": "Create and evaluate agent skills",
+    "longDescription": "Develop agent skills through an eval-driven workflow that compares runs, grades outputs, and supports human review.",
+    "developerName": "meza",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/meza/skills",
+    "defaultPrompt": [
+      "Help me create and evaluate an agent skill."
+    ]
+  }
+}
