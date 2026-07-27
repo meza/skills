@@ -44,6 +44,9 @@ jobs:
       - name: Test review-swarm helper
         run: node --test plugins/review-swarm/shared/review-swarm.test.mjs
 
+      - name: Test review-swarm-fast helper
+        run: node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
+
       # Invariants the CLI does not cover. Verified against 2.1.104: validating a
       # marketplace root does not recurse into plugin.json and does not check that a
       # `source` exists, so a plugin with a wrong name, a non-semver version, and a

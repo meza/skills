@@ -28,14 +28,41 @@ review-swarm/
 
 Claude keeps its named workflow and direct-path fallback. Codex uses native subagents directly from its skill. Both hosts use the same offline helper and repository-owned artifacts.
 
+## Review Swarm Fast
+
+`review-swarm-fast` covers the same 84 lenses, grouped into 9 areas of inquiry. One investigator owns one area: it reads the change once, then judges it against every symptom in that area. The fan-out is 9 agents instead of 84, which is where the time is saved.
+
+`code_review_symptom_groups.csv` is this plugin's single authoritative catalogue, in the same register as the symptom catalogue but grouped: one row per area, `id,name,description,details,symptoms`. `details` is the combined lens for the area - what it covers, why those symptoms are answered by the same reading of the code, what strong and weak signals look like, and why the area matters. `symptoms` carries the area's own symptom definitions, one `SYM-### | name | description` per line. Nothing is referenced from outside the row, so a group travels with everything an investigator needs to review it.
+
+Symptoms are grouped by the reading they require: the same files, the same traces, the same mental model.
+
+| Area | Symptoms | Reading it requires |
+| --- | --- | --- |
+| GRP-01 Comprehension and intent | 10 | The change as its next maintainer will read it |
+| GRP-02 Domain modeling and data expressiveness | 7 | Declarations, signatures, and data shapes |
+| GRP-03 State effects and failure behavior | 11 | Execution paths, including every failure path |
+| GRP-04 Structure boundaries and dependencies | 8 | The change mapped onto the modules around it |
+| GRP-05 Evolvability and consistency | 9 | The cost of the next change, and the neighbours' conventions |
+| GRP-06 Operability and production behavior | 9 | The system from the position of whoever is on call |
+| GRP-07 Security privacy and user harm | 9 | Trust, privilege, and consequence for the people it touches |
+| GRP-08 Test meaning and evidence | 11 | Each test as a specification of a promise |
+| GRP-09 Test placement and isolation | 10 | Each test's layer and what it really touches |
+
+Coverage stays accountable rather than assumed. `verify` fails if two areas define the same symptom id, so every finding is attributable to exactly one area. Each investigator must return one finding per symptom its area defines, with clean symptoms scored 0 rather than omitted, so a dropped symptom fails validation instead of passing as silence. The raw audit is written in symptom-id order and is shape-identical to a `review-swarm` run.
+
+Validation can force a symptom to be answered, but it cannot force it to be searched. The brief's self-verification therefore asks the investigator whether any symptom in its area got a shallower search because a neighbouring symptom produced a louder finding, and requires it to search that symptom on its own terms before finishing.
+
+The two plugins are independent packages and share no artifacts. `review-swarm` owns the per-symptom catalogue; `review-swarm-fast` owns the grouped one. A change to the review lenses that should apply to both has to be made in both.
+
 ## Artifact ownership
 
-The catalogue, instruction template, and output schema under `review-swarm/shared` are authoritative in this repository. Runtime code does not download or synchronize them. Git and the plugin version are the version history.
+The catalogues, instruction templates, and output schemas under each plugin's `shared` directory are authoritative in this repository. Runtime code does not download or synchronize them. Git and the plugin version are the version history.
 
-The helper requires Node 18 or newer. It validates the artifact contracts before rendering briefs or accepting results:
+The helpers require Node 18 or newer. They validate the artifact contracts before rendering briefs or accepting results:
 
 ```console
 node plugins/review-swarm/shared/review-swarm.mjs verify
+node plugins/review-swarm-fast/shared/review-swarm-fast.mjs verify
 ```
 
 ## Validation
@@ -44,19 +71,22 @@ Run the fast local checks from the repository root:
 
 ```console
 node --test plugins/review-swarm/shared/review-swarm.test.mjs
+node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
 node .github/scripts/check-plugins.mjs .
 npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate plugins/review-swarm
+npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate plugins/review-swarm-fast
 ```
 
 CI also adds this repository as an isolated Codex marketplace with `@openai/codex@0.145.0` and installs every listed Codex plugin. This catches marketplace ingestion and cached-package path errors.
 
 ## Release procedure
 
-When changing the catalogue, template, or schema:
+When changing a catalogue, template, or schema:
 
-1. Edit the authoritative file under `review-swarm/shared`.
-2. Run the helper tests and both host validators.
-3. Bump both plugin manifests to the same semantic version.
-4. Bump `.claude-plugin/marketplace.json` metadata when publishing the repository marketplace update.
+1. Edit the authoritative file under the plugin's `shared` directory.
+2. If the change should apply to both plugins, make it in both catalogues. Adding a symptom to `review-swarm-fast` means adding a line to the area that owns it.
+3. Run the helper tests and both host validators.
+4. Bump that plugin's two manifests to the same semantic version.
+5. Bump `.claude-plugin/marketplace.json` metadata when publishing the repository marketplace update.
 
 There is no upstream synchronization step. A previous release can be restored by reverting the plugin and marketplace files together.

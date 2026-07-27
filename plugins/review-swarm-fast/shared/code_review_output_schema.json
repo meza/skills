@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "symptom_id",
+    "severity",
+    "confidence",
+    "scope",
+    "summary",
+    "evidence",
+    "rationale"
+  ],
+  "properties": {
+    "symptom_id": {
+      "type": "string",
+      "description": "The unique symptom ID being evaluated, for example SYM-023."
+    },
+    "severity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "How severe the issue is for this symptom. 0 means no issue found. 1 minor issue. 2 meaningful issue. 3 serious issue. 4 critical issue. 5 catastrophic issue."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "How confident the reviewer is in the severity judgment based on available evidence."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["local", "cross_cutting", "systemic"],
+      "description": "How far the issue reaches. Local affects one narrow area. Cross_cutting affects multiple files or one concern across several places. Systemic affects architecture, core patterns, or the whole system."
+    },
+    "summary": {
+      "type": "string",
+      "description": "A short plain-language statement of the finding for this symptom."
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Concrete evidence supporting the judgment.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Why this severity and scope were chosen, tying the evidence back to the symptom definition."
+    }
+  }
+}
+
