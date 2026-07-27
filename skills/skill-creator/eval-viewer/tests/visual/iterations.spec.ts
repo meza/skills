@@ -58,6 +58,7 @@ test('refresh no-newer status is visible without shifting the header', async ({ 
   await expect(refreshButton).toBeEnabled();
   await expectNoHorizontalOverflow(page);
   await freezeIterationStatusFade(page);
+  await refreshButton.hover();
 
   await expect(page.locator('.run-context-row')).toHaveScreenshot('viewer-no-newer-iteration-status-state.png');
 });
