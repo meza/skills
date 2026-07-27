@@ -117,51 +117,63 @@ function validateCodexMarketplace() {
   return entries
 }
 
-function validateReviewSwarm(claudeEntries, codexEntries) {
-  const claude = claudeEntries.get('review-swarm')
-  const codex = codexEntries.get('review-swarm')
-  if (!claude) fail('review-swarm must be listed in the Claude marketplace')
-  if (!codex) fail('review-swarm must be listed in the Codex marketplace')
+/**
+ * Validates one dual-runtime swarm plugin: shared source path, matching versions, explicit
+ * component paths, and the runtime files both runtimes need. `extraSharedFiles` carries the
+ * artifacts specific to that variant, so a missing catalogue or template fails the build.
+ */
+function validateSwarmPlugin(name, claudeEntries, codexEntries, extraSharedFiles) {
+  const claude = claudeEntries.get(name)
+  const codex = codexEntries.get(name)
+  if (!claude) fail(`${name} must be listed in the Claude marketplace`)
+  if (!codex) fail(`${name} must be listed in the Codex marketplace`)
   if (!claude || !codex) return
 
-  if (claude.sourcePath !== './plugins/review-swarm' || codex.sourcePath !== './plugins/review-swarm') {
-    fail('review-swarm marketplace entries must share ./plugins/review-swarm')
+  const expectedSource = `./plugins/${name}`
+  if (claude.sourcePath !== expectedSource || codex.sourcePath !== expectedSource) {
+    fail(`${name} marketplace entries must share ${expectedSource}`)
   }
   if (claude.manifest.version !== codex.manifest.version) {
-    fail('review-swarm Claude and Codex manifest versions must match')
+    fail(`${name} Claude and Codex manifest versions must match`)
   }
   if (claude.manifest.skills !== './claude/skills/' || claude.manifest.hooks !== './claude/hooks/hooks.json') {
-    fail('review-swarm Claude manifest must use explicit ./claude component paths')
+    fail(`${name} Claude manifest must use explicit ./claude component paths`)
   }
   if (codex.manifest.skills !== './codex/skills/') {
-    fail('review-swarm Codex manifest must use explicit ./codex/skills/')
+    fail(`${name} Codex manifest must use explicit ./codex/skills/`)
   }
-  if ('hooks' in codex.manifest) fail('review-swarm Codex manifest must not declare hooks')
+  if ('hooks' in codex.manifest) fail(`${name} Codex manifest must not declare hooks`)
 
   const pluginDirectory = claude.pluginDirectory
   for (const forbidden of ['skills', 'hooks']) {
     if (existsSync(join(pluginDirectory, forbidden))) {
-      fail(`review-swarm must not contain a root-level ${forbidden}/ directory`)
+      fail(`${name} must not contain a root-level ${forbidden}/ directory`)
     }
   }
   for (const required of [
-    'claude/skills/review-swarm/SKILL.md',
+    `claude/skills/${name}/SKILL.md`,
     'claude/hooks/hooks.json',
     'claude/scripts/install-workflow.js',
-    'claude/workflows/review-swarm.js',
-    'codex/skills/review-swarm/SKILL.md',
-    'shared/code_review_symptoms.csv',
-    'shared/instruction_template.md',
+    `claude/workflows/${name}.js`,
+    `codex/skills/${name}/SKILL.md`,
     'shared/code_review_output_schema.json',
-    'shared/review-swarm.mjs',
+    `shared/${name}.mjs`,
+    ...extraSharedFiles,
   ]) {
-    if (!existsSync(join(pluginDirectory, required))) fail(`review-swarm is missing ${required}`)
+    if (!existsSync(join(pluginDirectory, required))) fail(`${name} is missing ${required}`)
   }
 }
 
 const claudeEntries = validateClaudeMarketplace()
 const codexEntries = validateCodexMarketplace()
-validateReviewSwarm(claudeEntries, codexEntries)
+validateSwarmPlugin('review-swarm', claudeEntries, codexEntries, [
+  'shared/code_review_symptoms.csv',
+  'shared/instruction_template.md',
+])
+validateSwarmPlugin('review-swarm-fast', claudeEntries, codexEntries, [
+  'shared/code_review_symptom_groups.csv',
+  'shared/group_instruction_template.md',
+])
 
 if (errors.length) {
   console.error(`\n${errors.length} problem(s):\n`)

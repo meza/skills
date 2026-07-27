@@ -1,0 +1,18 @@
+{
+  "name": "review-swarm-fast",
+  "description": "Fast symptom-based multi-agent code review: groups the quality symptoms into 9 areas of inquiry, fans out one investigator per area, then distills the findings into an actionable review.",
+  "version": "0.1.0",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/review-swarm-fast",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "code-review",
+    "quality",
+    "multi-agent"
+  ],
+  "skills": "./claude/skills/",
+  "hooks": "./claude/hooks/hooks.json"
+}
