@@ -1,9 +1,7 @@
 import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel.js';
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
 import { ExpectationCard } from '../ExpectationCard/ExpectationCard.js';
-import * as expectationSectionStyles from './ExpectationSection.module.css';
-
-const { default: styles } = expectationSectionStyles;
+import * as styles from './ExpectationSection.module.css';
 
 export function ExpectationSection({
   allowFeedback,

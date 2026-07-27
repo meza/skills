@@ -1,7 +1,5 @@
 import type { IterationView } from '../../../shared/viewModel.js';
-import * as appHeaderStyles from './AppHeader.module.css';
-
-const { default: styles } = appHeaderStyles;
+import * as styles from './AppHeader.module.css';
 
 export function AppHeader({ summary }: { summary: IterationView['summary'] }) {
   return (

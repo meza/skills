@@ -1,8 +1,6 @@
 import type { ChangeEvent } from 'react';
 import type { IterationNumber, IterationView } from '../../../shared/viewModel.js';
-import * as iterationControlStyles from './IterationControl.module.css';
-
-const { default: styles } = iterationControlStyles;
+import * as styles from './IterationControl.module.css';
 
 export function IterationControl({
   isRefreshing,

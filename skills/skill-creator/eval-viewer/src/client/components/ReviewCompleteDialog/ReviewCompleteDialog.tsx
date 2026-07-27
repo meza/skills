@@ -1,8 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { ActionButton } from '../ActionButton/ActionButton.js';
-import * as reviewCompleteDialogStyles from './ReviewCompleteDialog.module.css';
-
-const { default: styles } = reviewCompleteDialogStyles;
+import * as styles from './ReviewCompleteDialog.module.css';
 
 export function ReviewCompleteDialog({ isOpen, onDismiss }: { isOpen: boolean; onDismiss: () => void }) {
   const titleId = useId();

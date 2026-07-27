@@ -2,9 +2,7 @@ import type { ExpectationView, RunFeedbackView } from '../../../shared/viewModel
 import { useEffect, useId, useRef, useState } from 'react';
 import { turnExpectationIndex } from '../../../shared/feedbackModel.js';
 import { expectationComment, type FeedbackDraftUpdater, updateExpectationComment } from '../../feedbackDraft.js';
-import * as expectationCardStyles from './ExpectationCard.module.css';
-
-const { default: styles } = expectationCardStyles;
+import * as styles from './ExpectationCard.module.css';
 
 export function ExpectationCard({
   allowFeedback,

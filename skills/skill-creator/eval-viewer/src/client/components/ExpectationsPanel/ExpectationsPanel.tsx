@@ -2,9 +2,7 @@ import type { ExpectationView, RunFeedbackView, RunView } from '../../../shared/
 import type { FeedbackDraftUpdater } from '../../feedbackDraft.js';
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react';
 import { ExpectationSection } from '../ExpectationSection/ExpectationSection.js';
-import * as expectationsPanelStyles from './ExpectationsPanel.module.css';
-
-const { default: styles } = expectationsPanelStyles;
+import * as styles from './ExpectationsPanel.module.css';
 
 export type ExpectationResultMode = 'skill' | 'baseline';
 interface SectionOpenState extends Record<string, boolean> {

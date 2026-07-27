@@ -10,9 +10,7 @@ import {
   reviewStatusForRun,
   reviewStatusLabel
 } from '../../runFilters.js';
-import * as runNavigationStyles from './RunNavigation.module.css';
-
-const { default: styles } = runNavigationStyles;
+import * as styles from './RunNavigation.module.css';
 
 export function RunNavigation({
   filter,

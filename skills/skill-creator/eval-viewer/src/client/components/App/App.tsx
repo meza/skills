@@ -18,9 +18,7 @@ import { ReviewCompleteDialog } from '../ReviewCompleteDialog/ReviewCompleteDial
 import { RunNavigation } from '../RunNavigation/RunNavigation.js';
 import { RunSummary } from '../RunSummary/RunSummary.js';
 import { TranscriptPanel } from '../TranscriptPanel/TranscriptPanel.js';
-import * as appStyles from './App.module.css';
-
-const { default: styles } = appStyles;
+import * as styles from './App.module.css';
 
 type FeedbackDraft = RunFeedbackView;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';

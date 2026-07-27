@@ -2,9 +2,7 @@ import type { IterationNumber, IterationView, RunView } from '../../../shared/vi
 import { formatDeltaPercent, formatPercent } from '../../formatters.js';
 import { IterationControl } from '../IterationControl/IterationControl.js';
 import { Metric } from '../Metric/Metric.js';
-import * as runSummaryStyles from './RunSummary.module.css';
-
-const { default: styles } = runSummaryStyles;
+import * as styles from './RunSummary.module.css';
 
 export function RunSummary({
   isRefreshingIterations,
