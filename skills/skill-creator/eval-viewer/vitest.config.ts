@@ -18,6 +18,7 @@ export default defineConfig({
     environment: 'jsdom',
     exclude: ['tests/visual/**', 'node_modules/**'],
     globals: true,
+    maxWorkers: 1,
     setupFiles: ['tests/setup.ts']
   }
 });
