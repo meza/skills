@@ -7,7 +7,11 @@ import { buildServer } from './buildServer.js';
 
 interface OpenApiDocument {
   openapi: string;
-  paths: Record<string, Record<string, OpenApiOperation>>;
+  paths: Record<string, Record<string, OpenApiOperation>> & {
+    '/api/artifacts': { get: OpenApiOperation };
+    '/api/feedback/{evalId}': { put: OpenApiOperation };
+    '/api/runs/{evalId}/{runType}': { get: OpenApiOperation };
+  };
 }
 
 interface OpenApiOperation {
@@ -62,12 +66,8 @@ describe('OpenAPI contract', () => {
   });
 
   it('documents the expected status codes for local artifact and feedback behavior', () => {
-    expect(Object.keys(openapi.paths['/api/artifacts']?.get?.responses ?? {})).toEqual(['200', '400', '403', '404']);
-    expect(Object.keys(openapi.paths['/api/feedback/{evalId}']?.put?.responses ?? {})).toEqual(['200', '400', '404']);
-    expect(Object.keys(openapi.paths['/api/runs/{evalId}/{runType}']?.get?.responses ?? {})).toEqual([
-      '200',
-      '400',
-      '404'
-    ]);
+    expect(Object.keys(openapi.paths['/api/artifacts'].get.responses)).toEqual(['200', '400', '403', '404']);
+    expect(Object.keys(openapi.paths['/api/feedback/{evalId}'].put.responses)).toEqual(['200', '400', '404']);
+    expect(Object.keys(openapi.paths['/api/runs/{evalId}/{runType}'].get.responses)).toEqual(['200', '400', '404']);
   });
 });

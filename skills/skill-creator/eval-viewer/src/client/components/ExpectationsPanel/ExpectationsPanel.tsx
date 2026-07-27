@@ -28,7 +28,8 @@ export function ExpectationsPanel({
   );
   const latestDraftRef = useRef(draft);
   latestDraftRef.current = draft;
-  const baselineExpectations = run.comparisons.baseline?.expectations ?? [];
+  const baselineComparison = run.comparisons.baseline;
+  const baselineExpectations = baselineComparison === undefined ? [] : baselineComparison.expectations;
   const canShowBaseline = baselineExpectations.length > 0;
   const requestedResultMode = controlledResultMode ?? uncontrolledResultMode;
   const resultMode = requestedResultMode === 'baseline' && canShowBaseline ? 'baseline' : 'skill';

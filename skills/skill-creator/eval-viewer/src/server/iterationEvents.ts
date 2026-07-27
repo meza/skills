@@ -40,10 +40,10 @@ class IterationEventHub {
   private readonly clients = new Set<IterationEventSink>();
   private latestIteration = 0;
   private readonly pendingChecks = new Set<ReturnType<typeof setTimeout>>();
+  private readonly pendingCheckTriggers = new Set<string>();
   private readonly watchedDirectories = new Set<string>();
   private readonly watchers: FSWatcher[] = [];
-  private isChecking = false;
-  private needsFollowUpCheck = false;
+  private activeCheck: Promise<void> | undefined;
 
   constructor(
     private readonly workspaceRoot: string,
@@ -80,6 +80,7 @@ class IterationEventHub {
       clearTimeout(check);
     }
     this.pendingChecks.clear();
+    this.pendingCheckTriggers.clear();
     this.watchedDirectories.clear();
     this.clients.clear();
   }
@@ -106,56 +107,54 @@ class IterationEventHub {
   }
 
   private runIterationCheck(trigger: string) {
-    if (this.isChecking) {
-      this.needsFollowUpCheck = true;
+    if (this.activeCheck !== undefined) {
+      this.pendingCheckTriggers.add(trigger);
       return;
     }
-    const check = this.checkForLatestIteration(trigger);
-    check.catch((error: unknown) => {
-      this.logger.error(
-        {
-          error: errorMessage(error),
-          trigger
-        },
-        'iteration_notifier_check_failed'
-      );
-    });
+    this.activeCheck = this.checkForLatestIteration(trigger)
+      .catch((error: unknown) => {
+        this.logger.error(
+          {
+            error: errorMessage(error),
+            trigger
+          },
+          'iteration_notifier_check_failed'
+        );
+      })
+      .finally(() => {
+        this.activeCheck = undefined;
+        if (this.pendingCheckTriggers.size > 0) {
+          this.pendingCheckTriggers.clear();
+          this.runIterationCheck('follow-up');
+        }
+      });
   }
 
   private async checkForLatestIteration(trigger: string) {
-    this.isChecking = true;
-    try {
-      await this.watchIterationDirectories();
-      const index = await this.loadReadyIterationIndex();
-      this.logger.info(
-        {
-          discoveredLatestIteration: index.latestIteration,
-          knownLatestIteration: this.latestIteration,
-          trigger
-        },
-        'iteration_notifier_checked'
-      );
-      if (index.latestIteration <= this.latestIteration) {
-        return;
-      }
-      this.latestIteration = index.latestIteration;
-      this.logger.info(
-        {
-          iterations: index.iterations,
-          latestIteration: index.latestIteration,
-          subscribers: this.clients.size,
-          trigger
-        },
-        'iteration_notifier_new_iteration_detected'
-      );
-      this.broadcast(index);
-    } finally {
-      this.isChecking = false;
-      if (this.needsFollowUpCheck) {
-        this.needsFollowUpCheck = false;
-        this.runIterationCheck('follow-up');
-      }
+    await this.watchIterationDirectories();
+    const index = await this.loadReadyIterationIndex();
+    this.logger.info(
+      {
+        discoveredLatestIteration: index.latestIteration,
+        knownLatestIteration: this.latestIteration,
+        trigger
+      },
+      'iteration_notifier_checked'
+    );
+    if (index.latestIteration <= this.latestIteration) {
+      return;
     }
+    this.latestIteration = index.latestIteration;
+    this.logger.info(
+      {
+        iterations: index.iterations,
+        latestIteration: index.latestIteration,
+        subscribers: this.clients.size,
+        trigger
+      },
+      'iteration_notifier_new_iteration_detected'
+    );
+    this.broadcast(index);
   }
 
   private async loadReadyIterationIndex() {
