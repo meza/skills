@@ -8,7 +8,7 @@
       "name": "skill-creator",
       "source": {
         "source": "local",
-        "path": "./skills/skill-creator"
+        "path": "./plugins/skill-creator"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -20,7 +20,7 @@
       "name": "conventional-commit-message",
       "source": {
         "source": "local",
-        "path": "./skills/conventional-commit-message"
+        "path": "./plugins/conventional-commit-message"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -5,12 +5,13 @@
   "author": {
     "name": "meza"
   },
-  "homepage": "https://github.com/meza/skills/tree/main/skills/conventional-commit-message",
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/conventional-commit-message",
   "repository": "https://github.com/meza/skills",
   "license": "Apache-2.0",
   "keywords": [
     "git",
     "commits",
     "conventional-commits"
-  ]
+  ],
+  "skills": "./skills/"
 }

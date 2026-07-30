@@ -1,11 +1,11 @@
 {
   "name": "conventional-commit-message",
-  "version": "1.0.0",
+  "version": "1.0.0+codex.20260730103347",
   "description": "Conventional Commit Message creator",
   "author": {
     "name": "meza"
   },
-  "homepage": "https://github.com/meza/skills/tree/main/skills/conventional-commit-message",
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/conventional-commit-message",
   "repository": "https://github.com/meza/skills",
   "license": "Apache-2.0",
   "keywords": [
@@ -13,6 +13,7 @@
     "commits",
     "conventional-commits"
   ],
+  "skills": "./skills/",
   "interface": {
     "displayName": "Conventional Commit Message",
     "shortDescription": "Write commit messages from Git changes",

@@ -1,11 +1,11 @@
 {
   "name": "skill-creator",
-  "version": "1.0.0",
+  "version": "1.0.0+codex.20260730102928",
   "description": "Meza's skill creator",
   "author": {
     "name": "meza"
   },
-  "homepage": "https://github.com/meza/skills/tree/main/skills/skill-creator",
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/skill-creator",
   "repository": "https://github.com/meza/skills",
   "license": "Apache-2.0",
   "keywords": [
@@ -13,6 +13,7 @@
     "authoring",
     "evals"
   ],
+  "skills": "./skills/",
   "interface": {
     "displayName": "Skill Creator",
     "shortDescription": "Create and evaluate agent skills",

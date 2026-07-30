@@ -5,12 +5,13 @@
   "author": {
     "name": "meza"
   },
-  "homepage": "https://github.com/meza/skills/tree/main/skills/skill-creator",
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/skill-creator",
   "repository": "https://github.com/meza/skills",
   "license": "Apache-2.0",
   "keywords": [
     "skills",
     "authoring",
     "evals"
-  ]
+  ],
+  "skills": "./skills/"
 }

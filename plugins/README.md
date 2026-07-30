@@ -2,6 +2,39 @@
 
 This directory contains installable agent plugins that can serve more than one host from one versioned package root.
 
+## Skill Creator
+
+`skill-creator` packages the complete skill-authoring and evaluation environment for Codex and Claude. Its nested skill owns the evaluator scripts, schemas, tests, references, and eval viewer so those applications move and version together.
+
+```text
+skill-creator/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- skill-creator/
+        |-- SKILL.md
+        |-- scripts/
+        |-- schemas/
+        |-- tests/
+        `-- eval-viewer/
+```
+
+## Conventional Commit Message
+
+`conventional-commit-message` generates release-aware Conventional Commit messages from the actual Git surface. Its skill package includes the eval preparation script, fixture patches, and eval definitions so the workflow and its verification inputs remain versioned together.
+
+```text
+conventional-commit-message/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- conventional-commit-message/
+        |-- SKILL.md
+        |-- scripts/
+        |-- fixtures/
+        `-- evals/
+```
+
 ## Review Swarm
 
 `review-swarm` reviews a submitted code change through 84 focused quality lenses. Each investigator owns one lens. A separate synthesis pass verifies and combines the evidence into one actionable report.
