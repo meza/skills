@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.evaluate.providers import Provider, TurnResult
+from scripts.evaluate.providers import PermissionMode, Provider, TurnResult
 
 
 class MinimalProvider(Provider):
@@ -13,6 +13,7 @@ class MinimalProvider(Provider):
         effort=None,
         working_dir=None,
         additional_writable_dirs=None,
+        permission_mode=PermissionMode.RESTRICTED,
     ):
         return []
 
@@ -25,6 +26,7 @@ class MinimalProvider(Provider):
         effort,
         working_dir,
         output_schema,
+        permission_mode=PermissionMode.RESTRICTED,
     ):
         return []
 

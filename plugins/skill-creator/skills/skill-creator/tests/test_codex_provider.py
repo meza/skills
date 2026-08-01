@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from scripts.evaluate.providers import PermissionMode
 from scripts.evaluate.providers import codex as codex_provider
 from scripts.evaluate.providers.codex import CodexProvider
 
@@ -14,7 +15,11 @@ FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
 
 
 class CodexProviderEnvironmentTests(unittest.TestCase):
-    def _build_all_commands(self, effort):
+    def _build_all_commands(
+        self,
+        effort,
+        permission_mode=PermissionMode.RESTRICTED,
+    ):
         provider = CodexProvider()
         return [
             provider.build_command(
@@ -23,6 +28,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 turn_index=0,
                 model=None,
                 effort=effort,
+                permission_mode=permission_mode,
             ),
             provider.build_command(
                 session_id="thread-123",
@@ -30,12 +36,14 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 turn_index=1,
                 model=None,
                 effort=effort,
+                permission_mode=permission_mode,
             ),
             provider.build_grading_command(
                 model=None,
                 effort=effort,
                 working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
                 output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
+                permission_mode=permission_mode,
             ),
         ]
 
@@ -90,6 +98,18 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
     def test_command_builders_select_unelevated_windows_sandbox(self):
         for command in self._build_all_commands(effort=None):
             self.assertIn('windows.sandbox="unelevated"', command)
+
+    def test_command_builders_apply_unrestricted_sandbox(self):
+        commands = self._build_all_commands(
+            effort=None,
+            permission_mode=PermissionMode.UNRESTRICTED,
+        )
+
+        self.assertIn("danger-full-access", commands[0])
+        self.assertIn('sandbox_mode="danger-full-access"', commands[1])
+        self.assertIn("danger-full-access", commands[2])
+        for command in commands:
+            self.assertNotIn("workspace-write", command)
 
     def test_process_environment_isolates_home_and_copies_auth_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:

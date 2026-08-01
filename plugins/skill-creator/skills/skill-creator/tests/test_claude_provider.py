@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.evaluate.providers import PermissionMode
 from scripts.evaluate.providers.claude import ClaudeProvider
 
 # A Windows drive letter is absolute on Windows but a *relative* path on POSIX
@@ -128,6 +129,39 @@ class ClaudeProviderCommandTests(unittest.TestCase):
         )
 
         self.assertNotIn("bypassPermissions", command)
+
+    def test_commands_apply_unrestricted_permissions(self):
+        provider = ClaudeProvider()
+        commands = [
+            provider.build_command(
+                session_id="session-123",
+                session_name="eval-1-skill",
+                turn_index=0,
+                model=None,
+                permission_mode=PermissionMode.UNRESTRICTED,
+            ),
+            provider.build_command(
+                session_id="session-123",
+                session_name="eval-1-skill",
+                turn_index=1,
+                model=None,
+                permission_mode=PermissionMode.UNRESTRICTED,
+            ),
+            provider.build_grading_command(
+                model=None,
+                effort=None,
+                working_dir=str(FAKE_ROOT / "tmp/eval-1/skill"),
+                output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
+                permission_mode=PermissionMode.UNRESTRICTED,
+            ),
+        ]
+
+        for command in commands:
+            self.assertEqual(
+                command[command.index("--permission-mode") + 1],
+                "bypassPermissions",
+            )
+            self.assertNotIn("acceptEdits", command)
 
     def test_process_environment_filters_non_claude_secrets(self):
         base_env = {

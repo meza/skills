@@ -70,6 +70,26 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 
 By default, the runner executes both the skill run and the baseline run. Use `--skip-baseline` when you only want to run the skill-enabled eval.
 
+Provider tool calls use restricted permissions by default. If a provider sandbox
+defect prevents an eval from running, an operator can explicitly apply the
+provider's unrestricted mode to skill, baseline, and grading processes:
+
+```bash
+python <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex> \
+  --model <model-id> \
+  --effort <effort> \
+  --permission-mode unrestricted
+```
+
+`--permission-mode` accepts `restricted` or `unrestricted` and defaults to
+`restricted`. Unrestricted mode maps to `danger-full-access` for Codex and
+`bypassPermissions` for Claude. It bypasses provider sandbox protections, so
+prefer running the eval on Linux when that avoids the sandbox defect. Use
+unrestricted mode only when the operator accepts the resulting host access.
+
 Use a run root outside any Git workspace. The evaluator rejects `--run-root`
 paths that sit inside a Git workspace so generated artifacts cannot inherit
 repository state. Each invocation writes result artifacts under:

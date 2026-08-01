@@ -12,6 +12,7 @@ from .eval_job import ActiveProcessRegistry
 from .eval_runner import EvalRun, EvalRunOptions
 from .grading import create_grading_job_factory
 from .prepare_fixture import PreparedRun
+from .providers import PermissionMode
 from .providers.registry import get_provider_or_exit
 
 DEFAULT_MAX_PARALLEL = 10
@@ -24,6 +25,7 @@ class SkillEvalRunOptions:
     skip_baseline: bool = False
     model: str | None = None
     effort: str | None = None
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED
     max_parallel: int = DEFAULT_MAX_PARALLEL
     timeout: int = DEFAULT_TIMEOUT_SECONDS
     process_registry: ActiveProcessRegistry = field(
@@ -57,6 +59,7 @@ class SkillEvalRunner:
             provider_name=self.prepared_run.provider,
             model=self.options.model,
             effort=self.options.effort,
+            permission_mode=self.options.permission_mode,
             max_parallel=self.options.max_parallel,
             timeout=self.options.timeout,
             total_timeout=None,
@@ -68,6 +71,7 @@ class SkillEvalRunner:
                 skill_name=evals_data.get("skill_name", self.prepared_run.skill_name),
                 model=self.options.model,
                 effort=self.options.effort,
+                permission_mode=self.options.permission_mode,
                 timeout=self.options.timeout,
             ),
         )

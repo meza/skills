@@ -12,8 +12,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 SECRET_ENV_MARKERS = ("API_KEY", "PASSWORD", "SECRET", "TOKEN")
+
+
+class PermissionMode(StrEnum):
+    """Control whether provider tool calls retain their normal restrictions."""
+
+    RESTRICTED = "restricted"
+    UNRESTRICTED = "unrestricted"
 
 
 def minimized_process_env(
@@ -67,6 +75,7 @@ class Provider(ABC):
         effort: str | None = None,
         working_dir: str | None = None,
         additional_writable_dirs: list[str] | None = None,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         """Build the CLI command for a single turn.
 
@@ -84,6 +93,8 @@ class Provider(ABC):
                 working root when its CLI exposes a cwd flag.
             additional_writable_dirs: Paths outside the working root that the
                 provider should grant write access for the session.
+            permission_mode: Whether provider tool calls use the normal
+                restrictions or the provider's unrestricted execution mode.
 
         Returns:
             Command as a list of strings (passed to Popen).
@@ -96,6 +107,7 @@ class Provider(ABC):
         effort: str | None,
         working_dir: str,
         output_schema: str,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         """Build the single-shot command used for grading one completed run.
 

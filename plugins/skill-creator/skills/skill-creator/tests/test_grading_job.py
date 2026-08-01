@@ -13,7 +13,7 @@ from scripts.evaluate.grading import (
     add_grading_expectation_ids,
     create_grading_job_factory,
 )
-from scripts.evaluate.providers import TurnResult
+from scripts.evaluate.providers import PermissionMode, TurnResult
 
 # A Windows drive letter is absolute on Windows but a *relative* path on POSIX
 # (and "/x" is the reverse), so synthetic absolute paths must be anchored to
@@ -44,8 +44,10 @@ class FakeProvider:
         effort=None,
         working_dir=None,
         output_schema=None,
+        permission_mode=PermissionMode.RESTRICTED,
     ):
         del model, effort
+        self.permission_mode = permission_mode
         return ["fake-provider", "--cwd", working_dir, "--schema", output_schema]
 
     def parse_output(self, stdout, prompt):
@@ -217,6 +219,27 @@ class GradingJobTests(unittest.TestCase):
             DEFAULT_GRADER_INSTRUCTIONS_PATH,
         )
 
+    def test_create_grading_job_factory_propagates_unrestricted_mode(self):
+        eval_job = mock.Mock()
+        eval_job.eval_def = {"id": 1}
+        eval_job.run_type = "skill"
+        eval_job.run_type_dir = FAKE_ROOT / "runs/eval-1/skill"
+        eval_job.run_dir = str(FAKE_ROOT / "runs/workdirs/eval-1/skill")
+
+        grading_job = create_grading_job_factory(
+            provider=FakeProvider(),
+            skill_name="sample-skill",
+            model=None,
+            effort=None,
+            timeout=600,
+            permission_mode=PermissionMode.UNRESTRICTED,
+        )(eval_job)
+
+        self.assertEqual(
+            grading_job.permission_mode,
+            PermissionMode.UNRESTRICTED,
+        )
+
     def test_run_writes_provider_json_response_to_grading_file(self):
         grading_payload = {
             "executive_summary": "The run satisfied the expectation.",
@@ -299,6 +322,7 @@ class GradingJobTests(unittest.TestCase):
                 "Grade carefully.\n{run_result_json}",
                 encoding="utf-8",
             )
+            provider = FakeProvider()
 
             with mock.patch(
                 "scripts.evaluate.grading.run_with_timeout",
@@ -318,12 +342,13 @@ class GradingJobTests(unittest.TestCase):
                     run_type="skill",
                     run_type_dir=run_type_dir,
                     skill_name="sample-skill",
-                    provider=FakeProvider(),
+                    provider=provider,
                     model="gpt-test",
                     effort="high",
                     timeout=600,
                     schema_path=DEFAULT_GRADING_SCHEMA_PATH,
                     grader_instructions_path=instructions_path,
+                    permission_mode=PermissionMode.UNRESTRICTED,
                 )
                 grading_job.run()
 
@@ -348,6 +373,10 @@ class GradingJobTests(unittest.TestCase):
                     "--schema",
                     str(run_type_dir / "grader_output_schema.json"),
                 ],
+            )
+            self.assertEqual(
+                provider.permission_mode,
+                PermissionMode.UNRESTRICTED,
             )
             grader_output_schema = json.loads(
                 (run_type_dir / "grader_output_schema.json").read_text(encoding="utf-8")

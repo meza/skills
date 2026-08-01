@@ -77,6 +77,7 @@ Rules:
 * do not call `prepare_fixture.py`
 * do not call `run_skill_evals.py`
 * baseline runs by default
+* provider permissions default to `restricted`
 * use `--eval-ids` only for an intentional subset
 * use `--skip-baseline` only for an intentional skill-only run
 
@@ -103,6 +104,29 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
   --effort <effort> \
   --skip-baseline
 ```
+
+### Provider permissions
+
+Keep the default `--permission-mode restricted` for normal eval runs. If a
+provider sandbox defect prevents the tooling from working, the operator can
+choose unrestricted execution instead of moving the run to Linux:
+
+```bash
+python <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-run-root> \
+  --provider <claude|codex> \
+  --model <model-id> \
+  --effort <effort> \
+  --permission-mode unrestricted
+```
+
+The allowed values are `restricted` and `unrestricted`. Unrestricted mode
+applies to skill, baseline, and grading provider processes. It maps to
+`danger-full-access` for Codex and `bypassPermissions` for Claude. This bypasses
+provider sandbox protections and grants the agent access allowed by the host
+process, so prefer Linux when it avoids the defect. Use unrestricted mode only
+when the operator accepts that risk.
 
 ## Input isolation
 
