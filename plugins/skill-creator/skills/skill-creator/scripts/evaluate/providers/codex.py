@@ -47,10 +47,6 @@ CODEX_LOGIN_SHELL_CONFIG_ARGS = [
     "-c",
     "allow_login_shell=false",
 ]
-WINDOWS_SANDBOX_FEATURE_ARGS = [
-    "--enable",
-    "experimental_windows_sandbox",
-]
 EVAL_ISOLATION_CONFIG_ARGS = [
     "-c",
     "skills.bundled.enabled=false",
@@ -68,7 +64,6 @@ def _codex_eval_policy_args(
         "--json",
         "--skip-git-repo-check",
         *(command_args or []),
-        *WINDOWS_SANDBOX_FEATURE_ARGS,
         "--ignore-user-config",
         "--ignore-rules",
         *SHELL_ENV_SECRET_FILTER_ARGS,

@@ -387,33 +387,9 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         )
         self.assertLess(command.index("--ignore-rules"), prompt_index)
 
-    def test_build_command_enables_windows_workspace_write_sandbox(self):
-        start_command = CodexProvider().build_command(
-            session_id=None,
-            session_name="session",
-            turn_index=0,
-            model=None,
-            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
-        )
-        resume_command = CodexProvider().build_command(
-            session_id="thread-123",
-            session_name="session",
-            turn_index=1,
-            model=None,
-        )
-        grading_command = CodexProvider().build_grading_command(
-            model=None,
-            effort=None,
-            working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
-            output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
-        )
-
-        for command in (start_command, resume_command, grading_command):
-            self.assertIn("--enable", command)
-            self.assertEqual(
-                command[command.index("--enable") + 1],
-                "experimental_windows_sandbox",
-            )
+    def test_command_builders_omit_obsolete_windows_sandbox_feature(self):
+        for command in self._build_all_commands(effort=None):
+            self.assertNotIn("experimental_windows_sandbox", command)
 
     def test_resume_command_carries_writable_sandbox_config(self):
         command = CodexProvider().build_command(
@@ -489,8 +465,6 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "resume",
                 "--json",
                 "--skip-git-repo-check",
-                "--enable",
-                "experimental_windows_sandbox",
                 "--ignore-user-config",
                 "--ignore-rules",
                 "-c",
