@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Eval Viewer Local API",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "HTTP API for the local eval viewer. The server reads evaluator-produced artifacts from a local evaluation workspace root and writes viewer_feedback.json for human review notes under the active iteration."
   },
   "servers": [
@@ -25,7 +25,7 @@
               "type": "integer",
               "minimum": 0
             },
-            "description": "Iteration number to load from results/iteration-N. When omitted, the latest available iteration is loaded."
+            "description": "Reviewable iteration number to load from results/iteration-N. When omitted, the latest reviewable iteration is loaded."
           }
         ],
         "responses": {
@@ -64,11 +64,11 @@
     },
     "/api/iterations": {
       "get": {
-        "summary": "List available evaluation iterations",
+        "summary": "List reviewable evaluation iterations",
         "operationId": "getIterations",
         "responses": {
           "200": {
-            "description": "The available iteration numbers and latest iteration.",
+            "description": "The reviewable iteration numbers and latest reviewable iteration.",
             "content": {
               "application/json": {
                 "schema": {
@@ -82,11 +82,11 @@
     },
     "/api/iteration-events": {
       "get": {
-        "summary": "Stream newly available evaluation iterations",
+        "summary": "Stream newly reviewable evaluation iterations",
         "operationId": "getIterationEvents",
         "responses": {
           "200": {
-            "description": "A server-sent event stream. Each data event is an IterationIndexView when a newer latest iteration is discovered.",
+            "description": "A server-sent event stream. Each data event is an IterationIndexView when a newer reviewable iteration is discovered.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -130,7 +130,7 @@
               "type": "integer",
               "minimum": 0
             },
-            "description": "Iteration number to read from results/iteration-N. When omitted, the latest available iteration is used."
+            "description": "Reviewable iteration number to read from results/iteration-N. When omitted, the latest reviewable iteration is used."
           }
         ],
         "responses": {
@@ -189,7 +189,7 @@
               "type": "integer",
               "minimum": 0
             },
-            "description": "Iteration number whose artifact root should constrain the requested path. When omitted, the latest available iteration is used."
+            "description": "Reviewable iteration number whose artifact root should constrain the requested path. When omitted, the latest reviewable iteration is used."
           }
         ],
         "responses": {

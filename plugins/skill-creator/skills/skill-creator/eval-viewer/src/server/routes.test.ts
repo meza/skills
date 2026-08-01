@@ -25,7 +25,7 @@ const HTTP_STATUS_FORBIDDEN = 403;
 const HTTP_STATUS_NOT_FOUND = 404;
 const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
 const MISSING_WORKSPACE_ROOT_ERROR_PATTERN = /evaluation workspace root does not exist/i;
-const NO_RUNS_TO_REVIEW_ERROR_PATTERN = /no runs to review/i;
+const NO_REVIEWABLE_RESULTS_ERROR_PATTERN = /no reviewable results\/iteration-N artifacts/i;
 
 function createAuditLogger() {
   const logger = {
@@ -70,6 +70,28 @@ it('returns the available iterations through the JSON API', async () => {
     iterations: [0, 1],
     latestIteration: 1
   });
+  await server.close();
+});
+
+it('starts with the latest reviewable iteration when a newer iteration failed grading', async () => {
+  const failedIterationRoot = join(root, 'results', 'iteration-2');
+  await writeSampleIteration(failedIterationRoot, { iteration: 2 });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  manifest.runs[0].execution_status = 'grading_error';
+  manifest.runs[0].error = 'grader returned invalid output';
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+  await fs.promises.rm(join(failedIterationRoot, 'eval-1', 'skill', 'grading.json'));
+
+  const server = await buildServer({ workspaceRoot: root });
+  const iterationResponse = await server.inject({ method: 'GET', url: '/api/iteration' });
+  const indexResponse = await server.inject({ method: 'GET', url: '/api/iterations' });
+  const failedResponse = await server.inject({ method: 'GET', url: '/api/iteration?iteration=2' });
+
+  expect(iterationResponse.statusCode).toBe(HTTP_STATUS_OK);
+  expect(iterationResponse.json()).toMatchObject({ summary: { iteration: 1, latestIteration: 1 } });
+  expect(indexResponse.json()).toEqual({ iterations: [0, 1], latestIteration: 1 });
+  expect(failedResponse.statusCode).toBe(HTTP_STATUS_NOT_FOUND);
   await server.close();
 });
 
@@ -240,7 +262,7 @@ it('rejects startup when the workspace root is missing', async () => {
   );
 });
 
-it('rejects startup when the workspace root has no runs to review', async () => {
+it('rejects startup when the workspace root has no reviewable runs', async () => {
   const emptyRoot = join(root, 'empty');
   const emptyIterationRoot = join(emptyRoot, 'results', 'iteration-1');
   await fs.promises.mkdir(emptyIterationRoot, { recursive: true });
@@ -260,7 +282,26 @@ it('rejects startup when the workspace root has no runs to review', async () => 
     'utf-8'
   );
 
-  await expect(buildServer({ workspaceRoot: emptyRoot })).rejects.toThrow(NO_RUNS_TO_REVIEW_ERROR_PATTERN);
+  await expect(buildServer({ workspaceRoot: emptyRoot })).rejects.toThrow(NO_REVIEWABLE_RESULTS_ERROR_PATTERN);
+});
+
+it('rejects startup with an actionable error when every iteration failed grading', async () => {
+  const failedRoot = join(root, 'failed');
+  const failedIterationRoot = join(failedRoot, 'results', 'iteration-1');
+  await writeSampleIteration(failedIterationRoot, { iteration: 1 });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  for (const run of manifest.runs) {
+    run.execution_status = 'grading_error';
+    run.error = 'grading failed';
+  }
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+  await fs.promises.rm(join(failedIterationRoot, 'eval-1', 'skill', 'grading.json'));
+  await fs.promises.rm(join(failedIterationRoot, 'eval-1', 'baseline', 'grading.json'));
+
+  await expect(buildServer({ workspaceRoot: failedRoot })).rejects.toThrow(
+    `failed or ungraded iterations remain under ${join(failedRoot, 'results')}`
+  );
 });
 
 it('saves feedback through the JSON API', async () => {

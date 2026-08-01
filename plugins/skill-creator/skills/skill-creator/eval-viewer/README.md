@@ -2,7 +2,11 @@
 
 Eval Viewer is a local web app for inspecting evaluation results produced by the skill evaluator.
 
-It depends on an evaluation workspace directory that contains `results/iteration-N` child directories. Each valid iteration directory contains `run_manifest.json`.
+It depends on an evaluation workspace directory that contains
+`results/iteration-N` child directories. An iteration is reviewable when its
+manifest lists at least one run, every listed run completed successfully, and
+every listed run has `grading.json`. Failed and ungraded iterations remain on
+disk for diagnosis but are not shown in the viewer.
 
 ## Launch
 
@@ -15,7 +19,7 @@ node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-name
 
 The server argument must be the evaluation workspace root. Direct `iteration-N`
 directories are not supported, and no compatibility path exists for serving
-them. The viewer opens the latest valid iteration by default and saves feedback
+them. The viewer opens the latest reviewable iteration by default and saves feedback
 to the active iteration shown in the browser.
 
 The `vs Last Iteration` metric compares the selected iteration to the

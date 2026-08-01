@@ -1,5 +1,5 @@
 import { watch } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { writeSampleIteration, writeSampleWorkspaceWithHistory } from '../../tests/fixtures/sampleIteration.js';
@@ -14,6 +14,8 @@ const logger = {
   warn: vi.fn()
 };
 const SHORT_ITERATION_WRITE_SETTLE_DELAY_MS = 250;
+const FAILED_ITERATION = 2;
+const NEXT_REVIEWABLE_ITERATION = 3;
 
 beforeEach(() => {
   vol.reset();
@@ -146,6 +148,40 @@ it('does not announce a newer iteration until the iteration can be loaded', asyn
     expect(send).toHaveBeenCalledWith({
       iterations: [0, 1, 2],
       latestIteration: 2
+    });
+  });
+  hub.close();
+});
+
+it('does not announce a failed iteration and later announces the next reviewable iteration', async () => {
+  const root = join('/memory', 'failed-iteration');
+  await writeSampleWorkspaceWithHistory(root, { iteration: 1 });
+  const hub = await createIterationEventHub(root, logger);
+  const send = vi.fn();
+  hub.subscribe(send);
+  const resultsWatcherCallback = firstWatcherCallback();
+  const failedIterationRoot = join(root, 'results', `iteration-${FAILED_ITERATION}`);
+  await writeSampleIteration(failedIterationRoot, { iteration: FAILED_ITERATION });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf-8'));
+  manifest.runs[0].execution_status = 'grading_error';
+  manifest.runs[0].error = 'grader returned invalid output';
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+  await rm(join(failedIterationRoot, 'eval-1', 'skill', 'grading.json'));
+
+  resultsWatcherCallback('rename', `iteration-${FAILED_ITERATION}`);
+  await waitForNotifierCheck({ discoveredLatestIteration: 1, trigger: 'immediate' });
+  expect(send).not.toHaveBeenCalled();
+  expect(logger.error).not.toHaveBeenCalledWith(expect.anything(), 'iteration_notifier_check_failed');
+
+  await writeSampleIteration(join(root, 'results', `iteration-${NEXT_REVIEWABLE_ITERATION}`), {
+    iteration: NEXT_REVIEWABLE_ITERATION
+  });
+  resultsWatcherCallback('rename', `iteration-${NEXT_REVIEWABLE_ITERATION}`);
+  await vi.waitFor(() => {
+    expect(send).toHaveBeenCalledWith({
+      iterations: [0, 1, NEXT_REVIEWABLE_ITERATION],
+      latestIteration: NEXT_REVIEWABLE_ITERATION
     });
   });
   hub.close();

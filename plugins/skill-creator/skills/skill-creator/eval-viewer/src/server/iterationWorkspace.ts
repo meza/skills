@@ -24,7 +24,7 @@ export function previousIterationRootPath(iterationRoot: string): string {
   return join(dirname(iterationRoot), iterationDirectoryName(iterationNumberFromRoot(iterationRoot) - 1));
 }
 
-/** Returns the required manifest path that makes an iteration directory valid. */
+/** Returns the manifest path used to determine whether an iteration can be reviewed. */
 export function iterationManifestPath(iterationRoot: string): string {
   return join(iterationRoot, 'run_manifest.json');
 }

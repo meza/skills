@@ -220,7 +220,9 @@ Rules:
 * start the viewer once
 * keep it running for the session
 * do not restart it for each iteration
-* later evaluator runs appear in the UI automatically
+* later reviewable evaluator runs appear in the UI automatically
+* an iteration is reviewable only when every manifest-listed run completed successfully and has `grading.json`
+* failed and ungraded iteration directories remain on disk for diagnosis and do not appear in the viewer
 * expect `eval-viewer.log` and its rotated files under `<run-root>/<skill-name>`
 
 When upgrading from plugin version 1.0.x, stop the old npm-based viewer before

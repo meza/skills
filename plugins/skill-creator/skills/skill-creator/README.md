@@ -231,9 +231,11 @@ Open the viewer after grading and aggregation:
 node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-name>
 ```
 
-The viewer serves the evaluation workspace root. It discovers iterations under
-`results/iteration-N`, opens the latest valid iteration by default, and lets the
-browser switch between available iterations. Direct `iteration-N` paths are not
+The viewer serves the evaluation workspace root. It discovers reviewable iterations under
+`results/iteration-N`, opens the latest reviewable iteration by default, and lets the
+browser switch between available iterations. An iteration is reviewable only when every
+manifest-listed run completed successfully and has a grading result. Failed and ungraded
+iterations remain on disk for diagnosis. Direct `iteration-N` paths are not
 supported, and no compatibility path exists for serving them. The `vs Last
 Iteration` metric compares the selected iteration to the immediately previous
 numbered iteration, `iteration-(N-1)`.

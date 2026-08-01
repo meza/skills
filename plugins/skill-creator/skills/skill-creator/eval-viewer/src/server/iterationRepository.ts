@@ -35,6 +35,7 @@ interface ManifestRun {
   error?: string;
   eval_id: number;
   eval_name?: string;
+  execution_status: string;
   run_type: string;
   session_id?: string;
   total_tokens?: number;
@@ -97,10 +98,12 @@ export async function assertWorkspaceRoot(workspaceRoot: string): Promise<void> 
 }
 
 /**
- * Discovers the valid iteration directories available in an evaluation workspace.
+ * Discovers the reviewable iteration directories available in an evaluation workspace.
  *
- * The returned list is sorted by iteration number. Direct `iteration-N` roots are not accepted;
- * callers must pass the workspace root that contains `results/iteration-N`.
+ * Reviewable iterations contain at least one manifest run, every run completed successfully,
+ * and every run has a grading result. The returned list is sorted by iteration number. Direct
+ * `iteration-N` roots are not accepted; callers must pass the workspace root that contains
+ * `results/iteration-N`.
  */
 export async function loadIterationIndex(workspaceRoot: string): Promise<IterationIndexView> {
   const iterations = await discoverIterations(workspaceRoot);
@@ -729,19 +732,43 @@ async function discoverIterations(workspaceRoot: string): Promise<IterationNumbe
     });
   }
   const iterationCandidates = await Promise.all(
-    validIterationDirectoryEntries(entries).map(async (entry) => ({
-      hasManifest: await fileExists(iterationManifestPath(join(resultsRoot, entry.name))),
-      iterationNumber: iterationNumberFromDirectoryName(entry.name)
-    }))
+    validIterationDirectoryEntries(entries).map(async (entry) => {
+      const iterationRoot = join(resultsRoot, entry.name);
+      return {
+        isReviewable: await isReviewableIteration(iterationRoot),
+        iterationNumber: iterationNumberFromDirectoryName(entry.name)
+      };
+    })
   );
   const iterations = iterationCandidates
-    .filter((candidate) => candidate.hasManifest)
+    .filter((candidate) => candidate.isReviewable)
     .map((candidate) => candidate.iterationNumber)
     .sort((left, right) => left - right);
   if (iterations.length === 0) {
-    throw new Error(`evaluation workspace root contains no valid results/iteration-N artifacts: ${workspaceRoot}`);
+    throw new Error(
+      `evaluation workspace root contains no reviewable results/iteration-N artifacts; ` +
+        `failed or ungraded iterations remain under ${resultsRoot}`
+    );
   }
   return iterations;
+}
+
+async function isReviewableIteration(iterationRoot: string): Promise<boolean> {
+  const manifestPath = iterationManifestPath(iterationRoot);
+  if (!(await fileExists(manifestPath))) {
+    return false;
+  }
+  const manifest = await readRequiredJson(manifestPath, 'run_manifest.json', {
+    schemaName: 'run-manifest.schema.json'
+  });
+  const runs = manifest.runs as ManifestRun[];
+  if (runs.length === 0 || runs.some((run) => run.execution_status !== 'success')) {
+    return false;
+  }
+  const gradingResults = await Promise.all(
+    runs.map((run) => fileExists(join(iterationRoot, `eval-${run.eval_id}`, run.run_type, 'grading.json')))
+  );
+  return gradingResults.every(Boolean);
 }
 
 function latestIterationFrom(iterations: IterationNumber[]): IterationNumber {
@@ -750,8 +777,7 @@ function latestIterationFrom(iterations: IterationNumber[]): IterationNumber {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await stat(path);
-    return true;
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }

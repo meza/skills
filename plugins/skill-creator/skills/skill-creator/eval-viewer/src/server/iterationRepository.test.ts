@@ -8,7 +8,7 @@ import {
 } from '../../tests/fixtures/sampleIteration.js';
 import { fs, vol } from '../../tests/support/memfs.js';
 import { validateArtifactSchema } from './artifactSchemas.js';
-import { loadIteration, saveFeedback } from './iterationRepository.js';
+import { loadIteration, loadIterationIndex, saveFeedback } from './iterationRepository.js';
 
 vi.mock('./artifactSchemas.js', async () => await import('../../tests/support/fakeArtifactSchemas.js'));
 
@@ -17,11 +17,13 @@ let iterationRoot: string;
 const AGGREGATED_RESULTS_ERROR_PATTERN = /Invalid aggregated_results\.json/;
 const DIRECT_ITERATION_ROOT_ERROR_PATTERN = /must contain results\/iteration-N artifacts/i;
 const GRADING_ERROR_PATTERN = /Invalid grading\.json/;
+const ITERATION_ONE_MISSING_ERROR_PATTERN = /iteration-1 does not exist/;
+const ITERATION_TWO_MISSING_ERROR_PATTERN = /iteration-2 does not exist/;
 const ITERATION_NINE_MISSING_ERROR_PATTERN = /iteration-9 does not exist/;
 const MISSING_RUN_ARTIFACTS_ERROR_PATTERN =
   /Missing (grading\.json|raw_output\.jsonl|timing\.json|response\.md|transcript\.md)/;
 const MISSING_SCHEMA_ERROR_PATTERN = /Unknown artifact schema/;
-const NO_VALID_ITERATIONS_ERROR_PATTERN = /no valid results\/iteration-N artifacts/;
+const NO_REVIEWABLE_ITERATIONS_ERROR_PATTERN = /no reviewable results\/iteration-N artifacts/;
 const NOT_A_DIRECTORY_ERROR_PATTERN = /not a directory/i;
 const RESULTS_ARTIFACTS_ERROR_PATTERN = /results\/iteration-N artifacts/;
 const RESULTS_PATH_NOT_DIRECTORY_ERROR_PATTERN = /results path is not a directory/i;
@@ -116,6 +118,52 @@ it('loads a requested iteration from an evaluation workspace root', async () => 
     latestIteration: 3
   });
   expect(iteration.runs[0]?.artifactPaths.grading).toContain('iteration-1');
+});
+
+it('excludes a failed latest iteration and loads the previous reviewable iteration', async () => {
+  const failedIterationRoot = join(root, 'results', 'iteration-2');
+  await writeSampleIteration(failedIterationRoot, { iteration: 2 });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  manifest.runs[0].execution_status = 'grading_error';
+  manifest.runs[0].error = 'grader returned invalid output';
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+  await fs.promises.rm(join(failedIterationRoot, 'eval-1', 'skill', 'grading.json'));
+
+  await expect(loadIterationIndex(root)).resolves.toEqual({
+    iterations: [0, 1],
+    latestIteration: 1
+  });
+  await expect(loadIteration(root)).resolves.toMatchObject({
+    summary: { availableIterations: [0, 1], iteration: 1, latestIteration: 1 }
+  });
+  await expect(loadIteration(root, { iteration: 2 })).rejects.toThrow(ITERATION_TWO_MISSING_ERROR_PATTERN);
+});
+
+it('excludes an entire iteration when one of its runs failed', async () => {
+  const failedIterationRoot = join(root, 'results', 'iteration-2');
+  await writeSampleIteration(failedIterationRoot, { iteration: 2 });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  manifest.runs[1].execution_status = 'error';
+  manifest.runs[1].error = 'provider failed';
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+
+  await expect(loadIterationIndex(root)).resolves.toEqual({
+    iterations: [0, 1],
+    latestIteration: 1
+  });
+});
+
+it('excludes an otherwise successful iteration when a grading result is missing', async () => {
+  const ungradedIterationRoot = join(root, 'results', 'iteration-2');
+  await writeSampleIteration(ungradedIterationRoot, { iteration: 2 });
+  await fs.promises.rm(join(ungradedIterationRoot, 'eval-1', 'baseline', 'grading.json'));
+
+  await expect(loadIterationIndex(root)).resolves.toEqual({
+    iterations: [0, 1],
+    latestIteration: 1
+  });
 });
 
 it('rejects a requested iteration that does not exist', async () => {
@@ -245,7 +293,7 @@ it('rejects missing required run artifacts', async () => {
   await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'response.md'));
   await fs.promises.rm(join(iterationRoot, 'eval-1', 'skill', 'turn-1', 'outputs', 'transcript.md'));
 
-  await expect(loadIteration(root)).rejects.toThrow(MISSING_RUN_ARTIFACTS_ERROR_PATTERN);
+  await expect(loadIteration(root, { availableIterations: [1] })).rejects.toThrow(MISSING_RUN_ARTIFACTS_ERROR_PATTERN);
 });
 
 it('rejects invalid grading artifacts', async () => {
@@ -755,7 +803,7 @@ it('rejects manifest artifacts that do not match the schema', async () => {
   await expect(loadIteration(root)).rejects.toThrow(RUN_MANIFEST_ERROR_PATTERN);
 });
 
-it('loads runs without exposing execution status in the viewer model', async () => {
+it('does not load iterations whose manifest records a failed run', async () => {
   const manifestPath = join(iterationRoot, 'run_manifest.json');
   const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
   manifest.runs = [manifest.runs[0]];
@@ -763,9 +811,7 @@ it('loads runs without exposing execution status in the viewer model', async () 
   manifest.runs[0].error = 'executor timed out';
   await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
 
-  const iteration = await loadIteration(root);
-
-  expect(iteration.runs[0]).not.toHaveProperty('status');
+  await expect(loadIteration(root, { iteration: 1 })).rejects.toThrow(ITERATION_ONE_MISSING_ERROR_PATTERN);
 });
 
 it('rejects malformed turn artifact entries', async () => {
@@ -890,6 +936,15 @@ it('rejects an empty iteration when the manifest has no run array', async () => 
   await expect(loadIteration(root)).rejects.toThrow(RUN_MANIFEST_ERROR_PATTERN);
 });
 
+it('rejects an empty iteration supplied through a previously loaded index', async () => {
+  const manifestPath = join(iterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  manifest.runs = [];
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+
+  await expect(loadIteration(root, { availableIterations: [1], iteration: 1 })).rejects.toThrow('no runs to review');
+});
+
 it('rejects a directory that is neither an iteration root nor an evaluation workspace', async () => {
   const unrelatedRoot = join(root, 'unrelated');
   await fs.promises.rm(unrelatedRoot, { force: true, recursive: true });
@@ -899,12 +954,28 @@ it('rejects a directory that is neither an iteration root nor an evaluation work
   await expect(loadIteration(unrelatedRoot)).rejects.toThrow(RESULTS_ARTIFACTS_ERROR_PATTERN);
 });
 
-it('rejects an evaluation workspace when no iteration manifests exist', async () => {
+it('rejects an evaluation workspace when no reviewable iterations exist', async () => {
   const workspaceRoot = join(root, 'workspace-with-empty-results');
   await writeSampleIteration(join(workspaceRoot, 'results', 'draft'));
   await fs.promises.rm(join(workspaceRoot, 'results', 'draft'), { recursive: true });
 
-  await expect(loadIteration(workspaceRoot)).rejects.toThrow(NO_VALID_ITERATIONS_ERROR_PATTERN);
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(NO_REVIEWABLE_ITERATIONS_ERROR_PATTERN);
+});
+
+it('reports where failed or ungraded artifacts remain when no iteration is reviewable', async () => {
+  const workspaceRoot = join(root, 'workspace-with-failed-results');
+  const failedIterationRoot = join(workspaceRoot, 'results', 'iteration-1');
+  await writeSampleIteration(failedIterationRoot, { iteration: 1 });
+  const manifestPath = join(failedIterationRoot, 'run_manifest.json');
+  const manifest = JSON.parse(await fs.promises.readFile(manifestPath, 'utf-8'));
+  manifest.runs[0].execution_status = 'grading_error';
+  manifest.runs[0].error = 'grading failed';
+  await fs.promises.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+  await fs.promises.rm(join(failedIterationRoot, 'eval-1', 'skill', 'grading.json'));
+
+  await expect(loadIteration(workspaceRoot)).rejects.toThrow(
+    `no reviewable results/iteration-N artifacts; failed or ungraded iterations remain under ${join(workspaceRoot, 'results')}`
+  );
 });
 
 it('ignores iteration directories without manifests', async () => {
