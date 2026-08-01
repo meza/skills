@@ -14,6 +14,31 @@ FAKE_ROOT = Path(Path(tempfile.gettempdir()).anchor)
 
 
 class CodexProviderEnvironmentTests(unittest.TestCase):
+    def _build_all_commands(self, effort):
+        provider = CodexProvider()
+        return [
+            provider.build_command(
+                session_id=None,
+                session_name="session",
+                turn_index=0,
+                model=None,
+                effort=effort,
+            ),
+            provider.build_command(
+                session_id="thread-123",
+                session_name="session",
+                turn_index=1,
+                model=None,
+                effort=effort,
+            ),
+            provider.build_grading_command(
+                model=None,
+                effort=effort,
+                working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+                output_schema=str(FAKE_ROOT / "schemas/grading.schema.json"),
+            ),
+        ]
+
     def test_command_builders_share_codex_eval_policy_args(self):
         policy_args = codex_provider._codex_eval_policy_args()
 
@@ -40,6 +65,27 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         for command in (start_command, resume_command, grading_command):
             for arg in policy_args:
                 self.assertIn(arg, command)
+
+    def test_command_builders_forward_reasoning_effort(self):
+        for command in self._build_all_commands(effort="high"):
+            self.assertIn('model_reasoning_effort="high"', command)
+
+    def test_command_builders_omit_reasoning_effort_when_unspecified(self):
+        for command in self._build_all_commands(effort=None):
+            self.assertFalse(
+                any(arg.startswith("model_reasoning_effort=") for arg in command)
+            )
+
+    def test_build_command_safely_quotes_reasoning_effort(self):
+        effort = 'high"\nlow'
+
+        command = self._build_all_commands(effort=effort)[0]
+
+        self.assertIn(f"model_reasoning_effort={json.dumps(effort)}", command)
+
+    def test_command_builders_disable_login_shells(self):
+        for command in self._build_all_commands(effort=None):
+            self.assertIn("allow_login_shell=false", command)
 
     def test_process_environment_isolates_home_and_copies_auth_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -451,6 +497,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "shell_environment_policy.ignore_default_excludes=false",
                 "-c",
                 'approval_policy="never"',
+                "-c",
+                "allow_login_shell=false",
                 "-c",
                 'sandbox_mode="workspace-write"',
                 "-c",

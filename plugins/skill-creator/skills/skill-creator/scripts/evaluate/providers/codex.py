@@ -43,6 +43,10 @@ CODEX_APPROVAL_CONFIG_ARGS = [
     "-c",
     'approval_policy="never"',
 ]
+CODEX_LOGIN_SHELL_CONFIG_ARGS = [
+    "-c",
+    "allow_login_shell=false",
+]
 WINDOWS_SANDBOX_FEATURE_ARGS = [
     "--enable",
     "experimental_windows_sandbox",
@@ -58,6 +62,7 @@ EVAL_ISOLATION_CONFIG_ARGS = [
 def _codex_eval_policy_args(
     command_args: list[str] | None = None,
     extra_config_args: list[str] | None = None,
+    effort: str | None = None,
 ) -> list[str]:
     return [
         "--json",
@@ -68,9 +73,17 @@ def _codex_eval_policy_args(
         "--ignore-rules",
         *SHELL_ENV_SECRET_FILTER_ARGS,
         *CODEX_APPROVAL_CONFIG_ARGS,
+        *CODEX_LOGIN_SHELL_CONFIG_ARGS,
         *(extra_config_args or []),
         *EVAL_ISOLATION_CONFIG_ARGS,
+        *_codex_reasoning_effort_args(effort),
     ]
+
+
+def _codex_reasoning_effort_args(effort: str | None) -> list[str]:
+    if effort is None:
+        return []
+    return ["-c", f"model_reasoning_effort={json.dumps(effort)}"]
 
 
 class CodexProvider(Provider):
@@ -86,14 +99,16 @@ class CodexProvider(Provider):
         working_dir: str | None = None,
     ) -> list[str]:
         del session_name  # Codex manages thread naming internally.
-        del effort
         executable = _find_codex_executable()
 
         if turn_index == 0:
             cmd = [
                 executable,
                 "exec",
-                *_codex_eval_policy_args(command_args=CODEX_SANDBOX_ARGS),
+                *_codex_eval_policy_args(
+                    command_args=CODEX_SANDBOX_ARGS,
+                    effort=effort,
+                ),
             ]
             if working_dir:
                 cmd.extend(["--cd", working_dir])
@@ -106,7 +121,10 @@ class CodexProvider(Provider):
                 executable,
                 "exec",
                 "resume",
-                *_codex_eval_policy_args(extra_config_args=CODEX_SANDBOX_CONFIG_ARGS),
+                *_codex_eval_policy_args(
+                    extra_config_args=CODEX_SANDBOX_CONFIG_ARGS,
+                    effort=effort,
+                ),
                 session_id,
                 "-",
             ]
@@ -123,11 +141,13 @@ class CodexProvider(Provider):
         working_dir: str,
         output_schema: str,
     ) -> list[str]:
-        del effort
         cmd = [
             _find_codex_executable(),
             "exec",
-            *_codex_eval_policy_args(command_args=CODEX_SANDBOX_ARGS),
+            *_codex_eval_policy_args(
+                command_args=CODEX_SANDBOX_ARGS,
+                effort=effort,
+            ),
             "--cd",
             working_dir,
             "-",
