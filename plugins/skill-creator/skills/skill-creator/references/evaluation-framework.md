@@ -7,7 +7,7 @@ The evaluation framework provides a repeatable workflow for developing skills th
 1. Write a skill with a `SKILL.md` and an `evals/evals.json` file.
 2. Self-Verification checkpoint as prescribed in the [Eval Self-Verification](#eval-self-verification) section below.
 3. Run the evals with `evaluate_skill.py` as defined below.
-4. Open the eval viewer (or reuse if already running) UI in the `eval-viewer` folder with `npm run serve -- <path-to-evaluation-workspace>`.
+4. Open the packaged eval viewer (or reuse it if already running) with Node.js 24 or newer.
 5. User reviews results, identifies issues
 6. The UI generates a `<run-root>/<skill-name>/results/iteration-N/viewer_feedback.json` file with user feedback and improvement suggestions.
 7. You iterate on the skill with the user based on the feedback, keeping the same run root, and re-run the evals when the user asks to see how the changes impact the results.
@@ -206,28 +206,26 @@ Viewer path:
 <skill-creator-path>/eval-viewer
 ```
 
-Install once:
-
-```bash
-cd <skill-creator-path>/eval-viewer
-npm install
-```
-
 Start after the first evaluator run completes:
 
 ```bash
-cd <skill-creator-path>/eval-viewer
-npm run serve -- <run-root>/<skill-name>
+node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-name>
 ```
 
 Rules:
 
 * serve `<run-root>/<skill-name>`
+* do not run `npm install` or build inside the installed plugin cache
 * do not serve `results/iteration-N`
 * start the viewer once
 * keep it running for the session
 * do not restart it for each iteration
 * later evaluator runs appear in the UI automatically
+* expect `eval-viewer.log` and its rotated files under `<run-root>/<skill-name>`
+
+When upgrading from plugin version 1.0.x, stop the old npm-based viewer before
+installing the new version. This one-time stop releases files opened by the old
+process. Start the packaged viewer with the command above after the update.
 
 ### User feedback
 

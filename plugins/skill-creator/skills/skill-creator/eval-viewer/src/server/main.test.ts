@@ -1,12 +1,12 @@
+import { join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { fs, vol } from '../../tests/support/memfs.js';
 import { DEFAULT_PORT, startServer, viewerPortFromEnv, workspaceRootFromArgs } from './main.js';
 
 const CONFIGURED_VIEWER_PORT = 4123;
-const EVAL_VIEWER_LOG_PATH_PATTERN = /eval-viewer\.log$/;
-const EVAL_VIEWER_WORKSPACE_PATTERN = /eval-viewer$/;
 const PORT_RANGE_ERROR_PATTERN = /PORT must be an integer from 1 to 65535/;
 const USAGE_ERROR_PATTERN = /usage/i;
+const WORKSPACE_ROOT = resolve('workspace');
 
 describe('server entrypoint', () => {
   it('requires an evaluation workspace root argument', () => {
@@ -15,28 +15,30 @@ describe('server entrypoint', () => {
 
   it('starts the server with the resolved workspace root and port', async () => {
     vol.reset();
-    await fs.promises.mkdir('/cwd', { recursive: true });
+    await fs.promises.mkdir(WORKSPACE_ROOT, { recursive: true });
     const listen = vi.fn(async () => undefined);
-    const buildServer = vi.fn(async () => ({ listen }));
+    const close = vi.fn(async () => undefined);
+    const buildServer = vi.fn(async () => ({ close, listen }));
 
-    await startServer({
-      argv: ['node', 'main.ts', '.'],
+    const runningServer = await startServer({
+      argv: ['node', 'main.ts', WORKSPACE_ROOT],
       buildServer,
-      cwd: '/cwd',
       env: { PORT: '4123' }
     });
 
     expect(buildServer).toHaveBeenCalledWith({
-      logFilePath: expect.stringMatching(EVAL_VIEWER_LOG_PATH_PATTERN),
-      workspaceRoot: expect.stringMatching(EVAL_VIEWER_WORKSPACE_PATTERN)
+      logFilePath: join(WORKSPACE_ROOT, 'eval-viewer.log'),
+      workspaceRoot: WORKSPACE_ROOT
     });
     expect(listen).toHaveBeenCalledWith({ host: '0.0.0.0', port: 4123 });
+    await runningServer.shutdown();
+    expect(close).toHaveBeenCalledOnce();
   });
 
   it('uses the shared viewer port when PORT is not set', async () => {
     vol.reset();
     const listen = vi.fn(async () => undefined);
-    const buildServer = vi.fn(async () => ({ listen }));
+    const buildServer = vi.fn(async () => ({ close: vi.fn(async () => undefined), listen }));
 
     await startServer({
       argv: ['node', 'main.ts', '.'],
@@ -54,7 +56,10 @@ describe('server entrypoint', () => {
     ['zero', '0'],
     ['out-of-range', '65536']
   ])('rejects %s PORT values before starting the server', async (_name, port) => {
-    const buildServer = vi.fn(async () => ({ listen: vi.fn(async () => undefined) }));
+    const buildServer = vi.fn(async () => ({
+      close: vi.fn(async () => undefined),
+      listen: vi.fn(async () => undefined)
+    }));
 
     await expect(
       startServer({
@@ -67,29 +72,44 @@ describe('server entrypoint', () => {
     expect(buildServer).not.toHaveBeenCalled();
   });
 
-  it('rotates cwd-local log files before starting the server', async () => {
+  it('rotates workspace-local log files before starting the server', async () => {
     vol.reset();
-    await fs.promises.mkdir('/cwd', { recursive: true });
-    await fs.promises.writeFile('/cwd/eval-viewer.log', 'current', 'utf-8');
-    await fs.promises.writeFile('/cwd/eval-viewer.1.log', 'previous', 'utf-8');
-    await fs.promises.writeFile('/cwd/eval-viewer.2.log', 'oldest', 'utf-8');
+    await fs.promises.mkdir(WORKSPACE_ROOT, { recursive: true });
+    await fs.promises.writeFile(join(WORKSPACE_ROOT, 'eval-viewer.log'), 'current', 'utf-8');
+    await fs.promises.writeFile(join(WORKSPACE_ROOT, 'eval-viewer.1.log'), 'previous', 'utf-8');
+    await fs.promises.writeFile(join(WORKSPACE_ROOT, 'eval-viewer.2.log'), 'oldest', 'utf-8');
     const listen = vi.fn(async () => undefined);
-    const buildServer = vi.fn(async () => ({ listen }));
+    const buildServer = vi.fn(async () => ({ close: vi.fn(async () => undefined), listen }));
 
     await startServer({
-      argv: ['node', 'main.ts', '.'],
+      argv: ['node', 'main.ts', WORKSPACE_ROOT],
       buildServer,
-      cwd: '/cwd',
       env: {}
     });
 
-    await expect(fs.promises.readFile('/cwd/eval-viewer.log', 'utf-8')).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(fs.promises.readFile('/cwd/eval-viewer.1.log', 'utf-8')).resolves.toBe('current');
-    await expect(fs.promises.readFile('/cwd/eval-viewer.2.log', 'utf-8')).resolves.toBe('previous');
-    expect(buildServer).toHaveBeenCalledWith({
-      logFilePath: expect.stringMatching(EVAL_VIEWER_LOG_PATH_PATTERN),
-      workspaceRoot: expect.stringMatching(EVAL_VIEWER_WORKSPACE_PATTERN)
+    await expect(fs.promises.readFile(join(WORKSPACE_ROOT, 'eval-viewer.log'), 'utf-8')).rejects.toMatchObject({
+      code: 'ENOENT'
     });
+    await expect(fs.promises.readFile(join(WORKSPACE_ROOT, 'eval-viewer.1.log'), 'utf-8')).resolves.toBe('current');
+    await expect(fs.promises.readFile(join(WORKSPACE_ROOT, 'eval-viewer.2.log'), 'utf-8')).resolves.toBe('previous');
+    expect(buildServer).toHaveBeenCalledWith({
+      logFilePath: join(WORKSPACE_ROOT, 'eval-viewer.log'),
+      workspaceRoot: WORKSPACE_ROOT
+    });
+  });
+
+  it('propagates startup failures', async () => {
+    const buildServer = vi.fn(() => Promise.reject(new Error('invalid evaluation workspace')));
+
+    await expect(
+      startServer({
+        argv: ['node', 'main.ts', WORKSPACE_ROOT],
+        buildServer,
+        env: {}
+      })
+    ).rejects.toThrow('invalid evaluation workspace');
+
+    expect(buildServer).toHaveBeenCalledOnce();
   });
 
   it('parses configured viewer ports', () => {

@@ -17,6 +17,18 @@ npm install
 The viewer uses Node tooling for its own maintenance. The Python evaluator
 tooling in the parent `skill-creator` directory does not replace these checks.
 
+## Maintain the distribution
+
+The committed `dist/` directory is the viewer payload installed with the
+plugin. `npm run build` regenerates both the browser assets and the bundled Node
+server. Do not edit generated files directly.
+
+`npm run validate` rebuilds the distribution. The repository must remain clean
+after that command so CI can detect stale or non-deterministic generated output.
+The packaged-viewer test copies the payload without `node_modules`, launches it
+from an external working directory, and verifies that runtime state stays out
+of the installed plugin cache.
+
 ## Mandatory Local Verification
 
 Before handing off viewer changes, run Biome in automatic fix mode, run

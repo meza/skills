@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Eval Viewer Local API",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "HTTP API for the local eval viewer. The server reads evaluator-produced artifacts from a local evaluation workspace root and writes viewer_feedback.json for human review notes under the active iteration."
   },
   "servers": [

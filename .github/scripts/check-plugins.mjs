@@ -164,8 +164,27 @@ function validateSwarmPlugin(name, claudeEntries, codexEntries, extraSharedFiles
   }
 }
 
+function validateSkillCreator(claudeEntries, codexEntries) {
+  const claude = claudeEntries.get('skill-creator')
+  const codex = codexEntries.get('skill-creator')
+  if (!claude) fail('skill-creator must be listed in the Claude marketplace')
+  if (!codex) fail('skill-creator must be listed in the Codex marketplace')
+  if (!claude || !codex) return
+
+  if (claude.manifest.version !== codex.manifest.version) {
+    fail('skill-creator Claude and Codex manifest versions must match')
+  }
+  for (const required of [
+    'skills/skill-creator/eval-viewer/dist/index.html',
+    'skills/skill-creator/eval-viewer/dist/server/main.js',
+  ]) {
+    if (!existsSync(join(codex.pluginDirectory, required))) fail(`skill-creator is missing ${required}`)
+  }
+}
+
 const claudeEntries = validateClaudeMarketplace()
 const codexEntries = validateCodexMarketplace()
+validateSkillCreator(claudeEntries, codexEntries)
 validateSwarmPlugin('review-swarm', claudeEntries, codexEntries, [
   'shared/code_review_symptoms.csv',
   'shared/instruction_template.md',

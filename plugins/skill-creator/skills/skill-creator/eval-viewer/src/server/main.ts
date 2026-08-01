@@ -11,10 +11,19 @@ const MAX_PORT = 65535;
 interface StartServerOptions {
   argv: string[];
   buildServer: (options: { logFilePath: string; workspaceRoot: string }) => Promise<{
+    close: () => Promise<unknown>;
     listen: (options: { host: string; port: number }) => Promise<unknown>;
   }>;
-  cwd?: string;
   env: NodeJS.ProcessEnv;
+}
+
+export interface RunningViewerServer {
+  /**
+   * Owns the resources acquired by one successful viewer startup.
+   * Call `shutdown` once during process termination to close the HTTP listener,
+   * workspace watchers, and logger before replacing the installed plugin.
+   */
+  shutdown: () => Promise<void>;
 }
 
 /**
@@ -26,7 +35,7 @@ interface StartServerOptions {
 export function workspaceRootFromArgs(argv: string[]): string {
   const workspaceRoot = argv[2];
   if (!workspaceRoot) {
-    throw new Error('Usage: npm run serve -- <evaluation-workspace-root>');
+    throw new Error('Usage: node <skill-creator-path>/eval-viewer/dist/server/main.js <evaluation-workspace-root>');
   }
   return resolve(workspaceRoot);
 }
@@ -45,22 +54,30 @@ export function viewerPortFromEnv(env: NodeJS.ProcessEnv): number {
 }
 
 /**
- * Starts the packaged eval viewer server.
+ * Starts one packaged eval viewer for an evaluation workspace.
  *
- * Startup rotates local viewer logs, validates the workspace through `buildServer`,
- * and binds Fastify on all interfaces so the browser can open the local UI.
+ * Startup rotates logs under the workspace root, validates the workspace through
+ * `buildServer`, and binds Fastify on the configured port. The returned owner must
+ * be shut down once so every listener and watcher is released. Invalid arguments,
+ * log rotation failures, workspace validation failures, and bind failures reject
+ * startup without returning a partially running owner.
  */
-export async function startServer(options: StartServerOptions): Promise<void> {
+export async function startServer(options: StartServerOptions): Promise<RunningViewerServer> {
   const workspaceRoot = workspaceRootFromArgs(options.argv);
   const port = viewerPortFromEnv(options.env);
-  const logFilePath = logFilePathFromCwd(options.cwd ?? process.cwd());
+  const logFilePath = logFilePathFromWorkspaceRoot(workspaceRoot);
   await rotateLogFiles(logFilePath);
   const server = await options.buildServer({ logFilePath, workspaceRoot });
   await server.listen({ host: '0.0.0.0', port });
+  return {
+    async shutdown() {
+      await server.close();
+    }
+  };
 }
 
-function logFilePathFromCwd(cwd: string): string {
-  return resolve(cwd, LOG_FILE_NAME);
+function logFilePathFromWorkspaceRoot(workspaceRoot: string): string {
+  return resolve(workspaceRoot, LOG_FILE_NAME);
 }
 
 async function rotateLogFiles(logFilePath: string): Promise<void> {
@@ -84,7 +101,15 @@ async function renameIfExists(source: string, target: string): Promise<void> {
   }
 }
 
-/* v8 ignore next 3 -- direct CLI launch is covered through startServer(). */
+/* v8 ignore start -- direct CLI launch is covered by the packaged viewer smoke test. */
 if (process.argv[1]?.endsWith('main.ts') || process.argv[1]?.endsWith('main.js')) {
-  await startServer({ argv: process.argv, buildServer, env: process.env });
+  const directArgv = [...process.argv];
+  const workspaceRoot = workspaceRootFromArgs(directArgv);
+  directArgv[2] = workspaceRoot;
+  process.chdir(workspaceRoot);
+  const runningServer = await startServer({ argv: directArgv, buildServer, env: process.env });
+  const shutdown = async () => runningServer.shutdown();
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
+/* v8 ignore stop */

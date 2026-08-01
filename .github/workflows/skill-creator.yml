@@ -116,3 +116,27 @@ jobs:
           path: plugins/skill-creator/skills/skill-creator/eval-viewer/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  packaged-viewer-windows:
+    name: packaged-viewer-windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: plugins/skill-creator/skills/skill-creator/eval-viewer
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: plugins/skill-creator/skills/skill-creator/eval-viewer/package.json
+          cache: npm
+          cache-dependency-path: plugins/skill-creator/skills/skill-creator/eval-viewer/package-lock.json
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Test packaged viewer cache safety
+        run: npm run test:package

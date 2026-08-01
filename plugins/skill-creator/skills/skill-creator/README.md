@@ -9,7 +9,7 @@ The workflow runs realistic prompts against a skill, compares runs with and with
 Use this sequence for each iteration:
 
 1. Run the evals with `evaluate_skill.py` as defined below.
-2. Open the eval viewer UI in the `eval-viewer` folder with `npm run serve -- <path-to-evaluation-workspace>`.
+2. Open the packaged eval viewer with Node.js 24 or newer.
 
 ## Inputs
 
@@ -228,9 +228,7 @@ iteration-N/aggregated_results.json
 Open the viewer after grading and aggregation:
 
 ```bash
-cd <skill-creator-path>/eval-viewer
-npm install
-npm run serve -- <run-root>/<skill-name>
+node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-name>
 ```
 
 The viewer serves the evaluation workspace root. It discovers iterations under
@@ -239,6 +237,10 @@ browser switch between available iterations. Direct `iteration-N` paths are not
 supported, and no compatibility path exists for serving them. The `vs Last
 Iteration` metric compares the selected iteration to the immediately previous
 numbered iteration, `iteration-(N-1)`.
+
+The viewer writes `eval-viewer.log` beside the evaluation workspace `results`
+directory. It does not install dependencies, build assets, or write into the
+installed plugin cache.
 
 ## Isolation
 

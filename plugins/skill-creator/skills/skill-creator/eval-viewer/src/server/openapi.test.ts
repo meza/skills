@@ -1,11 +1,13 @@
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import openapiJson from '../../openapi.json' with { type: 'json' };
+import packageJson from '../../package.json' with { type: 'json' };
 import { writeSampleWorkspace } from '../../tests/fixtures/sampleIteration.js';
 import { vol } from '../../tests/support/memfs.js';
 import { buildServer } from './buildServer.js';
 
 interface OpenApiDocument {
+  info: { version: string };
   openapi: string;
   paths: Record<string, Record<string, OpenApiOperation>> & {
     '/api/artifacts': { get: OpenApiOperation };
@@ -69,5 +71,9 @@ describe('OpenAPI contract', () => {
     expect(Object.keys(openapi.paths['/api/artifacts'].get.responses)).toEqual(['200', '400', '403', '404']);
     expect(Object.keys(openapi.paths['/api/feedback/{evalId}'].put.responses)).toEqual(['200', '400', '404']);
     expect(Object.keys(openapi.paths['/api/runs/{evalId}/{runType}'].get.responses)).toEqual(['200', '400', '404']);
+  });
+
+  it('uses the viewer package version', () => {
+    expect(openapi.info.version).toBe(packageJson.version);
   });
 });
