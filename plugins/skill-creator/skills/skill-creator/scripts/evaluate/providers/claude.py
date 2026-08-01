@@ -9,20 +9,29 @@ import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from . import Provider, TurnResult, minimized_process_env
+from . import PermissionMode, Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
 from ..telemetry import redact_sensitive_telemetry
 
 DEFAULT_EFFORT = "medium"
-CLAUDE_PERMISSION_MODE = "acceptEdits"
+CLAUDE_PERMISSION_MODES = {
+    PermissionMode.RESTRICTED: "acceptEdits",
+    PermissionMode.UNRESTRICTED: "bypassPermissions",
+}
 STREAM_JSON_ARGS = [
     "--output-format",
     "stream-json",
     "--verbose",
-    "--permission-mode",
-    CLAUDE_PERMISSION_MODE,
 ]
 CLAUDE_SECRET_ENV_PREFIXES = ("ANTHROPIC_", "CLAUDE_")
+
+
+def _stream_json_args(permission_mode: PermissionMode) -> list[str]:
+    return [
+        *STREAM_JSON_ARGS,
+        "--permission-mode",
+        CLAUDE_PERMISSION_MODES[permission_mode],
+    ]
 
 
 class ClaudeProvider(Provider):
@@ -37,10 +46,11 @@ class ClaudeProvider(Provider):
         effort: str | None = None,
         working_dir: str | None = None,
         additional_writable_dirs: list[str] | None = None,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
         cmd.extend(_session_args(session_id, session_name, turn_index))
-        cmd.extend(STREAM_JSON_ARGS)
+        cmd.extend(_stream_json_args(permission_mode))
         _add_writable_dir_boundaries(cmd, working_dir, additional_writable_dirs)
 
         if model:
@@ -54,10 +64,11 @@ class ClaudeProvider(Provider):
         effort: str | None,
         working_dir: str,
         output_schema: str,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         del output_schema
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
-        cmd.extend(STREAM_JSON_ARGS)
+        cmd.extend(_stream_json_args(permission_mode))
         _add_writable_dir_boundaries(cmd, working_dir)
         if model:
             cmd.extend(["--model", model])

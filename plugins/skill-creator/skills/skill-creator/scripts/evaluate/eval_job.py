@@ -21,7 +21,7 @@ from .eval_definitions import (
     EvalDefinition,
     EvalTurn,
 )
-from .providers import Provider
+from .providers import PermissionMode, Provider
 from .telemetry import redact_sensitive_telemetry
 
 DEFAULT_PROVIDER_OUTPUT_LIMIT_BYTES = 20 * 1024 * 1024
@@ -473,6 +473,7 @@ class EvalJob:
     model: str | None
     effort: str | None
     timeout: int
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED
     deadline: float | None = None
     grading_job_factory: Callable[["EvalJob"], object] | None = None
     process_registry: ActiveProcessRegistry = field(
@@ -659,6 +660,7 @@ class EvalJob:
             effort=self.effort,
             working_dir=self.run_dir,
             additional_writable_dirs=self._additional_writable_dirs(),
+            permission_mode=self.permission_mode,
         )
         print(
             f"  [{self.run_type}] eval-{self.eval_id} turn "
@@ -861,6 +863,7 @@ class EvalJobRun:
     model: str | None
     effort: str | None
     timeout: int
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED
     deadline: float | None = None
     grading_job_factory: Callable[["EvalJob"], object] | None = None
     process_registry: ActiveProcessRegistry | None = None
@@ -877,6 +880,7 @@ def run_single_job(job: EvalJobRun) -> dict:
         provider=job.provider,
         model=job.model,
         effort=job.effort,
+        permission_mode=job.permission_mode,
         timeout=job.timeout,
         deadline=job.deadline,
         grading_job_factory=job.grading_job_factory,

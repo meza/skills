@@ -13,6 +13,7 @@ from unittest import mock
 
 from scripts import evaluate_skill
 from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
+from scripts.evaluate.providers import PermissionMode
 
 # A Windows drive letter is absolute on Windows but a *relative* path on POSIX
 # (and "/x" is the reverse), so synthetic absolute paths must be anchored to
@@ -89,6 +90,7 @@ class EvaluateSkillTests(unittest.TestCase):
                         provider="codex",
                         model="gpt-5.4",
                         effort="high",
+                        permission_mode=PermissionMode.UNRESTRICTED,
                         eval_ids="1,2",
                         skip_baseline=False,
                         max_parallel=12,
@@ -126,6 +128,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertFalse(run_options.skip_baseline)
         self.assertEqual(run_options.model, "gpt-5.4")
         self.assertEqual(run_options.effort, "high")
+        self.assertEqual(run_options.permission_mode, PermissionMode.UNRESTRICTED)
         self.assertEqual(run_options.max_parallel, 12)
         self.assertEqual(run_options.timeout, 900)
         self.assertIs(run_options.process_registry, process_registry)
@@ -435,6 +438,8 @@ class EvaluateSkillTests(unittest.TestCase):
             "gpt-5.5",
             "--effort",
             "high",
+            "--permission-mode",
+            "unrestricted",
             "--eval-ids",
             "1,2",
             "--skip-baseline",
@@ -459,6 +464,7 @@ class EvaluateSkillTests(unittest.TestCase):
         self.assertEqual(args.provider, "codex")
         self.assertEqual(args.model, "gpt-5.5")
         self.assertEqual(args.effort, "high")
+        self.assertEqual(args.permission_mode, PermissionMode.UNRESTRICTED)
         self.assertEqual(args.eval_ids, "1,2")
         self.assertTrue(args.skip_baseline)
         self.assertEqual(args.max_parallel, 12)
@@ -488,10 +494,38 @@ class EvaluateSkillTests(unittest.TestCase):
         args = execute.call_args.args[0]
         self.assertEqual(args.model, "gpt-5.5")
         self.assertIsNone(args.effort)
+        self.assertEqual(args.permission_mode, PermissionMode.RESTRICTED)
         self.assertIsNone(args.eval_ids)
         self.assertFalse(args.skip_baseline)
         self.assertEqual(args.max_parallel, 10)
         self.assertEqual(args.timeout, 600)
+
+    def test_main_rejects_unknown_permission_mode(self):
+        argv = [
+            "evaluate_skill.py",
+            "--skill-path",
+            str(FAKE_ROOT / "skills/sample-skill"),
+            "--run-root",
+            str(FAKE_ROOT / "runs"),
+            "--provider",
+            "codex",
+            "--model",
+            "gpt-5.5",
+            "--permission-mode",
+            "elevated",
+        ]
+
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch.object(evaluate_skill, "execute") as execute,
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            evaluate_skill.main()
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid PermissionMode value", stderr.getvalue())
+        execute.assert_not_called()
 
     def test_main_expands_relative_skill_path_at_entrypoint(self):
         with tempfile.TemporaryDirectory() as temp_dir:

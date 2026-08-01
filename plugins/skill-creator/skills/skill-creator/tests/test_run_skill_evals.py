@@ -28,7 +28,7 @@ from scripts.evaluate.eval_runner import (
     EvalRunOptions,
 )
 from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
-from scripts.evaluate.providers import TurnResult
+from scripts.evaluate.providers import PermissionMode, TurnResult
 from scripts.evaluate.providers.claude import (
     ClaudeProvider,
 )
@@ -80,6 +80,7 @@ class FakeProvider:
         effort=None,
         working_dir=None,
         additional_writable_dirs=None,
+        permission_mode=PermissionMode.RESTRICTED,
     ):
         command = ["fake-provider", session_name, str(turn_index)]
         self.commands.append(
@@ -91,6 +92,7 @@ class FakeProvider:
                 "effort": effort,
                 "working_dir": working_dir,
                 "additional_writable_dirs": additional_writable_dirs,
+                "permission_mode": permission_mode,
                 "command": command,
             }
         )
@@ -200,6 +202,7 @@ class RunSkillEvalsContractTests(unittest.TestCase):
             skip_baseline=skip_baseline,
             model=None,
             effort=None,
+            permission_mode=PermissionMode.RESTRICTED,
         )
 
     def test_process_exiting_eval_helpers_have_explicit_names(self):
@@ -778,20 +781,51 @@ class RunSkillEvalsContractTests(unittest.TestCase):
                     run_skill_evals.SkillEvalRunOptions(
                         max_parallel=12,
                         timeout=900,
+                        permission_mode=PermissionMode.UNRESTRICTED,
                     ),
                 ).run()
 
             options = eval_run.call_args.args[0]
             self.assertEqual(options.max_parallel, 12)
             self.assertEqual(options.timeout, 900)
+            self.assertEqual(options.permission_mode, PermissionMode.UNRESTRICTED)
             self.assertEqual(options.grading_job_factory, "grading-factory")
             create_grading_job_factory.assert_called_once_with(
                 provider=provider,
                 skill_name="fake-skill",
                 model=None,
                 effort=None,
+                permission_mode=PermissionMode.UNRESTRICTED,
                 timeout=900,
             )
+
+    def test_unrestricted_launch_summary_warns_operator(self):
+        runner = mock.Mock()
+        runner.options = EvalRunOptions(
+            eval_definitions_path=FAKE_ROOT / "skill/evals/evals.json",
+            workspace=FAKE_ROOT / "workspace",
+            iteration=1,
+            provider_name="fake",
+            model=None,
+            effort=None,
+            max_parallel=1,
+            timeout=30,
+            total_timeout=None,
+            run_types=["skill"],
+            run_root=FAKE_ROOT / "prepared",
+            permission_mode=PermissionMode.UNRESTRICTED,
+        )
+        runner.evals_list = [{"id": 1}]
+
+        with (
+            contextlib.redirect_stdout(io.StringIO()) as stdout,
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            EvalRun.print_launch_summary(runner, 1)
+
+        self.assertIn("Permission mode: unrestricted", stdout.getvalue())
+        self.assertIn("WARNING", stderr.getvalue())
+        self.assertIn("bypasses provider sandbox protections", stderr.getvalue())
 
     def test_runner_uses_next_results_iteration_for_stable_run_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -894,6 +928,7 @@ class EvalLibTests(unittest.TestCase):
         deadline: float | None = None,
         grading_job_factory=None,
         fixture_path: str | None = None,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> eval_job.EvalJob:
         return eval_job.EvalJob(
             eval_def=eval_def
@@ -910,6 +945,7 @@ class EvalLibTests(unittest.TestCase):
             model="fake-model",
             effort="high",
             timeout=30,
+            permission_mode=permission_mode,
             deadline=deadline,
             grading_job_factory=grading_job_factory,
         )
@@ -953,6 +989,27 @@ class EvalLibTests(unittest.TestCase):
                 job.invoke_provider(0, "prompt", 30, {})
 
             self.assertEqual(provider.commands[0]["additional_writable_dirs"], [])
+
+    def test_eval_job_passes_unrestricted_mode_to_provider(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            provider = FakeProvider()
+            job = self._job(
+                Path(temp_dir),
+                provider=provider,
+                permission_mode=PermissionMode.UNRESTRICTED,
+            )
+
+            with mock.patch.object(
+                eval_job,
+                "run_with_timeout",
+                return_value=timed_process_result(),
+            ):
+                job.invoke_provider(0, "prompt", 30, {})
+
+            self.assertEqual(
+                provider.commands[0]["permission_mode"],
+                PermissionMode.UNRESTRICTED,
+            )
 
     def test_build_prompt_handles_fixture_path_variants(self):
         fixture_path = str(FAKE_ROOT / "fixture")
@@ -2080,6 +2137,7 @@ class EvalLibTests(unittest.TestCase):
                     provider_name="fake",
                     model="fake-model",
                     effort="high",
+                    permission_mode=PermissionMode.UNRESTRICTED,
                     max_parallel=1,
                     timeout=30,
                     total_timeout=None,
@@ -2115,6 +2173,10 @@ class EvalLibTests(unittest.TestCase):
             self.assertEqual(submitted_job.fixture_path, str(temp_path / "fixture"))
             self.assertEqual(submitted_job.model, "fake-model")
             self.assertEqual(submitted_job.effort, "high")
+            self.assertEqual(
+                submitted_job.permission_mode,
+                PermissionMode.UNRESTRICTED,
+            )
             self.assertEqual(submitted_job.deadline, 123.0)
             self.assertIs(submitted_job.grading_job_factory, grading_job_factory)
 

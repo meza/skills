@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import Provider, TurnResult, minimized_process_env
+from . import PermissionMode, Provider, TurnResult, minimized_process_env
 from ..prompt_format import extract_prompt_sections
 from ..telemetry import redact_sensitive_telemetry
 
@@ -31,14 +31,10 @@ SHELL_ENV_SECRET_FILTER_ARGS = [
     "-c",
     "shell_environment_policy.ignore_default_excludes=false",
 ]
-CODEX_SANDBOX_ARGS = [
-    "--sandbox",
-    "workspace-write",
-]
-CODEX_SANDBOX_CONFIG_ARGS = [
-    "-c",
-    'sandbox_mode="workspace-write"',
-]
+CODEX_SANDBOX_MODES = {
+    PermissionMode.RESTRICTED: "workspace-write",
+    PermissionMode.UNRESTRICTED: "danger-full-access",
+}
 CODEX_APPROVAL_CONFIG_ARGS = [
     "-c",
     'approval_policy="never"',
@@ -88,6 +84,15 @@ def _codex_reasoning_effort_args(effort: str | None) -> list[str]:
     return ["-c", f"model_reasoning_effort={json.dumps(effort)}"]
 
 
+def _codex_sandbox_args(permission_mode: PermissionMode) -> list[str]:
+    return ["--sandbox", CODEX_SANDBOX_MODES[permission_mode]]
+
+
+def _codex_sandbox_config_args(permission_mode: PermissionMode) -> list[str]:
+    sandbox_mode = CODEX_SANDBOX_MODES[permission_mode]
+    return ["-c", f'sandbox_mode="{sandbox_mode}"']
+
+
 class CodexProvider(Provider):
     """Provider that uses the Codex CLI in non-interactive mode."""
 
@@ -100,6 +105,7 @@ class CodexProvider(Provider):
         effort: str | None = None,
         working_dir: str | None = None,
         additional_writable_dirs: list[str] | None = None,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         del session_name  # Codex manages thread naming internally.
         executable = _find_codex_executable()
@@ -109,7 +115,7 @@ class CodexProvider(Provider):
                 executable,
                 "exec",
                 *_codex_eval_policy_args(
-                    command_args=CODEX_SANDBOX_ARGS,
+                    command_args=_codex_sandbox_args(permission_mode),
                     effort=effort,
                 ),
             ]
@@ -123,7 +129,7 @@ class CodexProvider(Provider):
                 "exec",
                 "resume",
                 *_codex_eval_policy_args(
-                    extra_config_args=CODEX_SANDBOX_CONFIG_ARGS,
+                    extra_config_args=_codex_sandbox_config_args(permission_mode),
                     effort=effort,
                 ),
                 session_id,
@@ -141,12 +147,13 @@ class CodexProvider(Provider):
         effort: str | None,
         working_dir: str,
         output_schema: str,
+        permission_mode: PermissionMode = PermissionMode.RESTRICTED,
     ) -> list[str]:
         cmd = [
             _find_codex_executable(),
             "exec",
             *_codex_eval_policy_args(
-                command_args=CODEX_SANDBOX_ARGS,
+                command_args=_codex_sandbox_args(permission_mode),
                 effort=effort,
             ),
             "--cd",

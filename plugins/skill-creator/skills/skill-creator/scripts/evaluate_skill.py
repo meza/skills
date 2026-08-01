@@ -15,6 +15,7 @@ if __package__:
     from .evaluate.eval_job import ActiveProcessRegistry, stop_git_fsmonitor_daemons
     from .evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from .evaluate.providers.registry import PROVIDERS
+    from .evaluate.providers import PermissionMode
     from .evaluate.results_aggregation import GradingResultAggregator
     from .evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from .evaluate.skill_prepare_hook import run_skill_prepare_hook
@@ -26,6 +27,7 @@ else:
     )
     from scripts.evaluate.prepare_fixture import FixturePreparer, PrepareFixtureOptions
     from scripts.evaluate.providers.registry import PROVIDERS
+    from scripts.evaluate.providers import PermissionMode
     from scripts.evaluate.results_aggregation import GradingResultAggregator
     from scripts.evaluate.run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
     from scripts.evaluate.skill_prepare_hook import run_skill_prepare_hook
@@ -127,6 +129,11 @@ def execute(args: argparse.Namespace) -> dict:
                 skip_baseline=args.skip_baseline,
                 model=args.model,
                 effort=args.effort,
+                permission_mode=getattr(
+                    args,
+                    "permission_mode",
+                    PermissionMode.RESTRICTED,
+                ),
                 max_parallel=args.max_parallel,
                 timeout=args.timeout,
                 process_registry=process_registry,
@@ -209,6 +216,16 @@ def main() -> None:
         "--effort",
         default=None,
         help="Reasoning effort to use. If omitted, the provider default is used.",
+    )
+    parser.add_argument(
+        "--permission-mode",
+        type=PermissionMode,
+        choices=tuple(PermissionMode),
+        default=PermissionMode.RESTRICTED,
+        help=(
+            "Provider tool permission mode. 'unrestricted' bypasses provider "
+            "sandbox protections; use only when the operator accepts the risk."
+        ),
     )
     parser.add_argument(
         "--eval-ids",

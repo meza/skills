@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from .artifact_validation import write_json_artifact
 from .eval_definitions import EvalDefinition, write_eval_metadata
 from .eval_job import ActiveProcessRegistry, EvalJobRun, run_single_job
+from .providers import PermissionMode
 from .run_layout import RUN_TYPES
 from .telemetry import redact_sensitive_telemetry
 
@@ -48,6 +49,7 @@ class EvalRunOptions:
     total_timeout: int | None
     run_types: list[str]
     run_root: Path
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED
     grading_job_factory: Callable | None = None
     process_registry: ActiveProcessRegistry = field(
         default_factory=ActiveProcessRegistry
@@ -218,6 +220,12 @@ class EvalRun:
             f"Max parallel: {self.options.max_parallel}, "
             f"timeout per turn: {self.options.timeout}s"
         )
+        print(f"Permission mode: {self.options.permission_mode.value}")
+        if self.options.permission_mode is PermissionMode.UNRESTRICTED:
+            print(
+                "WARNING: unrestricted mode bypasses provider sandbox protections.",
+                file=sys.stderr,
+            )
         if self.options.total_timeout:
             print(f"Total timeout: {self.options.total_timeout}s")
         print()
@@ -275,6 +283,7 @@ class EvalRun:
                     provider=self.provider,
                     model=self.options.model,
                     effort=self.options.effort,
+                    permission_mode=self.options.permission_mode,
                     timeout=self.options.timeout,
                     deadline=deadline,
                     grading_job_factory=self.options.grading_job_factory,

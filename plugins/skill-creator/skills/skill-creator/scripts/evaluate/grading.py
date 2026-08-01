@@ -13,7 +13,7 @@ from .artifact_validation import (
     write_json_artifact,
 )
 from .eval_job import ActiveProcessRegistry, run_with_timeout
-from .providers import Provider
+from .providers import PermissionMode, Provider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_GRADER_INSTRUCTIONS_PATH = (
@@ -57,6 +57,7 @@ def create_grading_job_factory(
     model: str | None,
     effort: str | None,
     timeout: int,
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED,
 ):
     """Create grading jobs for completed eval run types."""
 
@@ -69,6 +70,7 @@ def create_grading_job_factory(
             provider=provider,
             model=model,
             effort=effort,
+            permission_mode=permission_mode,
             timeout=timeout,
             schema_path=DEFAULT_GRADING_SCHEMA_PATH,
             grader_instructions_path=DEFAULT_GRADER_INSTRUCTIONS_PATH,
@@ -93,6 +95,7 @@ class GradingJob:
     timeout: int
     schema_path: Path
     grader_instructions_path: Path
+    permission_mode: PermissionMode = PermissionMode.RESTRICTED
     run_dir: str | None = None
     process_registry: ActiveProcessRegistry = field(
         default_factory=ActiveProcessRegistry
@@ -107,6 +110,7 @@ class GradingJob:
             effort=self.effort,
             working_dir=str(self.run_type_dir),
             output_schema=str(grader_output_schema_path),
+            permission_mode=self.permission_mode,
         )
         with self.provider.process_environment(
             os.environ,
