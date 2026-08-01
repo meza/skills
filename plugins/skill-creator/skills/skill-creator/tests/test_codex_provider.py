@@ -87,9 +87,9 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         for command in self._build_all_commands(effort=None):
             self.assertIn("allow_login_shell=false", command)
 
-    def test_command_builders_select_elevated_windows_sandbox(self):
+    def test_command_builders_select_unelevated_windows_sandbox(self):
         for command in self._build_all_commands(effort=None):
-            self.assertIn('windows.sandbox="elevated"', command)
+            self.assertIn('windows.sandbox="unelevated"', command)
 
     def test_process_environment_isolates_home_and_copies_auth_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -485,7 +485,7 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 "-c",
                 "allow_login_shell=false",
                 "-c",
-                'windows.sandbox="elevated"',
+                'windows.sandbox="unelevated"',
                 "-c",
                 'sandbox_mode="workspace-write"',
                 "-c",

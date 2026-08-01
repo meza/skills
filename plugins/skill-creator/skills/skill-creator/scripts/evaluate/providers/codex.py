@@ -47,9 +47,11 @@ CODEX_LOGIN_SHELL_CONFIG_ARGS = [
     "-c",
     "allow_login_shell=false",
 ]
+# Eval jobs use fresh Codex homes, so elevated setup would request administrator
+# approval for every worker. The documented fallback preserves sandboxing without UAC.
 CODEX_WINDOWS_SANDBOX_CONFIG_ARGS = [
     "-c",
-    'windows.sandbox="elevated"',
+    'windows.sandbox="unelevated"',
 ]
 EVAL_ISOLATION_CONFIG_ARGS = [
     "-c",
