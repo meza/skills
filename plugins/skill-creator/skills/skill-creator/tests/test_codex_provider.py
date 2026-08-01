@@ -87,6 +87,10 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         for command in self._build_all_commands(effort=None):
             self.assertIn("allow_login_shell=false", command)
 
+    def test_command_builders_select_elevated_windows_sandbox(self):
+        for command in self._build_all_commands(effort=None):
+            self.assertIn('windows.sandbox="elevated"', command)
+
     def test_process_environment_isolates_home_and_copies_auth_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -370,12 +374,14 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIn("features.plugins=false", command)
 
     def test_build_command_sets_execution_policy_before_prompt(self):
+        external_fixture = str(FAKE_ROOT / "runs/eval-1/skill-fixtures/project")
         command = CodexProvider().build_command(
             session_id=None,
             session_name="session",
             turn_index=0,
             model=None,
             working_dir=str(FAKE_ROOT / "runs/eval-1/skill"),
+            additional_writable_dirs=[external_fixture],
         )
 
         prompt_index = command.index("-")
@@ -384,6 +390,11 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             command[command.index("--add-dir") + 1],
             str(FAKE_ROOT / "runs/eval-1/skill"),
+        )
+        self.assertEqual(command.count("--add-dir"), 2)
+        self.assertEqual(
+            command[command.index("--add-dir", command.index("--add-dir") + 1) + 1],
+            external_fixture,
         )
         self.assertLess(command.index("--ignore-rules"), prompt_index)
 
@@ -473,6 +484,8 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
                 'approval_policy="never"',
                 "-c",
                 "allow_login_shell=false",
+                "-c",
+                'windows.sandbox="elevated"',
                 "-c",
                 'sandbox_mode="workspace-write"',
                 "-c",

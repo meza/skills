@@ -36,11 +36,12 @@ class ClaudeProvider(Provider):
         model: str | None,
         effort: str | None = None,
         working_dir: str | None = None,
+        additional_writable_dirs: list[str] | None = None,
     ) -> list[str]:
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
         cmd.extend(_session_args(session_id, session_name, turn_index))
         cmd.extend(STREAM_JSON_ARGS)
-        _add_working_dir_boundary(cmd, working_dir)
+        _add_writable_dir_boundaries(cmd, working_dir, additional_writable_dirs)
 
         if model:
             cmd.extend(["--model", model])
@@ -57,7 +58,7 @@ class ClaudeProvider(Provider):
         del output_schema
         cmd = ["claude", "-p", "--effort", effort or DEFAULT_EFFORT]
         cmd.extend(STREAM_JSON_ARGS)
-        _add_working_dir_boundary(cmd, working_dir)
+        _add_writable_dir_boundaries(cmd, working_dir)
         if model:
             cmd.extend(["--model", model])
         return cmd
@@ -93,9 +94,14 @@ class ClaudeProvider(Provider):
         yield _filtered_claude_env(base_env)
 
 
-def _add_working_dir_boundary(cmd: list[str], working_dir: str | None) -> None:
-    if working_dir:
-        cmd.extend(["--add-dir", working_dir])
+def _add_writable_dir_boundaries(
+    cmd: list[str],
+    working_dir: str | None,
+    additional_writable_dirs: list[str] | None = None,
+) -> None:
+    for writable_dir in [working_dir, *(additional_writable_dirs or [])]:
+        if writable_dir:
+            cmd.extend(["--add-dir", writable_dir])
 
 
 def _filtered_claude_env(env: dict[str, str]) -> dict[str, str]:

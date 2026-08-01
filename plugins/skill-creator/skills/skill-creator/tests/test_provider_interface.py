@@ -12,6 +12,7 @@ class MinimalProvider(Provider):
         model,
         effort=None,
         working_dir=None,
+        additional_writable_dirs=None,
     ):
         return []
 

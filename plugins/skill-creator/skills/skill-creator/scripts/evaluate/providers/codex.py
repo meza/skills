@@ -47,6 +47,10 @@ CODEX_LOGIN_SHELL_CONFIG_ARGS = [
     "-c",
     "allow_login_shell=false",
 ]
+CODEX_WINDOWS_SANDBOX_CONFIG_ARGS = [
+    "-c",
+    'windows.sandbox="elevated"',
+]
 EVAL_ISOLATION_CONFIG_ARGS = [
     "-c",
     "skills.bundled.enabled=false",
@@ -69,6 +73,7 @@ def _codex_eval_policy_args(
         *SHELL_ENV_SECRET_FILTER_ARGS,
         *CODEX_APPROVAL_CONFIG_ARGS,
         *CODEX_LOGIN_SHELL_CONFIG_ARGS,
+        *CODEX_WINDOWS_SANDBOX_CONFIG_ARGS,
         *(extra_config_args or []),
         *EVAL_ISOLATION_CONFIG_ARGS,
         *_codex_reasoning_effort_args(effort),
@@ -92,6 +97,7 @@ class CodexProvider(Provider):
         model: str | None,
         effort: str | None = None,
         working_dir: str | None = None,
+        additional_writable_dirs: list[str] | None = None,
     ) -> list[str]:
         del session_name  # Codex manages thread naming internally.
         executable = _find_codex_executable()
@@ -105,9 +111,7 @@ class CodexProvider(Provider):
                     effort=effort,
                 ),
             ]
-            if working_dir:
-                cmd.extend(["--cd", working_dir])
-                cmd.extend(["--add-dir", working_dir])
+            _add_initial_working_dirs(cmd, working_dir, additional_writable_dirs)
             cmd.append("-")
         else:
             if not session_id:
@@ -221,6 +225,17 @@ class CodexProvider(Provider):
     @property
     def requires_first_turn_session_id(self) -> bool:
         return True
+
+
+def _add_initial_working_dirs(
+    cmd: list[str],
+    working_dir: str | None,
+    additional_writable_dirs: list[str] | None,
+) -> None:
+    if working_dir:
+        cmd.extend(["--cd", working_dir, "--add-dir", working_dir])
+    for writable_dir in additional_writable_dirs or []:
+        cmd.extend(["--add-dir", writable_dir])
 
 
 def _find_codex_executable() -> str:

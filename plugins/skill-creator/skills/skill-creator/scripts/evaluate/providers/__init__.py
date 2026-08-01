@@ -66,6 +66,7 @@ class Provider(ABC):
         model: str | None,
         effort: str | None = None,
         working_dir: str | None = None,
+        additional_writable_dirs: list[str] | None = None,
     ) -> list[str]:
         """Build the CLI command for a single turn.
 
@@ -81,6 +82,8 @@ class Provider(ABC):
             effort: Reasoning effort override, or None for the provider default.
             working_dir: Optional directory that the provider should use as the
                 working root when its CLI exposes a cwd flag.
+            additional_writable_dirs: Paths outside the working root that the
+                provider should grant write access for the session.
 
         Returns:
             Command as a list of strings (passed to Popen).

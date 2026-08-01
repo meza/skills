@@ -658,6 +658,7 @@ class EvalJob:
             model=self.model,
             effort=self.effort,
             working_dir=self.run_dir,
+            additional_writable_dirs=self._additional_writable_dirs(),
         )
         print(
             f"  [{self.run_type}] eval-{self.eval_id} turn "
@@ -672,6 +673,16 @@ class EvalJob:
             env=process_env,
             process_registry=self.process_registry,
         )
+
+    def _additional_writable_dirs(self) -> list[str]:
+        if not self.fixture_path:
+            return []
+
+        fixture_path = Path(self.fixture_path).resolve()
+        run_dir = Path(self.run_dir).resolve()
+        if fixture_path.is_relative_to(run_dir):
+            return []
+        return [self.fixture_path]
 
     def record_timeout(
         self, turn_idx: int, effective_timeout: float, turn_result

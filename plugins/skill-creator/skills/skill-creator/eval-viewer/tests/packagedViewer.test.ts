@@ -14,7 +14,7 @@ const STARTUP_TIMEOUT_MS = 10_000;
 const PROCESS_EXIT_TIMEOUT_MS = 5_000;
 const STARTUP_POLL_INTERVAL_MS = 50;
 const HTTP_STATUS_OK = 200;
-const INSTALLED_VERSION = '1.0.3';
+const INSTALLED_VERSION = '1.0.4';
 const temporaryRoots: string[] = [];
 const runningProcesses: ChildProcess[] = [];
 

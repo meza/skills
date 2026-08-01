@@ -79,6 +79,7 @@ class FakeProvider:
         model,
         effort=None,
         working_dir=None,
+        additional_writable_dirs=None,
     ):
         command = ["fake-provider", session_name, str(turn_index)]
         self.commands.append(
@@ -89,6 +90,7 @@ class FakeProvider:
                 "model": model,
                 "effort": effort,
                 "working_dir": working_dir,
+                "additional_writable_dirs": additional_writable_dirs,
                 "command": command,
             }
         )
@@ -891,6 +893,7 @@ class EvalLibTests(unittest.TestCase):
         eval_def: dict | None = None,
         deadline: float | None = None,
         grading_job_factory=None,
+        fixture_path: str | None = None,
     ) -> eval_job.EvalJob:
         return eval_job.EvalJob(
             eval_def=eval_def
@@ -901,7 +904,7 @@ class EvalLibTests(unittest.TestCase):
             },
             run_type="skill",
             run_dir=str(iteration_dir / "run"),
-            fixture_path=None,
+            fixture_path=fixture_path,
             iteration_dir=iteration_dir,
             provider=provider or FakeProvider(),
             model="fake-model",
@@ -910,6 +913,46 @@ class EvalLibTests(unittest.TestCase):
             deadline=deadline,
             grading_job_factory=grading_job_factory,
         )
+
+    def test_eval_job_exposes_only_external_fixture_as_additional_writable_dir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            provider = FakeProvider()
+            external_fixture = temp_path / "fixtures" / "project"
+            job = self._job(
+                temp_path,
+                provider=provider,
+                fixture_path=str(external_fixture),
+            )
+
+            with mock.patch.object(
+                eval_job,
+                "run_with_timeout",
+                return_value=timed_process_result(),
+            ):
+                job.invoke_provider(0, "prompt", 30, {})
+
+            self.assertEqual(
+                provider.commands[0]["additional_writable_dirs"],
+                [str(external_fixture)],
+            )
+
+            provider = FakeProvider()
+            in_workdir_fixture = temp_path / "run" / "project"
+            job = self._job(
+                temp_path,
+                provider=provider,
+                fixture_path=str(in_workdir_fixture),
+            )
+
+            with mock.patch.object(
+                eval_job,
+                "run_with_timeout",
+                return_value=timed_process_result(),
+            ):
+                job.invoke_provider(0, "prompt", 30, {})
+
+            self.assertEqual(provider.commands[0]["additional_writable_dirs"], [])
 
     def test_build_prompt_handles_fixture_path_variants(self):
         fixture_path = str(FAKE_ROOT / "fixture")
@@ -2176,6 +2219,8 @@ class CodexProviderTests(unittest.TestCase):
                 "-c",
                 "allow_login_shell=false",
                 "-c",
+                'windows.sandbox="elevated"',
+                "-c",
                 "skills.bundled.enabled=false",
                 "-c",
                 "features.plugins=false",
@@ -2218,6 +2263,8 @@ class CodexProviderTests(unittest.TestCase):
                 'approval_policy="never"',
                 "-c",
                 "allow_login_shell=false",
+                "-c",
+                'windows.sandbox="elevated"',
                 "-c",
                 'sandbox_mode="workspace-write"',
                 "-c",
