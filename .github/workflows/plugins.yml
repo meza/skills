@@ -9,6 +9,9 @@ on:
       - .githooks/**
       - .release*.cjs
       - .releaserc.cjs
+      - package.json
+      - package-lock.json
+      - scripts/**
       - plugins/**
       - skills/**
       - .github/workflows/plugins.yml
@@ -21,6 +24,9 @@ on:
       - .githooks/**
       - .release*.cjs
       - .releaserc.cjs
+      - package.json
+      - package-lock.json
+      - scripts/**
       - plugins/**
       - skills/**
       - .github/workflows/plugins.yml
@@ -34,8 +40,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  release-hook:
-    name: release hook (${{ matrix.os }})
+  release-tooling:
+    name: release tooling (${{ matrix.os }})
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -49,9 +55,14 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Test native hook dispatch
-        run: node --test .githooks/pre-push.test.cjs
+      - name: Install release toolchain
+        run: npm ci --ignore-scripts
+
+      - name: Test release orchestration and hook integration
+        run: node --test .githooks/pre-push.test.cjs scripts/release.test.cjs
 
   manifests:
     name: manifests

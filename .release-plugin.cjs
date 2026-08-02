@@ -8,7 +8,7 @@ const checkPlugins = [
     '@semantic-release/exec',
     {
       verifyReleaseCmd:
-        'node -e "console.error(\'A release is pending. Run: node .githooks/pre-push --release\'); process.exit(1)"',
+        'node -e "console.error(\'A release is pending. Run: npm run release\'); process.exit(1)"',
     },
   ],
 ]

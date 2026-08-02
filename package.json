@@ -1,0 +1,21 @@
+{
+  "name": "mezas-skills-release-toolchain",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "scripts": {
+    "release": "node scripts/release.cjs"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "7.0.0",
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/exec": "7.1.0",
+    "@semantic-release/git": "11.0.1",
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "semantic-release": "25.0.8",
+    "semantic-release-monorepo": "8.0.2",
+    "semantic-release-replace-plugin": "1.2.7"
+  }
+}

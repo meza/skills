@@ -8,6 +8,7 @@ const test = require('node:test')
 const componentConfig = require('../../.release-plugin.cjs')
 const marketplaceConfig = require('../../.releaserc.cjs')
 const marketplaceRules = require('../../.release-marketplace-rules.cjs')
+const releasePackage = require('../../package.json')
 
 const repoRoot = resolve(__dirname, '../..')
 
@@ -28,6 +29,17 @@ function assertSingleReplacement(replacement, filePath) {
     replacement.to.replace('${nextRelease.version}', nextVersion)
   )
   assert.equal(JSON.parse(output).version ?? JSON.parse(output).metadata?.version, nextVersion)
+}
+
+function loadCheckConfig(path) {
+  const previous = process.env.SEMANTIC_RELEASE_CHECK
+  process.env.SEMANTIC_RELEASE_CHECK = '1'
+  delete require.cache[require.resolve(path)]
+  const config = require(path)
+  delete require.cache[require.resolve(path)]
+  if (previous === undefined) delete process.env.SEMANTIC_RELEASE_CHECK
+  else process.env.SEMANTIC_RELEASE_CHECK = previous
+  return config
 }
 
 test('component replacement rules own exactly one host version each', () => {
@@ -79,4 +91,36 @@ test('marketplace releases only for generated plugin release commits', () => {
     { type: 'FEAT', release: false },
     { type: 'FIX', release: false },
   ])
+})
+
+test('pending release checks direct maintainers to the npm command', () => {
+  for (const config of [
+    loadCheckConfig('../../.release-plugin.cjs'),
+    loadCheckConfig('../../.releaserc.cjs'),
+  ]) {
+    const exec = replacementConfig(config, '@semantic-release/exec')
+    assert.match(exec.verifyReleaseCmd, /Run: npm run release/)
+    assert.doesNotMatch(exec.verifyReleaseCmd, /pre-push --release/)
+  }
+})
+
+test('root package owns only the pinned release toolchain', () => {
+  assert.equal(releasePackage.private, true)
+  assert.equal(releasePackage.packageManager, 'npm@11.16.0')
+  assert.deepEqual(releasePackage.engines, { node: '24.18.0' })
+  assert.deepEqual(releasePackage.scripts, {
+    release: 'node scripts/release.cjs',
+  })
+  assert.equal('workspaces' in releasePackage, false)
+  assert.equal('version' in releasePackage, false)
+  assert.deepEqual(releasePackage.devDependencies, {
+    '@semantic-release/changelog': '7.0.0',
+    '@semantic-release/commit-analyzer': '13.0.1',
+    '@semantic-release/exec': '7.1.0',
+    '@semantic-release/git': '11.0.1',
+    '@semantic-release/release-notes-generator': '14.1.1',
+    'semantic-release': '25.0.8',
+    'semantic-release-monorepo': '8.0.2',
+    'semantic-release-replace-plugin': '1.2.7',
+  })
 })

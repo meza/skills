@@ -4,9 +4,13 @@ This repository publishes one marketplace for Codex and Claude Code. Each plugin
 
 ## Prepare a checkout
 
-Use Git and Node `24.18.0`, which is the version used by the repository workflows. This repository has no root package-manager installation step.
+Use Git, Node `24.18.0`, and npm `11.16.0`, which are the versions declared by the root package and used by the repository workflows. Install the locked release toolchain from the repository root:
 
-Maintainers who push releases from a checkout must also install the pinned semantic-release toolchain described in [Release prerequisites](#release-prerequisites), then enable the tracked hook:
+```console
+npm ci
+```
+
+Then enable the tracked hook:
 
 ```console
 git config core.hooksPath .githooks
@@ -39,7 +43,7 @@ The Skill Creator package has additional development environments and contributo
 Run the checks relevant to the files you changed. The repository-wide plugin checks are:
 
 ```console
-node --test .githooks/pre-push.test.cjs .github/scripts/release-config.test.cjs
+node --test .githooks/pre-push.test.cjs scripts/release.test.cjs .github/scripts/release-config.test.cjs
 node --test plugins/review-swarm/shared/review-swarm.test.mjs
 node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
 node .github/scripts/check-plugins.mjs .
@@ -47,26 +51,15 @@ node .github/scripts/check-plugins.mjs .
 
 The invariant checker verifies marketplace sources, manifest shape, semantic versions, exact Claude/Codex version equality, release package identity, and required runtime artifacts.
 
-CI additionally validates the Claude marketplace and every Claude plugin with `@anthropic-ai/claude-code@2.1.104`. It installs every Codex marketplace entry with `@openai/codex@0.145.0`, and exercises the pre-push hook on Windows and Ubuntu. Those CLIs are invoked as pinned validation tools; they do not establish a repository package-management workflow.
+CI additionally validates the Claude marketplace and every Claude plugin with `@anthropic-ai/claude-code@2.1.104`. It installs every Codex marketplace entry with `@openai/codex@0.145.0`, installs the locked release toolchain, and exercises the pre-push hook on Windows and Ubuntu.
 
 Before opening a pull request, review the diff for generated files, unrelated edits, credentials, and manual version or changelog changes. Describe the behavior changed and the validation performed.
 
 ## Release prerequisites
 
-Releases run through a pinned semantic-release installation outside this repository. It must expose `semantic-release` on `PATH` and provide these packages together:
+Run `npm ci` whenever `package-lock.json` changes or `node_modules` is absent. The root package contains only exact release-toolchain development dependencies and the release command; it defines no workspaces, package version, or publishing workflow.
 
-| Package | Version |
-| --- | --- |
-| `semantic-release` | `25.0.8` |
-| `semantic-release-monorepo` | `8.0.2` |
-| `@semantic-release/commit-analyzer` | `13.0.1` |
-| `@semantic-release/release-notes-generator` | `14.1.1` |
-| `@semantic-release/changelog` | `7.0.0` |
-| `semantic-release-replace-plugin` | `1.2.7` |
-| `@semantic-release/git` | `11.0.1` |
-| `@semantic-release/exec` | `7.1.0` |
-
-On POSIX systems the hook executes `semantic-release` directly. On Windows it uses the system `cmd.exe` to launch the standard `semantic-release.cmd` shim with fixed arguments, because Node cannot execute a `.cmd` file directly through `CreateProcess`. No repository-owned Bash, PowerShell, or batch wrapper is involved.
+The release script resolves semantic-release only from the repository's `node_modules/.bin` directory. On POSIX systems it executes the local binary directly. On Windows it uses the system `cmd.exe` to launch the local `semantic-release.cmd` shim with fixed arguments, because Node cannot execute a `.cmd` file directly through `CreateProcess`. No repository-owned Bash, PowerShell, or batch wrapper is involved. If the local executable is absent, release checks and publication exit before inspecting releases and direct the maintainer to run `npm ci`.
 
 Releases run only from `main`. Start with a clean, current branch, passing validation, and direct permission to push commits and tags to `main`.
 
@@ -75,10 +68,10 @@ Releases run only from `main`. Start with a clean, current branch, passing valid
 Run the cross-platform release command from the repository root:
 
 ```console
-node .githooks/pre-push --release
+npm run release
 ```
 
-The hook invokes semantic-release sequentially for each configured plugin and then for the aggregate marketplace. It does not calculate versions or edit release files itself.
+The release script invokes semantic-release sequentially for each configured plugin and then for the aggregate marketplace. It does not calculate versions or edit release files itself. The pre-push hook calls the same script's non-mutating check operation; it is not a release entry point.
 
 For each plugin with release-worthy commits, semantic-release:
 
@@ -90,7 +83,7 @@ For each plugin with release-worthy commits, semantic-release:
 
 After all plugin releases finish, the root release recognizes the generated plugin-release commits, increments `.claude-plugin/marketplace.json` once for the batch, commits only that manifest, and creates `marketplace-v<version>`. The Codex marketplace has no aggregate version field. The process creates no GitHub Release and publishes no npm package.
 
-Semantic-release pushes during this command carry an environment guard, so they do not recursively run another release check.
+Semantic-release pushes during this command carry an environment guard, so the pre-push hook does not recursively run another release check.
 
 ## Recover from a partial release
 
@@ -98,4 +91,4 @@ Plugin releases are sequential, not transactional. If a later release fails afte
 
 Published tags are immutable. Never move, delete, or reuse a published tag to correct a release. Revert or correct the faulty change and publish the next semantic version.
 
-The architectural rationale and ownership boundaries are recorded in [ADR 2](doc/arch/0002-use-semantic-release-for-independent-plugin-versioning.md).
+The independent-release architecture is recorded in [ADR 2](doc/arch/0002-use-semantic-release-for-independent-plugin-versioning.md). [ADR 3](doc/arch/0003-manage-the-release-toolchain-with-npm.md) records npm's toolchain-management boundary.

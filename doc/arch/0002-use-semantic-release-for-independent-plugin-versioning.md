@@ -6,6 +6,8 @@ Date: 2026-08-02
 
 Accepted
 
+Amended by [3. Manage the release toolchain with npm](0003-manage-the-release-toolchain-with-npm.md)
+
 ## Context
 
 The repository contains independently evolving plugins served to Claude and Codex from the same plugin directory. Each host manifest must identify the same plugin release, while the Claude marketplace metadata must also advance whenever one or more plugins are published. The Codex marketplace has no corresponding aggregate version field.
