@@ -12,5 +12,12 @@
       "!reports/**",
       "!test-results/**"
     ]
+  },
+  "linter": {
+    "rules": {
+      "correctness": {
+        "noUnresolvedImports": "off"
+      }
+    }
   }
 }

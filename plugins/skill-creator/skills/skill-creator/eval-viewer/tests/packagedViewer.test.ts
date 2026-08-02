@@ -157,11 +157,12 @@ async function waitForViewerUntil(
   }
   try {
     const response = await fetch(`${baseUrl}/api/iterations`);
+    await response.arrayBuffer();
     if (response.ok) {
       return;
     }
   } catch {
-    // The server has not bound the port yet.
+    // The server is not ready to serve a complete response yet.
   }
   if (Date.now() >= deadline) {
     throw new Error(`Packaged viewer did not start within ${STARTUP_TIMEOUT_MS}ms.\n${output()}`);
