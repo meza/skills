@@ -1,0 +1,235 @@
+"""Parse evaluator options and run the dependency-bearing application."""
+
+import argparse
+import json
+import signal
+import sys
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import replace
+from pathlib import Path
+
+from .eval_job import ActiveProcessRegistry, stop_git_fsmonitor_daemons
+from .prepare_fixture import FixturePreparer, PrepareFixtureOptions
+from .providers import PermissionMode
+from .providers.registry import PROVIDERS
+from .results_aggregation import GradingResultAggregator
+from .run_skill_evals import SkillEvalRunner, SkillEvalRunOptions
+from .runtime_bootstrap import (
+    RunRootInsideGitWorkspaceError,
+    validate_run_root_is_not_in_git_workspace,
+)
+from .skill_prepare_hook import run_skill_prepare_hook
+
+INTERRUPT_EXCEPTIONS = (KeyboardInterrupt,)
+
+
+def raise_keyboard_interrupt_for_signal(_signum, _frame) -> None:
+    """Convert process interrupt signals into normal interrupt exceptions."""
+    raise KeyboardInterrupt
+
+
+def interrupt_signal_numbers() -> list[int]:
+    """Return interrupt signals the orchestrator should handle gracefully."""
+    signals = [signal.SIGINT]
+    sigterm = getattr(signal, "SIGTERM", None)
+    if sigterm is not None:
+        signals.append(sigterm)
+    return signals
+
+
+@contextmanager
+def interrupt_signals_raise_keyboard_interrupt() -> Iterator[None]:
+    """Temporarily route interrupt signals through Python cleanup paths."""
+    previous_handlers = {}
+    for signal_number in interrupt_signal_numbers():
+        previous_handlers[signal_number] = signal.getsignal(signal_number)
+        signal.signal(signal_number, raise_keyboard_interrupt_for_signal)
+
+    try:
+        yield
+    finally:
+        for signal_number, handler in previous_handlers.items():
+            signal.signal(signal_number, handler)
+
+
+def execute(args: argparse.Namespace) -> dict:
+    """Prepare isolated run directories, then execute the eval run."""
+    validate_run_root_is_not_in_git_workspace(args.run_root)
+    process_registry = ActiveProcessRegistry()
+    skill_workspace = args.run_root / args.skill_path.name
+
+    prepared_run = FixturePreparer(
+        PrepareFixtureOptions(
+            skill_path=args.skill_path,
+            run_root=skill_workspace,
+            provider=args.provider,
+            eval_ids=args.eval_ids,
+        )
+    ).prepare()
+
+    try:
+        prepare_hook_result = run_skill_prepare_hook(
+            skill_path=args.skill_path,
+            prepared_run=prepared_run,
+            eval_ids=args.eval_ids,
+            timeout=args.timeout,
+            process_registry=process_registry,
+        )
+        failed_prepare_eval_ids = getattr(prepare_hook_result, "failed_eval_ids", set())
+        if not isinstance(failed_prepare_eval_ids, set):
+            failed_prepare_eval_ids = set()
+        runnable_prepared_run = prepared_run_without_failed_prepare_hooks(
+            prepared_run,
+            failed_prepare_eval_ids,
+        )
+
+        run_manifest = SkillEvalRunner(
+            runnable_prepared_run,
+            SkillEvalRunOptions(
+                eval_ids=args.eval_ids,
+                skip_baseline=args.skip_baseline,
+                model=args.model,
+                effort=args.effort,
+                permission_mode=getattr(
+                    args,
+                    "permission_mode",
+                    PermissionMode.RESTRICTED,
+                ),
+                max_parallel=args.max_parallel,
+                timeout=args.timeout,
+                process_registry=process_registry,
+            ),
+        ).run()
+    finally:
+        stop_git_fsmonitor_daemons(prepared_run.run_root)
+        process_registry.kill_all()
+
+    iteration_dir = (
+        prepared_run.run_root / "results" / f"iteration-{run_manifest['iteration']}"
+    )
+    aggregation_start = time.monotonic()
+    print("Aggregating grading results...", flush=True)
+    aggregation = GradingResultAggregator(
+        iteration_dir=iteration_dir,
+        skill_name=prepared_run.skill_name,
+        skill_path=args.skill_path,
+        provider=args.provider,
+        model=run_manifest.get("model", args.model or "default"),
+        effort=run_manifest.get("effort", args.effort or "default"),
+    ).aggregate()
+    aggregation_duration_ms = int((time.monotonic() - aggregation_start) * 1000)
+    print(f"Aggregating grading results done ({aggregation_duration_ms}ms)", flush=True)
+
+    return {
+        "prepare": prepared_run.to_summary(),
+        "run": run_manifest,
+        "aggregation": aggregation,
+    }
+
+
+def prepared_run_without_failed_prepare_hooks(prepared_run, failed_eval_ids: set[int]):
+    if not failed_eval_ids:
+        return prepared_run
+    return replace(
+        prepared_run,
+        evals=[
+            eval_entry
+            for eval_entry in prepared_run.evals
+            if eval_entry.eval_id not in failed_eval_ids
+        ],
+    )
+
+
+def expand_skill_path(args: argparse.Namespace) -> argparse.Namespace:
+    """Resolve the skill path at the CLI boundary before orchestration."""
+    args.skill_path = args.skill_path.expanduser().resolve(strict=False)
+    return args
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the stable public evaluator argument contract."""
+    parser = argparse.ArgumentParser(
+        description="Prepare fixtures and run skill evals."
+    )
+    parser.add_argument(
+        "--skill-path",
+        required=True,
+        type=Path,
+        help="Path to the skill directory containing evals/evals.json.",
+    )
+    parser.add_argument(
+        "--run-root",
+        required=True,
+        type=Path,
+        help="Directory where isolated eval run directories will be created.",
+    )
+    parser.add_argument(
+        "--provider",
+        required=True,
+        choices=tuple(sorted(PROVIDERS)),
+        help="LLM provider to use.",
+    )
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="Model to use for deterministic eval runs.",
+    )
+    parser.add_argument(
+        "--effort",
+        default=None,
+        help="Reasoning effort to use. If omitted, the provider default is used.",
+    )
+    parser.add_argument(
+        "--permission-mode",
+        type=PermissionMode,
+        choices=tuple(PermissionMode),
+        default=PermissionMode.RESTRICTED,
+        help=(
+            "Provider tool permission mode. 'unrestricted' bypasses provider "
+            "sandbox protections; use only when the operator accepts the risk."
+        ),
+    )
+    parser.add_argument(
+        "--eval-ids",
+        default=None,
+        help="Comma-separated list of eval IDs to run. If omitted, all evals run.",
+    )
+    parser.add_argument(
+        "--skip-baseline",
+        action="store_true",
+        help="Run only the skill-enabled eval, skipping the baseline run.",
+    )
+    parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=10,
+        help="Maximum number of eval runs to execute concurrently.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=600,
+        help="Timeout in seconds for each eval turn.",
+    )
+    return parser
+
+
+def main(arguments: list[str] | None = None) -> None:
+    """Run the evaluator application after the launcher prepares dependencies."""
+    parser = build_parser()
+    try:
+        with interrupt_signals_raise_keyboard_interrupt():
+            result = execute(expand_skill_path(parser.parse_args(arguments)))
+    except RunRootInsideGitWorkspaceError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
+    except INTERRUPT_EXCEPTIONS as error:
+        print(
+            "Interrupted; terminating active eval subprocesses.",
+            file=sys.stderr,
+        )
+        raise SystemExit(130) from error
+
+    print(json.dumps(result, indent=2))

@@ -11,7 +11,7 @@ import warnings
 from pathlib import Path
 from unittest import mock
 
-from scripts import evaluate_skill
+from scripts.evaluate import cli as evaluate_skill
 from scripts.evaluate.prepare_fixture import PreparedEval, PreparedRun
 from scripts.evaluate.providers import PermissionMode
 

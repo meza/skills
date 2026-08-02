@@ -23,6 +23,17 @@ python -m pip install -r requirements.txt
 
 These dependencies are for local maintenance and test execution. They are not bundled runtime requirements for the skill itself.
 
+`runtime-requirements.in` owns the direct evaluator dependencies.
+`runtime-requirements.txt` is the checked-in universal lock consumed by the
+bootstrap launcher. Regenerate it with uv 0.11.32:
+
+```bash
+uv pip compile --universal --python-version 3.13 runtime-requirements.in \
+  --output-file runtime-requirements.txt
+```
+
+Review every resolved version before committing the regenerated lock.
+
 ### Mandatory Local Verification
 
 Before handing off changes, run Black in automatic fix mode, run Flake8 across the full maintained Python surface, run the full test suite, and run coverage for the entire `scripts` package:

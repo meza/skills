@@ -8,8 +8,10 @@ The workflow runs realistic prompts against a skill, compares runs with and with
 
 Use this sequence for each iteration:
 
-1. Run the evals with `evaluate_skill.py` as defined below.
-2. Open the packaged eval viewer with Node.js 24 or newer.
+1. Complete the operator preflight in the
+   [evaluation framework](references/evaluation-framework.md#operator-preflight).
+2. Run the evals with `evaluate_skill.py` as defined below.
+3. Open the packaged eval viewer with Node.js 24 or newer.
 
 ## Inputs
 
@@ -45,10 +47,12 @@ Fixtures can come from a shared fixture repository or a local fixture base path.
 
 ## Run Evals
 
-Run evals through the single orchestration entrypoint:
+Run evals from the operator host through the single orchestration entrypoint.
+Use the absolute Python 3.13 path verified during preflight. Do not run the
+evaluator from a generated eval directory or provider subprocess.
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -59,7 +63,7 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 Optional filters:
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -70,12 +74,21 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 
 By default, the runner executes both the skill run and the baseline run. Use `--skip-baseline` when you only want to run the skill-enabled eval.
 
+The evaluator creates or reuses a fingerprinted virtual environment below
+`<run-root>/.skill-creator/runtime/`. It installs the checked-in runtime lock on
+first use and reuses a verified environment later. Do not manually install
+evaluator packages or write a virtual environment into the plugin cache.
+
+Python discovery and acquisition remain operator responsibilities. If Python
+3.13 is unavailable, follow the approval-based portable `uv` fallback in the
+[operator guidance](references/evaluation-framework.md#acquiring-python-with-approval).
+
 Provider tool calls use restricted permissions by default. If a provider sandbox
 defect prevents an eval from running, an operator can explicitly apply the
 provider's unrestricted mode to skill, baseline, and grading processes:
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -89,6 +102,8 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 `bypassPermissions` for Claude. It bypasses provider sandbox protections, so
 prefer running the eval on Linux when that avoids the sandbox defect. Use
 unrestricted mode only when the operator accepts the resulting host access.
+This option affects provider processes only. It cannot repair missing Python,
+run-root access, package access, or other operator-host bootstrap failures.
 
 Use a run root outside any Git workspace. The evaluator rejects `--run-root`
 paths that sit inside a Git workspace so generated artifacts cannot inherit
@@ -214,7 +229,8 @@ Fixture copies are isolated per eval and per run type. Changes made by a `skill`
 
 ## Internal Application Shape
 
-`evaluate_skill.py` owns the CLI. It creates typed options and calls the internal application classes:
+`evaluate_skill.py` owns the public CLI and bootstraps runtime dependencies.
+The internal evaluator CLI creates typed options and calls the application classes:
 
 - `FixturePreparer` in `prepare_fixture.py`
 - `SkillEvalRunner` in `run_skill_evals.py`

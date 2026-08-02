@@ -54,16 +54,86 @@ Results are written under:
 
 ## Run evaluator
 
-Install once:
+### Operator boundary
+
+Run the evaluator from the operator agent's host shell. Never run it from an
+eval fixture, generated work directory, skill run, baseline run, grading
+session, or provider subprocess. The operator environment must be able to:
+
+* launch subprocesses
+* create, execute, and remove files below the run root
+* access the package index for first use or a populated package cache
+
+Provider permissions do not grant these host capabilities. The evaluator's
+`--permission-mode` controls only the skill, baseline, and grading provider
+processes. Do not change it to repair a host bootstrap failure.
+
+### Operator preflight
+
+Complete this preflight before invoking the evaluator:
+
+1. Resolve Python 3.13, which is the version declared in `.python-version`.
+   Prefer an interpreter returned by a host dependency discovery tool. Then
+   check approved explicit paths and `PATH`.
+2. Invoke the resolved executable with `--version`. Do not infer its version
+   from a directory name or tool response.
+3. Choose one run root outside every Git workspace. Confirm that the operator
+   shell can create, execute, and remove files there.
+4. Confirm that subprocess execution is allowed and that first use has package
+   index access or a populated Skill Creator package cache.
+5. Invoke `evaluate_skill.py` with the absolute interpreter path.
+
+Do not create a virtual environment or manually install `jsonschema`, `psutil`,
+`referencing`, or their dependencies. `evaluate_skill.py` creates or reuses a
+fingerprinted environment below `<run-root>/.skill-creator/runtime/` and keeps
+the installed plugin cache read-only.
+
+### Acquiring Python with approval
+
+Python acquisition belongs to the operator. It is never part of evaluator
+bootstrap. If Python 3.13 is unavailable, use this fallback ladder and obtain
+user approval before each installation or permission expansion:
+
+1. If `uv` is already available, propose downloading Python 3.13 into
+   Skill Creator-owned application data. Set `UV_PYTHON_INSTALL_DIR` and
+   `UV_CACHE_DIR` before running `uv python install 3.13`.
+2. If `uv` is unavailable, propose installing portable `uv` 0.11.32. Set
+   `UV_UNMANAGED_INSTALL`, `UV_NO_MODIFY_PATH=1`, `UV_PYTHON_INSTALL_DIR`, and
+   `UV_CACHE_DIR` before running the reviewed installer. Do not modify `PATH`
+   or shell profiles.
+3. On the configured Windows host, use `S:\AppData\skill-creator\` for durable
+   binaries, Python installations, and caches. Use `S:\TMP` for temporary
+   downloads. On other hosts, use an operator-approved application data and
+   cache location.
+4. If portable `uv` cannot work, explain the target, persistence, privileges,
+   and rollback for a user-level or system package-manager installation. Get
+   separate approval before proceeding.
+
+Never silently install Python or `uv`, broaden a sandbox, or fall through to a
+wider installation scope. The official uv documentation defines the
+[`UV_UNMANAGED_INSTALL` installer control](https://docs.astral.sh/uv/reference/installer/)
+and the [`UV_PYTHON_INSTALL_DIR` Python storage control](https://docs.astral.sh/uv/guides/install-python/).
+
+### Runtime bootstrap
+
+On first use, the evaluator installs the checked-in runtime lock into a staging
+environment below the run root, verifies it, and publishes it atomically.
+Completed environments are reused when their requirements, Python version and
+ABI, operating system, and architecture match. Reuse works without network
+access.
+
+Package caches use Skill Creator-owned application storage. Set
+`SKILL_CREATOR_CACHE_ROOT` before invocation only when the operator has approved
+a different cache location. Temporary installation work stays below the run
+root. A failed bootstrap removes its unpublished staging environment and
+reports the unmet host prerequisite.
+
+### Command
+
+Use the absolute Python 3.13 path resolved during preflight:
 
 ```bash
-python -m pip install psutil
-```
-
-Command:
-
-```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -84,7 +154,7 @@ Rules:
 Subset command:
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -96,7 +166,7 @@ python <skill-creator-path>/scripts/evaluate_skill.py \
 Skill-only command:
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
@@ -112,7 +182,7 @@ provider sandbox defect prevents the tooling from working, the operator can
 choose unrestricted execution instead of moving the run to Linux:
 
 ```bash
-python <skill-creator-path>/scripts/evaluate_skill.py \
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
   --run-root <path-to-run-root> \
   --provider <claude|codex> \
