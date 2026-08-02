@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: MUST USE when creating, modifying, or reviewing agent skills, and when a user says skill-eval viewer feedback was submitted or a review is complete. Provides a structured framework for iteratively developing and evaluating agent skills, guidance on structuring and authoring skills, and a repeatable workflow for developing skills through an eval-driven framework.
+description: Use only when the user explicitly invokes skill-creator by name. Do not trigger it merely because a task creates, modifies, reviews, or evaluates agent skills, or because skill-eval viewer feedback is ready. Once invoked, it provides a deliberate framework for structuring, authoring, and evaluating agent skills.
 compatibility: Skill evaluation requires Python 3.13 in the operator environment. The evaluator bootstraps its own packages. The review viewer requires Node.js 24 or newer.
 ---
 
