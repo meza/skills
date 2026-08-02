@@ -117,6 +117,48 @@ function validateCodexMarketplace() {
   return entries
 }
 
+function validateCrossHostPlugins(claudeEntries, codexEntries) {
+  const names = new Set([...claudeEntries.keys(), ...codexEntries.keys()])
+
+  for (const name of [...names].sort()) {
+    const claude = claudeEntries.get(name)
+    const codex = codexEntries.get(name)
+
+    if (!claude) {
+      fail(`${name} must be listed in the Claude marketplace`)
+      continue
+    }
+    if (!codex) {
+      fail(`${name} must be listed in the Codex marketplace`)
+      continue
+    }
+
+    const expectedSource = `./plugins/${name}`
+    if (claude.sourcePath !== expectedSource || codex.sourcePath !== expectedSource) {
+      fail(`${name} marketplace entries must share ${expectedSource}`)
+    }
+    if (claude.manifest.version !== codex.manifest.version) {
+      fail(`${name} Claude and Codex manifest versions must match exactly`)
+    }
+
+    const packageManifest = readJson(
+      join(claude.pluginDirectory, 'package.json'),
+      `${name} release package`
+    )
+    if (packageManifest) {
+      if (packageManifest.name !== name) {
+        fail(`${name} release package name must match the plugin name`)
+      }
+      if (packageManifest.private !== true) {
+        fail(`${name} release package must be private`)
+      }
+      if ('version' in packageManifest) {
+        fail(`${name} release package must not duplicate the manifest version`)
+      }
+    }
+  }
+}
+
 /**
  * Validates one dual-runtime swarm plugin: shared source path, matching versions, explicit
  * component paths, and the runtime files both runtimes need. `extraSharedFiles` carries the
@@ -129,13 +171,6 @@ function validateSwarmPlugin(name, claudeEntries, codexEntries, extraSharedFiles
   if (!codex) fail(`${name} must be listed in the Codex marketplace`)
   if (!claude || !codex) return
 
-  const expectedSource = `./plugins/${name}`
-  if (claude.sourcePath !== expectedSource || codex.sourcePath !== expectedSource) {
-    fail(`${name} marketplace entries must share ${expectedSource}`)
-  }
-  if (claude.manifest.version !== codex.manifest.version) {
-    fail(`${name} Claude and Codex manifest versions must match`)
-  }
   if (claude.manifest.skills !== './claude/skills/' || claude.manifest.hooks !== './claude/hooks/hooks.json') {
     fail(`${name} Claude manifest must use explicit ./claude component paths`)
   }
@@ -171,9 +206,6 @@ function validateSkillCreator(claudeEntries, codexEntries) {
   if (!codex) fail('skill-creator must be listed in the Codex marketplace')
   if (!claude || !codex) return
 
-  if (claude.manifest.version !== codex.manifest.version) {
-    fail('skill-creator Claude and Codex manifest versions must match')
-  }
   for (const required of [
     'skills/skill-creator/eval-viewer/dist/index.html',
     'skills/skill-creator/eval-viewer/dist/server/main.js',
@@ -184,6 +216,7 @@ function validateSkillCreator(claudeEntries, codexEntries) {
 
 const claudeEntries = validateClaudeMarketplace()
 const codexEntries = validateCodexMarketplace()
+validateCrossHostPlugins(claudeEntries, codexEntries)
 validateSkillCreator(claudeEntries, codexEntries)
 validateSwarmPlugin('review-swarm', claudeEntries, codexEntries, [
   'shared/code_review_symptoms.csv',
