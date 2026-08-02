@@ -98,28 +98,4 @@ node plugins/review-swarm/shared/review-swarm.mjs verify
 node plugins/review-swarm-fast/shared/review-swarm-fast.mjs verify
 ```
 
-## Validation
-
-Run the fast local checks from the repository root:
-
-```console
-node --test plugins/review-swarm/shared/review-swarm.test.mjs
-node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
-node .github/scripts/check-plugins.mjs .
-npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate plugins/review-swarm
-npx --yes @anthropic-ai/claude-code@2.1.104 plugin validate plugins/review-swarm-fast
-```
-
-CI also adds this repository as an isolated Codex marketplace with `@openai/codex@0.145.0` and installs every listed Codex plugin. This catches marketplace ingestion and cached-package path errors.
-
-## Release procedure
-
-When changing a catalogue, template, or schema:
-
-1. Edit the authoritative file under the plugin's `shared` directory.
-2. If the change should apply to both plugins, make it in both catalogues. Adding a symptom to `review-swarm-fast` means adding a line to the area that owns it.
-3. Run the helper tests and both host validators.
-4. Bump that plugin's two manifests to the same semantic version.
-5. Bump `.claude-plugin/marketplace.json` metadata when publishing the repository marketplace update.
-
-There is no upstream synchronization step. A previous release can be restored by reverting the plugin and marketplace files together.
+Contributor validation and release instructions live in the repository-level [contribution guide](../CONTRIBUTING.md).

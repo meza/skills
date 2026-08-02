@@ -91,7 +91,9 @@ Ask your agent for the capability you installed. For example:
 Skill Creator's [workflow guide](plugins/skill-creator/skills/skill-creator/README.md)
 explains how to define and run skill evaluations.
 
-## Maintain the plugins
+## Contribute
 
-Repository contributors and maintainers can find package structure, validation,
-and release instructions in the [plugin maintainer guide](plugins/README.md).
+Repository contributors and maintainers should start with
+[CONTRIBUTING.md](CONTRIBUTING.md). The
+[plugin architecture guide](plugins/README.md) explains package structure and
+artifact ownership.

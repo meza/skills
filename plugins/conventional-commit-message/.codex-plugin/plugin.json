@@ -1,6 +1,6 @@
 {
   "name": "conventional-commit-message",
-  "version": "1.0.0+codex.20260730103347",
+  "version": "1.0.0",
   "description": "Conventional Commit Message creator",
   "author": {
     "name": "meza"

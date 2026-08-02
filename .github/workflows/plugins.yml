@@ -6,6 +6,9 @@ on:
     paths:
       - .claude-plugin/**
       - .agents/**
+      - .githooks/**
+      - .release*.cjs
+      - .releaserc.cjs
       - plugins/**
       - skills/**
       - .github/workflows/plugins.yml
@@ -15,6 +18,9 @@ on:
     paths:
       - .claude-plugin/**
       - .agents/**
+      - .githooks/**
+      - .release*.cjs
+      - .releaserc.cjs
       - plugins/**
       - skills/**
       - .github/workflows/plugins.yml
@@ -28,6 +34,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  release-hook:
+    name: release hook (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+
+      - name: Test native hook dispatch
+        run: node --test .githooks/pre-push.test.cjs
+
   manifests:
     name: manifests
     runs-on: meza-ubuntu-slim
@@ -46,6 +71,9 @@ jobs:
 
       - name: Test review-swarm-fast helper
         run: node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
+
+      - name: Test release configuration
+        run: node --test .github/scripts/release-config.test.cjs
 
       # Invariants the CLI does not cover. Verified against 2.1.104: validating a
       # marketplace root does not recurse into plugin.json and does not check that a
