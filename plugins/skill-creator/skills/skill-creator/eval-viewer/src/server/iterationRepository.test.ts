@@ -16,6 +16,7 @@ let root: string;
 let iterationRoot: string;
 const AGGREGATED_RESULTS_ERROR_PATTERN = /Invalid aggregated_results\.json/;
 const DIRECT_ITERATION_ROOT_ERROR_PATTERN = /must contain results\/iteration-N artifacts/i;
+const HALF_PASS_RATE = 0.5;
 const GRADING_ERROR_PATTERN = /Invalid grading\.json/;
 const ITERATION_ONE_MISSING_ERROR_PATTERN = /iteration-1 does not exist/;
 const ITERATION_TWO_MISSING_ERROR_PATTERN = /iteration-2 does not exist/;
@@ -284,6 +285,50 @@ it('uses real grader turn results from recorded artifact paths', async () => {
     { expectations: [{ comment: 'Nested turn feedback.', expectation_id: SAMPLE_SKILL_EXPECTATION_ID }], turn: 1 }
   ]);
   expect(iteration.runs[0]?.issues).toEqual([]);
+});
+
+it('recalculates the current pass rate from all verdicts and reports every inconsistent summary field', async () => {
+  const gradingPath = join(iterationRoot, 'eval-1', 'skill', 'grading.json');
+  const grading = JSON.parse(await fs.promises.readFile(gradingPath, 'utf-8'));
+  grading.results.overall_expectations = [
+    {
+      evidence: 'The final response contains the required migration guidance.',
+      id: '10a375c5-12f4-5a15-b5bd-951f7d6204f1',
+      passed: false,
+      text: 'The final response explains migration.'
+    }
+  ];
+  grading.summary = { failed: 0, pass_rate: 1, passed: 2, total: 3 };
+  await fs.promises.writeFile(gradingPath, `${JSON.stringify(grading, null, 2)}\n`, 'utf-8');
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.passRate).toBe(HALF_PASS_RATE);
+  expect(iteration.runs[0]?.issues).toContainEqual({
+    artifact: gradingPath,
+    message:
+      'Current grading summary fields (passed, failed, total, pass_rate) are inconsistent with expectation verdicts; the displayed score was recalculated.',
+    severity: 'warning',
+    state: 'inconsistent_grading_summary'
+  });
+});
+
+it('recalculates baseline comparison scores and surfaces their inconsistent summaries on the skill run', async () => {
+  const gradingPath = join(iterationRoot, 'eval-1', 'baseline', 'grading.json');
+  const grading = JSON.parse(await fs.promises.readFile(gradingPath, 'utf-8'));
+  grading.summary = { failed: 0, pass_rate: 1, passed: 1, total: 1 };
+  await fs.promises.writeFile(gradingPath, `${JSON.stringify(grading, null, 2)}\n`, 'utf-8');
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.comparisons.baseline?.passRateDelta).toBe(1);
+  expect(iteration.runs[0]?.issues).toContainEqual({
+    artifact: gradingPath,
+    message:
+      'Baseline grading summary fields (passed, failed, pass_rate) are inconsistent with expectation verdicts; the displayed score was recalculated.',
+    severity: 'warning',
+    state: 'inconsistent_grading_summary'
+  });
 });
 
 it('rejects missing required run artifacts', async () => {
@@ -833,6 +878,24 @@ it('loads previous iteration comparisons from numbered iteration directories', a
   });
 });
 
+it('recalculates previous iteration comparison scores and surfaces inconsistent summaries', async () => {
+  const gradingPath = join(root, 'results', 'iteration-0', 'eval-1', 'skill', 'grading.json');
+  const grading = JSON.parse(await fs.promises.readFile(gradingPath, 'utf-8'));
+  grading.summary = { failed: 0, pass_rate: 1, passed: 1, total: 1 };
+  await fs.promises.writeFile(gradingPath, `${JSON.stringify(grading, null, 2)}\n`, 'utf-8');
+
+  const iteration = await loadIteration(root);
+
+  expect(iteration.runs[0]?.comparisons.previousIteration?.passRateDelta).toBe(1);
+  expect(iteration.runs[0]?.issues).toContainEqual({
+    artifact: gradingPath,
+    message:
+      'Previous iteration grading summary fields (passed, failed, pass_rate) are inconsistent with expectation verdicts; the displayed score was recalculated.',
+    severity: 'warning',
+    state: 'inconsistent_grading_summary'
+  });
+});
+
 it('surfaces malformed previous iteration comparison artifacts', async () => {
   await fs.promises.writeFile(join(root, 'results', 'iteration-0', 'eval-1', 'skill', 'grading.json'), '{', 'utf-8');
 
@@ -873,9 +936,10 @@ it('rejects run artifacts without turn entries', async () => {
   await expect(loadIteration(root)).rejects.toThrow(RUN_ARTIFACTS_ERROR_PATTERN);
 });
 
-it('keeps expectations empty when grading has no expectation results', async () => {
+it('recalculates an empty expectation set to a zero pass rate', async () => {
+  const gradingPath = join(iterationRoot, 'eval-1', 'skill', 'grading.json');
   await fs.promises.writeFile(
-    join(iterationRoot, 'eval-1', 'skill', 'grading.json'),
+    gradingPath,
     JSON.stringify({
       executive_summary: 'No expectations were graded.',
       results: { overall_expectations: [], turns: [] },
@@ -888,6 +952,14 @@ it('keeps expectations empty when grading has no expectation results', async () 
 
   expect(iteration.runs[0]?.expectations).toEqual([]);
   expect(iteration.runs[0]?.turns[0]?.expectations).toEqual([]);
+  expect(iteration.runs[0]?.passRate).toBe(0);
+  expect(iteration.runs[0]?.issues).toContainEqual({
+    artifact: gradingPath,
+    message:
+      'Current grading summary fields (pass_rate) are inconsistent with expectation verdicts; the displayed score was recalculated.',
+    severity: 'warning',
+    state: 'inconsistent_grading_summary'
+  });
 });
 
 it('rejects grader turn entries without expectation arrays', async () => {

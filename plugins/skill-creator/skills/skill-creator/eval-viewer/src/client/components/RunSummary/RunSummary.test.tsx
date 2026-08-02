@@ -62,3 +62,63 @@ it('renders fallback summary and disables the final pager control', () => {
   expect(screen.getByText('No executive summary was provided.')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Next eval' })).toBeDisabled();
 });
+
+it('visibly explains when displayed scores were recalculated', () => {
+  const run = iterationView().runs[0];
+  const summary = iterationView().summary;
+  if (!run) {
+    throw new Error('Expected a run for the summary fixture.');
+  }
+
+  render(
+    <RunSummary
+      isRefreshingIterations={false}
+      iterationStatus=''
+      iterationSummary={summary}
+      onIterationRefreshAfterSavingFeedback={async () => undefined}
+      onIterationSelectAfterSavingFeedback={async () => undefined}
+      reviewRunCount={1}
+      run={{
+        ...run,
+        issues: [
+          {
+            artifact: 'F:/runs/eval-1/skill/grading.json',
+            message:
+              'Current grading summary fields (passed, failed) are inconsistent with expectation verdicts; the displayed score was recalculated.',
+            severity: 'warning',
+            state: 'inconsistent_grading_summary'
+          }
+        ]
+      }}
+      selectedIndex={0}
+      selectRunAt={vi.fn()}
+    />
+  );
+
+  expect(screen.getByRole('status')).toHaveTextContent('Displayed score recalculated');
+  expect(screen.getByRole('status')).toHaveTextContent('Current grading summary fields (passed, failed)');
+});
+
+it('does not render a score warning for consistent artifacts', () => {
+  const run = iterationView().runs[0];
+  const summary = iterationView().summary;
+  if (!run) {
+    throw new Error('Expected a run for the summary fixture.');
+  }
+
+  render(
+    <RunSummary
+      isRefreshingIterations={false}
+      iterationStatus=''
+      iterationSummary={summary}
+      onIterationRefreshAfterSavingFeedback={async () => undefined}
+      onIterationSelectAfterSavingFeedback={async () => undefined}
+      reviewRunCount={1}
+      run={run}
+      selectedIndex={0}
+      selectRunAt={vi.fn()}
+    />
+  );
+
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});

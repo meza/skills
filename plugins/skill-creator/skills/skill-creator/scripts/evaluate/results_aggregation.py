@@ -2,11 +2,13 @@
 
 import json
 import math
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .artifact_validation import write_json_artifact
+from .artifact_validation import validate_artifact, write_json_artifact
+from .grading_summary import derive_grading_summary
 
 
 def calculate_stats(values: list[float]) -> dict:
@@ -118,16 +120,24 @@ def load_graded_run(
     run_type: str,
 ) -> dict:
     grading = json.loads(grading_path.read_text(encoding="utf-8"))
-    summary = grading.get("summary") or {}
+    validate_artifact(grading, "grading.schema.json", str(grading_path))
+    summary = derive_grading_summary(grading)
+    if grading["summary"] != summary:
+        warnings.warn(
+            f"Stored grading summary in {grading_path} does not match expectation "
+            f"verdicts; using derived summary {summary!r}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     run = {
         "eval_id": eval_id,
         "eval_name": eval_name,
         "run_type": run_type,
         "result": {
-            "pass_rate": summary.get("pass_rate", 0.0),
-            "passed": summary.get("passed", 0),
-            "failed": summary.get("failed", 0),
-            "total": summary.get("total", 0),
+            "pass_rate": summary["pass_rate"],
+            "passed": summary["passed"],
+            "failed": summary["failed"],
+            "total": summary["total"],
         },
         "grading": {
             "executive_summary": grading.get("executive_summary", ""),

@@ -25,6 +25,7 @@ export function RunSummary({
   selectedIndex: number;
   selectRunAt: (offset: number) => void;
 }) {
+  const scoreIssues = run.issues.filter((issue) => issue.state === 'inconsistent_grading_summary');
   return (
     <>
       <section className={`${styles.header} run-header`}>
@@ -87,6 +88,21 @@ export function RunSummary({
             value={formatDeltaPercent(run.comparisons.baseline?.passRateDelta)}
           />
         </div>
+        {scoreIssues.length > 0 ? (
+          <div className={styles.scoreWarning} role='status'>
+            <span aria-hidden='true' className={`${styles.scoreWarningIcon} material-symbols-outlined`}>
+              warning
+            </span>
+            <div>
+              <strong className={styles.scoreWarningTitle}>Displayed score recalculated</strong>
+              {scoreIssues.map((issue) => (
+                <p className={styles.scoreWarningText} key={issue.artifact}>
+                  {issue.message}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
     </>
   );

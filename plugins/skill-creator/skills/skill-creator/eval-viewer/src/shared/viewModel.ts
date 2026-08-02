@@ -2,7 +2,7 @@ export interface ArtifactIssue {
   artifact: string;
   message: string;
   severity: 'error' | 'warning';
-  state: 'missing_comparison_target';
+  state: 'inconsistent_grading_summary' | 'missing_comparison_target';
 }
 
 interface ExpectationViewBase {

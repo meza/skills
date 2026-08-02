@@ -41729,7 +41729,9 @@ async function loadRun(iterationRoot, manifestRun, feedback) {
 	const gradedTurns = gradedTurnExpectations(grading);
 	const turns = await loadTurns(metadataTurns, artifactRoot.turns, gradedTurns);
 	const expectations = expectationsFrom(grading);
-	const issues = [];
+	const derivedSummary = gradingSummaryFrom(expectations);
+	const summaryIssue = inconsistentGradingSummaryIssue(grading, derivedSummary, filePaths.grading, runType === "baseline" ? "Baseline" : "Current");
+	const issues = summaryIssue ? [summaryIssue] : [];
 	const runFeedback = feedbackForExpectations(expectations, feedback.reviews.find((candidate) => candidate.eval_id === evalId));
 	return {
 		artifactPaths: artifactPaths(artifactRoot, filePaths),
@@ -41741,7 +41743,7 @@ async function loadRun(iterationRoot, manifestRun, feedback) {
 		expectations,
 		finalResponse: turns[turns.length - 1].response,
 		issues,
-		passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
+		passRate: derivedSummary.pass_rate,
 		providerSessionId: textValue(manifestRun.session_id, ""),
 		feedback: runFeedback,
 		runType,
@@ -41805,16 +41807,16 @@ function loadComparisonsForRuns(runs, iterationRoot) {
 	const baselineByEvalId = new Map(runs.filter((run) => run.runType === "baseline").map((run) => [run.evalId, run]));
 	return Promise.all(runs.map(async (run) => {
 		const previousIteration = await loadPreviousIterationComparison(run, iterationRoot);
-		const issues = previousIteration.issue ? [...run.issues, previousIteration.issue] : run.issues;
 		const baselineTarget = baselineByEvalId.get(run.evalId);
 		const baseline = run.runType === "skill" ? comparisonAgainst(run, baselineTarget) : void 0;
+		const comparisonIssues = [...run.runType === "skill" ? baselineTarget?.issues ?? [] : [], ...previousIteration.issue ? [previousIteration.issue] : []];
 		return {
 			...run,
 			comparisons: {
 				baseline,
 				previousIteration: previousIteration.comparison
 			},
-			issues
+			issues: [...run.issues, ...comparisonIssues]
 		};
 	}));
 }
@@ -41832,7 +41834,10 @@ function comparisonAgainst(current, target) {
 async function loadPreviousIterationComparison(current, iterationRoot) {
 	const previousRun = await loadPreviousRunComparisonTarget(previousIterationRootPath(iterationRoot), current.evalId, current.runType);
 	if (!previousRun.run) return previousRun.issue ? { issue: previousRun.issue } : {};
-	return { comparison: comparisonAgainst(current, previousRun.run) };
+	return {
+		comparison: comparisonAgainst(current, previousRun.run),
+		issue: previousRun.run.issues[0]
+	};
 }
 async function loadPreviousRunComparisonTarget(previousRoot, evalId, runType) {
 	const runTypeDir = join(previousRoot, `eval-${evalId}`, runType);
@@ -41847,6 +41852,9 @@ async function loadPreviousRunComparisonTarget(previousRoot, evalId, runType) {
 			readJson(join(runTypeDir, "timing.json"), "timing.schema.json"),
 			readFile(join(runTypeDir, "turn-1", "outputs", "response.md"), "utf-8")
 		]);
+		const expectations = expectationsFrom(grading);
+		const derivedSummary = gradingSummaryFrom(expectations);
+		const summaryIssue = inconsistentGradingSummaryIssue(grading, derivedSummary, join(runTypeDir, "grading.json"), "Previous iteration");
 		return { run: {
 			artifactPaths: {},
 			comparisons: {},
@@ -41854,11 +41862,11 @@ async function loadPreviousRunComparisonTarget(previousRoot, evalId, runType) {
 			evalId,
 			evalName: `eval-${evalId}`,
 			executiveSummary: "",
-			expectations: [],
+			expectations,
 			finalResponse: response,
 			feedback: emptyRunFeedback(),
-			issues: [],
-			passRate: numberValue(objectValue(grading.summary).pass_rate, 0),
+			issues: summaryIssue ? [summaryIssue] : [],
+			passRate: derivedSummary.pass_rate,
 			runType,
 			tokenCount: numberValue(timing.total_tokens, 0),
 			turns: []
@@ -41871,6 +41879,32 @@ async function loadPreviousRunComparisonTarget(previousRoot, evalId, runType) {
 			state: "missing_comparison_target"
 		} };
 	}
+}
+function gradingSummaryFrom(expectations) {
+	const passed = expectations.filter((expectation) => expectation.passed).length;
+	const total = expectations.length;
+	return {
+		failed: total - passed,
+		pass_rate: total === 0 ? 0 : passed / total,
+		passed,
+		total
+	};
+}
+function inconsistentGradingSummaryIssue(grading, derived, gradingPath, sourceLabel) {
+	const stored = objectValue(grading.summary);
+	const mismatchedFields = [
+		"passed",
+		"failed",
+		"total",
+		"pass_rate"
+	].filter((field) => stored[field] !== derived[field]);
+	if (mismatchedFields.length === 0) return;
+	return {
+		artifact: gradingPath,
+		message: `${sourceLabel} grading summary fields (${mismatchedFields.join(", ")}) are inconsistent with expectation verdicts; the displayed score was recalculated.`,
+		severity: "warning",
+		state: "inconsistent_grading_summary"
+	};
 }
 function expectationsFrom(grading) {
 	const overall = objectValue(grading?.results).overall_expectations.map(overallExpectationFrom);

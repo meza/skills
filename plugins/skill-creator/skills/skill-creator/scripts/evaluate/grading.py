@@ -13,6 +13,7 @@ from .artifact_validation import (
     write_json_artifact,
 )
 from .eval_job import ActiveProcessRegistry, run_with_timeout
+from .grading_summary import derive_grading_summary, validate_grading_summary
 from .providers import PermissionMode, Provider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -103,8 +104,8 @@ class GradingJob:
 
     def run(self) -> None:
         self.write_run_artifacts_manifest()
-        prompt = self.build_prompt()
         grader_output_schema_path = self.write_grader_output_schema()
+        prompt = self.build_prompt()
         command = self.provider.build_grading_command(
             model=self.model,
             effort=self.effort,
@@ -137,11 +138,13 @@ class GradingJob:
         result = self.provider.parse_output(process_result.stdout, prompt)
         grading_data = json.loads(result.response)
         self.validate_grader_output(grading_data)
+        grading_data["summary"] = derive_grading_summary(grading_data)
         add_grading_expectation_ids(
             grading_data,
             eval_id=self.eval_id,
             run_type=self.run_type,
         )
+        validate_grading_summary(grading_data)
         write_json_artifact(
             self.run_type_dir / "grading.json",
             grading_data,
@@ -167,9 +170,13 @@ class GradingJob:
 
     def write_grader_output_schema(self) -> Path:
         schema = self.grader_output_schema()
-        path = self.run_type_dir / "grader_output_schema.json"
+        path = self.grader_output_schema_path
         path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
         return path
+
+    @property
+    def grader_output_schema_path(self) -> Path:
+        return self.run_type_dir / "grader_output_schema.json"
 
     def grader_output_schema(self) -> dict:
         schema = deepcopy(load_schema(self.schema_path.name))
@@ -180,6 +187,8 @@ class GradingJob:
             for field_name in expectation_result["required"]
             if field_name != "id"
         ]
+        schema["properties"].pop("summary")
+        schema["required"].remove("summary")
         return schema
 
     @property
@@ -188,9 +197,11 @@ class GradingJob:
 
     def build_prompt(self) -> str:
         instructions = self.grader_instructions_path.read_text(encoding="utf-8")
+        prompt_run_result = self.run_result()
+        prompt_run_result["schema_path"] = str(self.grader_output_schema_path)
         return instructions.replace("{skill_name}", self.skill_name).replace(
             "{run_result_json}",
-            json.dumps(self.run_result(), indent=2),
+            json.dumps(prompt_run_result, indent=2),
         )
 
     def run_result(self) -> dict:

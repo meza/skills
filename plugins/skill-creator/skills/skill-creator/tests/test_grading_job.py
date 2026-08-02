@@ -240,7 +240,7 @@ class GradingJobTests(unittest.TestCase):
             PermissionMode.UNRESTRICTED,
         )
 
-    def test_run_writes_provider_json_response_to_grading_file(self):
+    def test_run_writes_provider_verdicts_with_derived_summary(self):
         grading_payload = {
             "executive_summary": "The run satisfied the expectation.",
             "results": {
@@ -263,12 +263,6 @@ class GradingJobTests(unittest.TestCase):
                         ],
                     }
                 ],
-            },
-            "summary": {
-                "passed": 2,
-                "failed": 0,
-                "total": 2,
-                "pass_rate": 1.0,
             },
         }
         expected_grading_payload = {
@@ -306,6 +300,12 @@ class GradingJobTests(unittest.TestCase):
                         ],
                     }
                 ],
+            },
+            "summary": {
+                "passed": 2,
+                "failed": 0,
+                "total": 2,
+                "pass_rate": 1.0,
             },
         }
 
@@ -360,9 +360,15 @@ class GradingJobTests(unittest.TestCase):
                 (run_type_dir / "run_artifacts.json").read_text(encoding="utf-8")
             )
             self.assertEqual(run_artifacts, grading_job.run_result())
-            self.assertIn(
-                json.dumps(run_artifacts, indent=2),
-                run_with_timeout.call_args.args[1],
+            prompt_run_result = json.loads(
+                run_with_timeout.call_args.args[1].split("\n", 1)[1]
+            )
+            self.assertEqual(
+                prompt_run_result,
+                {
+                    **run_artifacts,
+                    "schema_path": str(run_type_dir / "grader_output_schema.json"),
+                },
             )
             self.assertEqual(
                 run_with_timeout.call_args.args[0],
@@ -389,6 +395,35 @@ class GradingJobTests(unittest.TestCase):
                 "id",
                 grader_output_schema["$defs"]["expectation_result"]["required"],
             )
+            self.assertNotIn("summary", grader_output_schema["properties"])
+            self.assertNotIn("summary", grader_output_schema["required"])
+
+    def test_grader_output_rejects_provider_owned_summary(self):
+        grading_job = GradingJob(
+            eval_def={"id": 1},
+            run_type="skill",
+            run_type_dir=FAKE_ROOT / "results/iteration-1/eval-1/skill",
+            skill_name="sample-skill",
+            provider=FakeProvider(),
+            model=None,
+            effort=None,
+            timeout=600,
+            schema_path=DEFAULT_GRADING_SCHEMA_PATH,
+            grader_instructions_path=DEFAULT_GRADER_INSTRUCTIONS_PATH,
+        )
+        provider_payload = {
+            "executive_summary": "The run was graded.",
+            "results": {"overall_expectations": [], "turns": []},
+            "summary": {
+                "passed": 1,
+                "failed": 0,
+                "total": 1,
+                "pass_rate": 1.0,
+            },
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "Invalid grading output"):
+            grading_job.validate_grader_output(provider_payload)
 
     def test_run_rejects_provider_json_that_fails_grading_validation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -592,7 +627,10 @@ class GradingJobTests(unittest.TestCase):
             run_result["artifacts"]["timing_path"],
             str(run_type_dir / "timing.json"),
         )
-        self.assertEqual(run_result["schema_path"], str(schema_path))
+        self.assertEqual(
+            run_result["schema_path"],
+            str(run_type_dir / "grader_output_schema.json"),
+        )
         self.assertEqual(
             run_result["artifacts"]["turns"],
             [

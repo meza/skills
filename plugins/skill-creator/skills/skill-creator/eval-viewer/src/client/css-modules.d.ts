@@ -157,6 +157,10 @@ declare module '*RunSummary.module.css' {
   export const pagerButton: string;
   export const pagerCount: string;
   export const pagerCurrent: string;
+  export const scoreWarning: string;
+  export const scoreWarningIcon: string;
+  export const scoreWarningText: string;
+  export const scoreWarningTitle: string;
   export const summary: string;
   export const summaryHeading: string;
   export const summaryIcon: string;
