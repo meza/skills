@@ -8,9 +8,10 @@ The evaluation framework provides a repeatable workflow for developing skills th
 2. Self-Verification checkpoint as prescribed in the [Eval Self-Verification](#eval-self-verification) section below.
 3. Run the evals with `evaluate_skill.py` as defined below.
 4. Open the packaged eval viewer (or reuse it if already running) with Node.js 24 or newer.
-5. User reviews results, identifies issues
-6. The UI generates a `<run-root>/<skill-name>/results/iteration-N/viewer_feedback.json` file with user feedback and improvement suggestions.
-7. You iterate on the skill with the user based on the feedback, keeping the same run root, and re-run the evals when the user asks to see how the changes impact the results.
+5. User reviews results and identifies issues.
+6. The UI saves a `<run-root>/<skill-name>/results/iteration-N/viewer_feedback.json` file with user feedback and improvement suggestions.
+7. The user signals that feedback is submitted or the review is complete.
+8. Follow the [feedback handoff](#feedback-handoff), then iterate on the skill only within the authority the user gives you. Keep the same run root and re-run the evals when the user asks to see how the changes affect the results.
 
 ## Evals file
 
@@ -332,6 +333,33 @@ The user can provide feedback for a specific iteration in the viewer, which is c
 ```
 
 This is your primary source of feedback for the next iteration. Use this feedback to guide your revisions to the skill, and then re-run the evals to see how the changes impact the results.
+
+### Feedback handoff
+
+Treat phrases such as "I've submitted the feedback," "I've finished the
+review," and "I'm done reviewing" as a feedback handoff for the active
+iteration. The handoff means the saved feedback is ready to read. It does not
+by itself authorize changes to the skill, evals, or evaluator state.
+
+Follow this sequence:
+
+1. Resolve the reviewed iteration from the run root and iteration already
+   established in the session. If more than one iteration could reasonably be
+   active, ask the user which iteration they reviewed.
+2. Read that iteration's `viewer_feedback.json` directly from the filesystem.
+   Do not use browser control, operate the viewer, or inspect the UI to retrieve
+   feedback that the viewer has already persisted.
+3. If the file is missing or malformed, report the exact expected path. Ask the
+   user to confirm the reviewed iteration and that the viewer finished saving.
+   Do not invent feedback or fall back to UI inspection.
+4. Combine the saved viewer feedback with feedback stated directly in the
+   user's handoff message. Keep the two sources distinguishable when that helps
+   resolve scope or conflicts.
+5. Respect any requested discussion or pause. Summarize the feedback, identify
+   themes or tensions, and present proposed changes without editing files or
+   starting another evaluator run.
+6. Change the skill or evals and re-run evaluation only when the user's message
+   authorizes those actions. A completion signal alone is not authorization.
 
 ## Next iteration
 

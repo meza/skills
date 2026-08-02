@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: MUST USE when creating, modifying, or reviewing agent skills. Provides a structured framework for iteratively developing and evaluating agent skills, provides guidance on structuring and authoring skills, and provides a repeatable workflow for developing skills through eval-driven framework.
+description: MUST USE when creating, modifying, or reviewing agent skills, and when a user says skill-eval viewer feedback was submitted or a review is complete. Provides a structured framework for iteratively developing and evaluating agent skills, guidance on structuring and authoring skills, and a repeatable workflow for developing skills through an eval-driven framework.
 compatibility: Skill evaluation requires Python 3.13 in the operator environment. The evaluator bootstraps its own packages. The review viewer requires Node.js 24 or newer.
 ---
 
@@ -36,6 +36,11 @@ There is no room for improvisation in this workflow: you must follow the rules a
 
 To use the evaluation framework, follow the [evaluation framework documentation](./references/evaluation-framework.md).
 
+When the user says they submitted feedback, finished the review, or otherwise
+signals that viewer feedback is ready, treat it as a workflow transition. Follow
+the [feedback handoff](./references/evaluation-framework.md#feedback-handoff)
+before changing the skill, changing evals, or starting another evaluator run.
+
 The operator environment and the provider environment are separate boundaries.
 Run `evaluate_skill.py` from the operator agent's host shell. Do not run it from
 inside an eval fixture, generated work directory, skill run, baseline run, or
@@ -63,3 +68,4 @@ Before completing Skill Creator work, verify that:
 3. Python and host permissions were verified rather than assumed.
 4. No tool, Python runtime, package, or permission expansion occurred without the required user authority.
 5. The skill, documentation, and tests agree about the supported workflow.
+6. Any completed feedback handoff used the saved artifact directly and respected the user's authorization boundary.

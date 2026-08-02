@@ -1,291 +1,556 @@
 # Skill Creator
 
-Skill Creator provides a repeatable workflow for developing skills through eval-driven iteration.
+Skill Creator helps an agent create, revise, and evaluate agent skills. It combines three capabilities:
 
-The workflow runs realistic prompts against a skill, compares runs with and without that skill, grades the outputs, aggregates results, and opens a viewer for human review.
+- guidance for structuring a skill and its bundled resources
+- a collaborative process for turning an operator's intent into effective skill instructions
+- an evaluation workflow that compares skill-enabled and baseline runs, grades them, and presents the results for human review
 
-## Workflow
+This guide is for operators who are authoring a skill, defining its evals, running the evaluator, or reviewing results. Contributors changing Skill Creator itself should use [CONTRIBUTING.md](CONTRIBUTING.md). Contributors changing the viewer should use [eval-viewer/CONTRIBUTING.md](eval-viewer/CONTRIBUTING.md).
 
-Use this sequence for each iteration:
+## How the workflow fits together
 
-1. Complete the operator preflight in the
-   [evaluation framework](references/evaluation-framework.md#operator-preflight).
-2. Run the evals with `evaluate_skill.py` as defined below.
-3. Open the packaged eval viewer with Node.js 24 or newer.
+```text
+Author skill and evals
+        |
+        v
+Run operator preflight
+        |
+        v
+evaluate_skill.py
+  |-- prepares isolated inputs
+  |-- runs with the skill
+  |-- runs without the skill (baseline)
+  |-- grades each successful run
+  `-- aggregates the iteration
+        |
+        v
+Eval Viewer
+  |-- compare skill and baseline behavior
+  |-- inspect expectations, transcripts, and artifacts
+  `-- save human feedback
+        |
+        v
+Revise the skill and run the next iteration
+```
 
-## Inputs
+The evaluator and the provider are separate execution boundaries. Run the evaluator from the operator host. The provider processes execute the prompts, but they do not own Python discovery, runtime bootstrap, run-root access, or viewer startup.
 
-A skill under test needs a `SKILL.md` file and an eval definition at `evals/evals.json`.
+## Before you begin
 
-`evals/evals.json` defines the skill name, test prompts, optional expectations,
-optional eval files, and optional fixture sources. New eval definitions should
-declare `"schema_version": 1`; missing schema versions are treated as legacy
-schema v1.
+You need:
+
+- an installed Skill Creator plugin
+- a skill directory containing `SKILL.md`
+- Python 3.13 on the operator host
+- an authenticated Codex or Claude provider CLI
+- Node.js 24 or newer to run the packaged viewer
+- a run root outside every Git workspace that the operator can create, execute, and remove files beneath
+- package-index access on the first evaluator run, or an already populated Skill Creator package cache
+
+Do not create a virtual environment or manually install the evaluator's Python packages. The evaluator bootstraps and verifies its own fingerprinted runtime below `<run-root>/.skill-creator/runtime/`.
+
+If Python 3.13 is unavailable, do not install Python or `uv` silently. Follow the approval-based [Python acquisition ladder](references/evaluation-framework.md#acquiring-python-with-approval).
+
+## Author the skill
+
+Ask the agent to use Skill Creator and describe the outcome you need. For example:
+
+```text
+Help me create a skill for reviewing dependency update pull requests. It should
+check changelogs, breaking changes, security notes, test coverage, and rollback
+risk. The review should put blockers first.
+```
+
+The authoring process should establish:
+
+- what the skill enables the agent to do
+- the situations and user language that should trigger it
+- the expected output or side effects
+- important constraints, dependencies, and edge cases
+- whether objective evals are useful for the skill
+
+Skill Creator uses progressive disclosure. `SKILL.md` is the agent's entry point; detailed material belongs in `references/`, deterministic or repetitive work belongs in `scripts/`, and output resources such as templates belong in `assets/`. See [Anatomy of a Skill](references/skill-anatomy.md) and [Writing Skills](references/writing-skills.md) for the authoring contract.
+
+## Define evals
+
+Create the eval definition at:
+
+```text
+<skill-path>/evals/evals.json
+```
+
+Read [schemas/evals.schema.json](schemas/evals.schema.json) before creating or editing the file. The schema owns the supported shape, field names, and validation rules. New files must set `schema_version` to `1`; a missing version is accepted only as legacy schema v1.
+
+A minimal one-turn suite looks like this:
 
 ```json
 {
   "schema_version": 1,
-  "skill_name": "example-skill",
+  "skill_name": "dependency-upgrade-reviewer",
   "evals": [
     {
       "id": 1,
-      "eval_name": "basic",
+      "eval_name": "breaking dependency update",
       "turns": [
         {
-          "prompt": "Do the task.",
-          "expectations": []
+          "prompt": "Review the dependency update in this project.",
+          "expectations": [
+            "The review identifies any documented breaking changes.",
+            "The review puts release blockers before warnings and suggestions."
+          ]
         }
+      ],
+      "outcome_expectations": [
+        "The final review distinguishes blockers, warnings, and follow-up suggestions."
       ]
     }
   ]
 }
 ```
 
-Eval files are copied from paths listed in each eval's `files` array. Paths are relative to the skill directory and must stay inside that directory.
+### Eval definition reference
 
-Fixtures can come from a shared fixture repository or a local fixture base path. Fixture-backed evals can either place the fixture in the run directory or keep it outside the working directory and expose it through `{{FIXTURE_PATH}}`.
+| Level | Field | Required | Meaning |
+| --- | --- | --- | --- |
+| Suite | `schema_version` | New files | Must be `1`. |
+| Suite | `skill_name` | No | Skill identity used by preparation and display. Set it to the skill directory and frontmatter name. When present, it must be non-empty and cannot contain `\\`, `/`, or `:`. |
+| Suite | `fixture_repo` | No | Git repository containing reusable fixture directories. Requires `fixture_ref`. |
+| Suite | `fixture_ref` | With `fixture_repo` | Full 40-character commit SHA used to pin the fixture repository. |
+| Suite | `fixture_base_path` | No | Existing local directory containing fixture directories. Cannot be combined with `fixture_repo`. |
+| Suite | `evals` | Yes | Non-empty list of eval cases. |
+| Eval | `id` | Yes | Integer identifier used by filters, artifacts, and the viewer. Use a unique value; duplicate IDs are not rejected early and can collide in generated paths. |
+| Eval | `eval_name` | No | Human-readable name. The evaluator uses `eval-<id>` when omitted. |
+| Eval | `turns` | Yes | Non-empty ordered list of prompts in one provider session. |
+| Eval | `outcome_expectations` | No | Expectations graded against the completed eval as a whole. |
+| Eval | `timeout` | No | Positive timeout in seconds inherited by turns that do not set their own timeout. |
+| Eval | `files` | No | Skill-relative files copied into both skill and baseline workdirs. |
+| Eval | `fixture` | No | Relative path to a fixture directory below the selected fixture source. |
+| Eval | `fixture_in_workdir` | No | Places the fixture inside the provider workdir when `true`, or outside it when `false`. Defaults to `true`. |
+| Turn | `prompt` | Yes | Non-empty prompt sent to the provider. |
+| Turn | `expectations` | No | Expectations graded for this turn. |
+| Turn | `timeout` | No | Positive timeout in seconds for this turn. |
 
-## Run Evals
+Timeout precedence is turn `timeout`, then eval `timeout`, then the evaluator's `--timeout` value.
 
-Run evals from the operator host through the single orchestration entrypoint.
-Use the absolute Python 3.13 path verified during preflight. Do not run the
-evaluator from a generated eval directory or provider subprocess.
+Do not add fields merely because the JSON schema permits additional properties. An extra field is meaningful only when an existing skill-local preparation hook explicitly consumes it.
+
+### Write useful evals
+
+Eval prompts should look like real user interactions. Avoid phrases such as "use the skill under test" or other eval-aware instructions that would not appear in normal use.
+
+Expectations should be specific, independently useful, and grounded in the behavior the skill is meant to improve. Use turn expectations for behavior observable in one response and outcome expectations for behavior that can only be judged after the complete interaction. Do not force every eval to have the same number of expectations.
+
+For multi-turn behavior, add turns in the order the provider should receive them:
+
+```json
+{
+  "id": 2,
+  "eval_name": "revision after feedback",
+  "turns": [
+    {
+      "prompt": "Draft a skill for reviewing API documentation.",
+      "expectations": [
+        "The agent establishes the intended review scope before finalizing the skill."
+      ]
+    },
+    {
+      "prompt": "Tighten the trigger criteria and remove generic advice.",
+      "expectations": [
+        "The revision narrows the trigger criteria and removes generic guidance."
+      ]
+    }
+  ],
+  "outcome_expectations": [
+    "The completed skill is focused on API documentation review."
+  ]
+}
+```
+
+Turn 1 starts a new provider session. Later turns resume that session, so the agent retains prior conversation state but cannot see future turns.
+
+Agree the eval design with the user before running it. Evals are evidence for iteration, not a target to overfit. Look for patterns in feedback and real-world behavior rather than making narrow edits solely to raise a score.
+
+## Supply input files and fixtures
+
+Each eval can use plain files, a directory fixture, or both. The evaluator makes independent copies for every eval and run type, so skill and baseline runs cannot contaminate each other.
+
+### Skill-relative files
+
+Use `files` for individual inputs that belong with the skill, such as a sample document or patch:
+
+```json
+{
+  "id": 3,
+  "eval_name": "review supplied release notes",
+  "files": [
+    "evals/files/release-notes.md",
+    "evals/files/dependency.diff"
+  ],
+  "turns": [
+    {
+      "prompt": "Review the supplied dependency change.",
+      "expectations": []
+    }
+  ]
+}
+```
+
+Paths are relative to the skill directory, must resolve to files inside that directory, and are copied with their relative paths preserved into both provider workdirs. Directories, missing files, and paths that escape the skill directory are rejected.
+
+### Fixture source options
+
+Fixtures are directory trees for evals that need a project, repository, or document workspace. Choose one source for the suite.
+
+Use a pinned Git repository for shared, reproducible fixtures. Add these fields at the suite level alongside `evals`:
+
+```json
+{
+  "fixture_repo": "https://github.com/example/agent-eval-fixtures.git",
+  "fixture_ref": "2c4d9a8c4c7d95c4e5b46f7a0fd5f7f8c6e4d3b2"
+}
+```
+
+Use an existing local fixture root while developing fixtures locally:
+
+```json
+{
+  "fixture_base_path": "F:/dev/agent-eval-fixtures"
+}
+```
+
+`fixture_repo` and `fixture_base_path` are mutually exclusive. A repository source must have a full commit SHA in `fixture_ref`; branches and short SHAs are rejected. A local source must already exist. Relative local paths resolve from the operator shell's working directory, so prefer an absolute path. Every eval's `fixture` value is a relative directory below the selected source and cannot be absolute or contain `..`.
+
+### Fixture placement options
+
+By default, the evaluator copies the fixture into the provider workdir:
+
+```json
+{
+  "id": 4,
+  "eval_name": "review project in workdir",
+  "fixture": "sample-project",
+  "fixture_in_workdir": true,
+  "turns": [
+    {
+      "prompt": "Review this project's dependency update.",
+      "expectations": []
+    }
+  ]
+}
+```
+
+When no turn in an in-workdir eval contains `{{FIXTURE_PATH}}`, the evaluator prefixes the prompts with the fixture location. If any turn uses the placeholder, only prompts containing it receive an injected path; include it in each turn that needs the location.
+
+Set `fixture_in_workdir` to `false` when the provider should receive the fixture as an external path rather than as part of its working directory:
+
+```json
+{
+  "id": 5,
+  "eval_name": "review external project",
+  "fixture": "sample-project",
+  "fixture_in_workdir": false,
+  "turns": [
+    {
+      "prompt": "Review the dependency update at {{FIXTURE_PATH}}.",
+      "expectations": []
+    }
+  ]
+}
+```
+
+For external fixtures, include `{{FIXTURE_PATH}}` in every prompt that needs the path. The evaluator replaces it with the isolated fixture copy for the current run type. Without the placeholder, the provider is not told where the external fixture is.
+
+### Advanced per-eval preparation
+
+If copied files are not enough—for example, an eval needs a real Git repository with a staged patch—the skill can provide:
+
+```text
+<skill-path>/scripts/prepare.py
+```
+
+After generic input preparation, the evaluator invokes the hook once for each selected eval:
+
+```text
+<evaluator-python> scripts/prepare.py \
+  --eval-id <id> \
+  --eval-run-dir <prepared-eval-directory>
+```
+
+The hook runs with the skill directory as its working directory. It owns any additional eval fields it reads and must prepare both the `skill` and `baseline` copies consistently. A non-zero exit or timeout prevents that eval from running and is reported with redacted hook output. Keep this hook deterministic and skill-local; do not call the evaluator's internal fixture scripts directly.
+
+## Run the evaluator
+
+### Complete the operator preflight
+
+Before every session:
+
+1. Resolve a Python 3.13 executable and verify it by invoking the exact executable with `--version`.
+2. Choose one run root outside every Git workspace and keep it for the whole iteration session.
+3. Confirm the operator shell can create, execute, and remove files below that run root.
+4. Confirm subprocess execution is allowed.
+5. Confirm first use can reach the package index or reuse a populated Skill Creator cache.
+
+Run `evaluate_skill.py` from the operator host, not from a generated workdir, fixture, provider session, baseline run, skill run, or grading session.
+
+### Run the full comparison
+
+Use the absolute Python path verified during preflight:
 
 ```bash
 <python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
-  --run-root <path-to-run-root> \
+  --run-root <path-to-external-run-root> \
   --provider <claude|codex> \
   --model <model-id> \
   --effort <effort>
 ```
 
-Optional filters:
+The default run executes every eval twice: once with the skill installed in the provider's discovery location and once without it. The baseline comparison shows whether the skill improves the requested behavior over the provider alone.
+
+`evaluate_skill.py` is the only public evaluator entry point. Do not call `prepare_fixture.py`, `run_skill_evals.py`, a separate grader, or a separate aggregator.
+
+The command prints preparation, manifest, and aggregation summaries when orchestration completes. Do not infer that every eval passed from a zero process exit or from the existence of `aggregated_results.json`: provider and grading failures can be recorded as run statuses while aggregation still completes. Inspect every entry in `run_manifest.json` and require the expected `grading.json` files.
+
+### Evaluator options
+
+| Option | Required | Default | Use |
+| --- | --- | --- | --- |
+| `--skill-path` | Yes | — | Skill directory containing `SKILL.md` and `evals/evals.json`. |
+| `--run-root` | Yes | — | External root for runtime files, workdirs, and results. Must be outside every Git workspace. |
+| `--provider` | Yes | — | `claude` or `codex`. |
+| `--model` | Yes | — | Provider model identifier. |
+| `--effort` | No | Provider default | Provider reasoning effort. |
+| `--permission-mode` | No | `restricted` | Provider tool permissions: `restricted` or `unrestricted`. |
+| `--eval-ids` | No | All evals | Comma-separated intentional subset, such as `1,3`. |
+| `--skip-baseline` | No | False | Runs only the skill-enabled side. |
+| `--max-parallel` | No | `10` | Positive maximum number of provider runs executed concurrently. |
+| `--timeout` | No | `600` | Positive default timeout in seconds for each turn, each grading job, and each prepare-hook invocation. Eval and turn values can override turn execution. |
+
+To run an intentional subset:
 
 ```bash
 <python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
-  --run-root <path-to-run-root> \
-  --provider <claude|codex> \
+  --run-root <path-to-external-run-root> \
+  --provider codex \
   --model <model-id> \
-  --eval-ids 1,3 \
+  --effort <effort> \
+  --eval-ids 1,3
+```
+
+To run only the skill side:
+
+```bash
+<python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
+  --skill-path <path-to-skill> \
+  --run-root <path-to-external-run-root> \
+  --provider codex \
+  --model <model-id> \
+  --effort <effort> \
   --skip-baseline
 ```
 
-By default, the runner executes both the skill run and the baseline run. Use `--skip-baseline` when you only want to run the skill-enabled eval.
+Use `--skip-baseline` only when the missing comparison is intentional. The viewer cannot show a baseline delta or baseline expectation results for a skill-only run.
 
-The evaluator creates or reuses a fingerprinted virtual environment below
-`<run-root>/.skill-creator/runtime/`. It installs the checked-in runtime lock on
-first use and reuses a verified environment later. Do not manually install
-evaluator packages or write a virtual environment into the plugin cache.
+### Provider permissions
 
-Python discovery and acquisition remain operator responsibilities. If Python
-3.13 is unavailable, follow the approval-based portable `uv` fallback in the
-[operator guidance](references/evaluation-framework.md#acquiring-python-with-approval).
-
-Provider tool calls use restricted permissions by default. If a provider sandbox
-defect prevents an eval from running, an operator can explicitly apply the
-provider's unrestricted mode to skill, baseline, and grading processes:
+Normal runs use `--permission-mode restricted`. If a known provider sandbox defect blocks the eval, the operator can explicitly choose unrestricted provider execution:
 
 ```bash
 <python-3.13-path> <skill-creator-path>/scripts/evaluate_skill.py \
   --skill-path <path-to-skill> \
-  --run-root <path-to-run-root> \
+  --run-root <path-to-external-run-root> \
   --provider <claude|codex> \
   --model <model-id> \
   --effort <effort> \
   --permission-mode unrestricted
 ```
 
-`--permission-mode` accepts `restricted` or `unrestricted` and defaults to
-`restricted`. Unrestricted mode maps to `danger-full-access` for Codex and
-`bypassPermissions` for Claude. It bypasses provider sandbox protections, so
-prefer running the eval on Linux when that avoids the sandbox defect. Use
-unrestricted mode only when the operator accepts the resulting host access.
-This option affects provider processes only. It cannot repair missing Python,
-run-root access, package access, or other operator-host bootstrap failures.
+Unrestricted mode applies to skill, baseline, and grading provider processes. It maps to `danger-full-access` for Codex and `bypassPermissions` for Claude, granting the agent the access allowed by the host process. Use it only when the operator accepts that risk; prefer Linux when it avoids the sandbox defect.
 
-Use a run root outside any Git workspace. The evaluator rejects `--run-root`
-paths that sit inside a Git workspace so generated artifacts cannot inherit
-repository state. Each invocation writes result artifacts under:
+Provider permissions cannot repair operator-host failures such as missing Python, denied subprocess execution, an unusable run root, or unavailable packages.
+
+## Understand the generated workspace
+
+In the paths below, `<skill-directory>` is the directory name from `--skill-path`. Set `skill_name` in `evals.json` to that same name so provider discovery and result identity stay consistent.
+
+Each invocation recreates the working directories and uses the next result iteration number:
 
 ```text
-<run-root>/<skill-name>/results/iteration-1/
+<run-root>/
+|-- .skill-creator/runtime/
+`-- <skill-directory>/
+    |-- fixtures/
+    |-- workdirs/
+    |   `-- eval-<ID>/
+    |       |-- skill/
+    |       `-- baseline/
+    `-- results/
+        `-- iteration-N/
+            |-- progress.json
+            |-- run_manifest.json
+            |-- aggregated_results.json
+            `-- eval-<ID>/
+                |-- eval_metadata.json
+                |-- skill/
+                `-- baseline/
 ```
 
-The final command output includes the prepared run root, run manifest summary,
-and aggregation summary.
+The `fixtures/` staging directory exists when repository-backed fixtures use the default staging location. Historical results remain across invocations; prepared workdirs are disposable and are recreated.
 
-## Result Layout
-
-Every iteration follows this structure:
+Each run-type result contains:
 
 ```text
-iteration-N/
-├── run_manifest.json
-├── aggregated_results.json
-└── eval-<ID>/
-    ├── eval_metadata.json
-    ├── skill/
-    │   ├── turn-1/
-    │   │   └── outputs/
-    │   │       ├── response.md
-    │   │       └── transcript.md
-    │   ├── turn-2/
-    │   │   └── outputs/
-    │   │       ├── response.md
-    │   │       └── transcript.md
-    │   ├── grader_output_schema.json
-    │   ├── grading.json
-    │   ├── raw_output.jsonl
-    │   ├── run_artifacts.json
-    │   └── timing.json
-    └── baseline/
-        ├── turn-1/
-        ├── turn-2/
-        ├── grader_output_schema.json
-        ├── grading.json
-        ├── raw_output.jsonl
-        ├── run_artifacts.json
-        └── timing.json
+<run-type>/
+|-- turn-N/outputs/response.md
+|-- turn-N/outputs/transcript.md
+|-- transcript.md
+|-- grader_output_schema.json
+|-- grading.json
+|-- raw_output.jsonl
+|-- run_artifacts.json
+`-- timing.json
 ```
 
-`eval_metadata.json` is shared by both run types for one eval. `grading.json`,
-`timing.json`, `raw_output.jsonl`, and `run_artifacts.json` live under the run
-type directory.
+The evaluator owns this layout. Do not create or edit grading and aggregation files manually.
 
-## Multi-Turn Evals
+Use the artifacts according to the question you are investigating:
 
-Each eval defines a `turns` array. A one-turn eval has one entry. A multi-turn eval has multiple entries in the order they should be sent.
+| Artifact | Answers |
+| --- | --- |
+| `progress.json` | How many runs are pending, running, complete, successful, or failed while an iteration is active. |
+| `run_manifest.json` | Which runs were requested, their status, model, effort, timing, and cost metadata. |
+| `aggregated_results.json` | How the iteration performed across evals and run types. |
+| `eval_metadata.json` | Which eval name, prompts, and expectations produced these results. |
+| `grading.json` | Which expectations passed, why, and the grader's feedback. |
+| `response.md` | What the provider returned for a turn. |
+| `transcript.md` | What happened during one turn, or across the combined run at the run-type root, including tool activity represented by the provider. |
+| `raw_output.jsonl` | Raw provider event output for deeper diagnosis. |
+| `run_artifacts.json` | Files associated with the provider run. |
+| `timing.json` | Timing data for the run. |
 
-```json
-{
-  "id": 3,
-  "eval_name": "revise-after-feedback",
-  "turns": [
-    {
-      "prompt": "Draft a skill for reviewing API documentation.",
-      "expectations": []
-    },
-    {
-      "prompt": "Tighten the trigger criteria and remove generic advice.",
-      "expectations": []
-    }
-  ]
-}
-```
+## Review results in Eval Viewer
 
-The runner sends the first turn as a new provider session and sends later turns by resuming that same session. The agent can use conversation state from earlier turns, but it cannot see future turns before they are sent.
-
-Each turn writes its own `response.md` and `transcript.md`. Expectations belong to the turn they evaluate.
-
-## Eval Fixtures
-
-Fixtures are input workspaces used by eval prompts. Use them when an eval needs a project, repository, document set, or other directory tree for the agent to inspect or modify.
-
-Define fixture sources at the top level of `evals/evals.json`:
-
-```json
-{
-  "schema_version": 1,
-  "fixture_repo": "https://github.com/example/eval-fixtures.git",
-  "fixture_ref": "2c4d9a8c4c7d95c4e5b46f7a0fd5f7f8c6e4d3b2"
-}
-```
-
-`fixture_repo` points to a git repository containing fixture directories. `fixture_ref` must be a full 40-character commit SHA. Fixture repositories must set `fixture_ref` so repeated eval runs use the same fixture state.
-
-Use `fixture_base_path` instead when fixtures are already staged locally:
-
-```json
-{
-  "schema_version": 1,
-  "fixture_base_path": "F:/dev/fixtures"
-}
-```
-
-Each eval selects a fixture by directory name:
-
-```json
-{
-  "id": 1,
-  "eval_name": "update-project-docs",
-  "fixture": "sample-project",
-  "fixture_in_workdir": true,
-  "turns": [
-    {
-      "prompt": "Update the README in the provided project.",
-      "expectations": []
-    }
-  ]
-}
-```
-
-When `fixture_in_workdir` is `true`, the fixture is copied into both the `skill` and `baseline` working directories. The agent can discover it by listing the run directory.
-
-When `fixture_in_workdir` is `false`, the fixture is copied to a sibling directory outside the agent's working directory. The agent receives the path only if the prompt uses `{{FIXTURE_PATH}}`.
-
-Fixture copies are isolated per eval and per run type. Changes made by a `skill` run cannot affect the matching `baseline` run, and changes from one eval cannot affect another eval.
-
-## Internal Application Shape
-
-`evaluate_skill.py` owns the public CLI and bootstraps runtime dependencies.
-The internal evaluator CLI creates typed options and calls the application classes:
-
-- `FixturePreparer` in `prepare_fixture.py`
-- `SkillEvalRunner` in `run_skill_evals.py`
-
-The handoff between preparation and execution is an in-memory `PreparedRun` dataclass. There is no prepared manifest file between those steps.
-
-`run_manifest.json` exists as a result artifact under the iteration directory.
-It summarizes completed runs, execution statuses, timings, costs, model, and
-effort.
-
-## Grading And Aggregation
-
-`evaluate_skill.py` grades successful run types as part of the eval run. Each
-completed run type gets a `grading.json` file at:
-
-```text
-iteration-N/eval-<ID>/<run-type>/grading.json
-```
-
-`grading.json` includes expectation results, summary counts, pass rate, and eval
-feedback. The evaluator validates grader output before writing the artifact.
-
-After grading, `evaluate_skill.py` aggregates the iteration and writes:
-
-```text
-iteration-N/aggregated_results.json
-```
-
-## Review Results
-
-Open the viewer after grading and aggregation:
+Start the viewer after the first evaluator run completes:
 
 ```bash
-node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-name>
+node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-directory>
 ```
 
-The viewer serves the evaluation workspace root. It discovers reviewable iterations under
-`results/iteration-N`, opens the latest reviewable iteration by default, and lets the
-browser switch between available iterations. An iteration is reviewable only when every
-manifest-listed run completed successfully and has a grading result. Failed and ungraded
-iterations remain on disk for diagnosis. Direct `iteration-N` paths are not
-supported, and no compatibility path exists for serving them. The `vs Last
-Iteration` metric compares the selected iteration to the immediately previous
-numbered iteration, `iteration-(N-1)`.
+Serve the skill's evaluation workspace root, not `results/iteration-N`. The packaged viewer does not require `npm install` or a build and does not write into the installed plugin cache.
 
-The viewer writes `eval-viewer.log` beside the evaluation workspace `results`
-directory. It does not install dependencies, build assets, or write into the
-installed plugin cache.
+Open:
 
-## Isolation
+```text
+http://localhost:4177
+```
 
-Every `evaluate_skill.py` invocation writes to the next results iteration and
-prepares workdirs under `<run-root>/workdirs/eval-N`. Each eval gets separate
-`skill` and `baseline` working directories.
+To use another port in PowerShell:
 
-`skill` receives a copied version of the skill under test in the provider-specific discovery location. `baseline` does not receive the skill.
+```powershell
+$env:PORT = 4180
+node <skill-creator-path>/eval-viewer/dist/server/main.js <run-root>/<skill-directory>
+```
 
-Fixtures and eval files are copied into each run type separately. A run modifies only its own prepared working directory, so one eval or run type cannot contaminate another.
+`PORT` must be an integer from 1 through 65535.
+
+### What to review
+
+The viewer opens the latest reviewable iteration and provides:
+
+- navigation and filtering across skill evals
+- pass rate, change from the previous numbered iteration, and change from baseline
+- the grader's overall and per-turn expectation results
+- a skill/baseline toggle when baseline results exist
+- prompts, responses, raw execution context, working-directory and provider-session metadata
+- links to raw output and run artifacts
+- per-expectation feedback and overall comments for the skill run
+- iteration switching and notification when a newer reviewable iteration appears
+
+Use the baseline comparison to identify value added by the skill, not merely whether the provider produced a plausible answer. Read the grader evidence and transcript before accepting a score: the feedback is more useful than the number alone.
+
+Feedback saves to:
+
+```text
+<run-root>/<skill-directory>/results/iteration-N/viewer_feedback.json
+```
+
+The viewer autosaves edits and also saves before moving to another eval or iteration. `viewer_feedback.json` is the primary input for the next revision. Do not edit it by hand while the viewer is running.
+
+When you tell the agent that feedback is submitted or the review is complete,
+the agent should read `viewer_feedback.json` directly from the active iteration.
+It should not operate the browser or viewer to retrieve saved feedback. A review
+completion message is a handoff, not permission to change the skill or start a
+new run; include that authorization separately when you want the agent to
+proceed immediately.
+
+### Keep one viewer running
+
+Start the viewer once and keep it running for the session. Continue using the same run root for later evaluator invocations. The viewer watches for new reviewable iterations and offers to load them; it does not need to be restarted after each run.
+
+An iteration appears only when its manifest lists at least one run, every listed run completed successfully, and every listed run has `grading.json`. Failed and ungraded iterations remain on disk for diagnosis but are hidden from the viewer.
+
+The viewer writes `eval-viewer.log`, `eval-viewer.1.log`, and `eval-viewer.2.log` under `<run-root>/<skill-directory>`. Check these files for viewer startup, workspace, or artifact-loading failures.
+
+When upgrading from a 1.0.x plugin release, stop the old npm-based viewer before installing the current version so the old process releases files in the installed cache.
+
+## Iterate without overfitting
+
+After the user completes a review:
+
+1. Read `viewer_feedback.json` for the reviewed iteration.
+2. Group recurring issues across evals and compare them with real user needs.
+3. Revise the skill's overall instructions or resources, not only phrases that affect one fixture.
+4. Keep the same run root.
+5. Re-run the evaluator when the user wants to compare the revision.
+6. Review the new iteration in the already-running viewer.
+
+The `vs Last Iteration` metric compares iteration `N` only with `iteration-(N-1)`. If an immediately preceding iteration failed or was not graded, that comparison is unavailable even when an older reviewable iteration exists.
+
+## Troubleshooting
+
+### The evaluator fails before provider runs start
+
+Check the operator boundary first:
+
+- invoke the exact Python executable with `--version` and confirm Python 3.13
+- confirm the run root is outside every Git workspace
+- verify create, execute, and remove access below the run root
+- verify subprocesses are allowed
+- verify package-index access on first use or a populated Skill Creator cache
+
+Do not change `--permission-mode` for these failures; it controls provider processes only.
+
+### A provider turn fails with an output-limit error
+
+The evaluator also rejects a provider turn whose captured stdout and stderr exceed 20 MiB. There is no CLI override for this limit; reduce unexpectedly verbose provider or tool output and rerun the affected eval.
+
+### Fixture preparation fails
+
+Confirm that:
+
+- `fixture_repo` is paired with a full 40-character `fixture_ref`
+- `fixture_repo` is not combined with `fixture_base_path`
+- the local `fixture_base_path` exists
+- each `fixture` is a relative directory inside the fixture source
+- every entry in `files` is an existing file inside the skill directory
+- external fixture prompts contain `{{FIXTURE_PATH}}`
+- a skill-local `scripts/prepare.py` accepts the documented arguments and prepares both run types
+
+### A run does not appear in the viewer
+
+Inspect the iteration's `run_manifest.json`. The viewer hides an iteration if any manifest-listed run failed or lacks `grading.json`. Use that run's transcript, raw output, artifacts, and timing data to diagnose it. Do not manufacture the missing grading or aggregation artifacts.
+
+### The viewer does not start
+
+Confirm Node.js 24 or newer, pass `<run-root>/<skill-directory>` rather than an iteration directory, and check whether the configured port is already in use. Then inspect `eval-viewer.log` under the evaluation workspace root.
+
+## Authoritative references
+
+- [Skill structure](references/skill-anatomy.md)
+- [Skill authoring](references/writing-skills.md)
+- [Evaluation framework](references/evaluation-framework.md)
+- [Eval definition schema](schemas/evals.schema.json)
+- [Eval Viewer operator guide](eval-viewer/README.md)
+- [Skill Creator contributor guide](CONTRIBUTING.md)

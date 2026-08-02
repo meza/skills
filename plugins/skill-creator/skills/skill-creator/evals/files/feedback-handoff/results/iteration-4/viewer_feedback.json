@@ -1,0 +1,19 @@
+{
+  "reviews": [
+    {
+      "eval_id": 1,
+      "updated_at": "2026-08-02T10:00:00Z",
+      "comments": "The agent began drafting before confirming the requested output contract."
+    },
+    {
+      "eval_id": 2,
+      "updated_at": "2026-08-02T10:05:00Z",
+      "overall": [
+        {
+          "expectation_id": "general-skill-quality",
+          "comment": "The revision optimized for the example instead of improving the skill's general guidance."
+        }
+      ]
+    }
+  ]
+}

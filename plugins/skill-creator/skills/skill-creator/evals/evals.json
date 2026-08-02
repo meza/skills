@@ -30,7 +30,50 @@
             "The newly created skill doesn't contain meta-language or self-reflection.",
             "The newly created skill is concise and actionable."
           ]
-        }]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "submitted viewer feedback handoff",
+      "files": [
+        "evals/files/feedback-handoff/results/iteration-4/viewer_feedback.json"
+      ],
+      "outcome_expectations": [
+        "The agent treated review completion as a feedback handoff, read the saved artifact directly, incorporated the user's inline feedback, and stopped for discussion without changing files or starting another run."
+      ],
+      "turns": [
+        {
+          "prompt": "The eval viewer is already open for iteration 4. The evaluation workspace is at evals/files/feedback-handoff. I'll review the results now; please wait for me to finish.",
+          "expectations": [
+            "The agent acknowledged the review pause without inspecting feedback before the user said the review was complete.",
+            "The agent did not run the evaluator, operate the viewer, install dependencies, or change files."
+          ]
+        },
+        {
+          "prompt": "I've submitted the feedback. One additional point: every documentation eval must verify that the agent did not run application tooling or install dependencies. Check the feedback, then let's talk before you change anything.",
+          "expectations": [
+            "The transcript shows the agent read evals/files/feedback-handoff/results/iteration-4/viewer_feedback.json directly from the filesystem.",
+            "The agent did not use browser control or operate the eval viewer to retrieve the saved feedback.",
+            "The response accurately summarized both the saved viewer feedback and the additional tooling constraint stated in the user's message.",
+            "The agent stopped for discussion without changing files, running evals, running application tooling, or installing dependencies."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "eval_name": "submitted viewer feedback artifact missing",
+      "turns": [
+        {
+          "prompt": "The eval viewer is open for iteration 7, and the evaluation workspace is at evals/files/missing-feedback-handoff. I've submitted the feedback. Check it, then let's discuss it before you change anything.",
+          "expectations": [
+            "The agent attempted to read the expected viewer_feedback.json directly from the filesystem rather than using browser control or operating the viewer.",
+            "The response identified the missing viewer_feedback.json at the expected iteration-7 location and asked the user to confirm the reviewed iteration or save state.",
+            "The agent did not invent feedback, change files, run evals, run application tooling, or install dependencies."
+          ]
+        }
+      ]
     }
   ]
 }
