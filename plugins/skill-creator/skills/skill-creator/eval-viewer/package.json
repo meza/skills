@@ -57,7 +57,7 @@
     "postcss-preset-env": "11.3.2",
     "stylelint": "17.14.1",
     "stylelint-config-standard": "40.0.0",
-    "tsx": "4.23.5",
+    "tsx": "4.23.6",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   },
