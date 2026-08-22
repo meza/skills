@@ -1,6 +1,6 @@
 {
   "name": "fixing-linter-violations",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Fix linter findings by correcting their underlying causes without unauthorized suppressions",
   "author": {
     "name": "meza"
