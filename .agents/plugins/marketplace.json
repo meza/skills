@@ -5,6 +5,18 @@
   },
   "plugins": [
     {
+      "name": "addressing-code-review-findings",
+      "source": {
+        "source": "local",
+        "path": "./plugins/addressing-code-review-findings"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
       "name": "skill-creator",
       "source": {
         "source": "local",
@@ -45,6 +57,18 @@
       "source": {
         "source": "local",
         "path": "./plugins/review-swarm-fast"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "fixing-linter-violations",
+      "source": {
+        "source": "local",
+        "path": "./plugins/fixing-linter-violations"
       },
       "policy": {
         "installation": "AVAILABLE",

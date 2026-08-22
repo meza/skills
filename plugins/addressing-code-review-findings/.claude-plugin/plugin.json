@@ -1,0 +1,17 @@
+{
+  "name": "addressing-code-review-findings",
+  "version": "0.1.0",
+  "description": "Adjudicate code-review feedback before presenting or acting on findings",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/addressing-code-review-findings",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "code-review",
+    "review-feedback",
+    "findings"
+  ],
+  "skills": "./skills/"
+}

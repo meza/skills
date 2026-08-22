@@ -1,0 +1,33 @@
+{
+  "name": "fixing-linter-violations",
+  "version": "0.1.0",
+  "description": "Fix linter findings by correcting their underlying causes without unauthorized suppressions",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/fixing-linter-violations",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "lint",
+    "code-quality",
+    "diagnostics"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Fixing Linter Violations",
+    "shortDescription": "Fix lint findings at their root cause",
+    "longDescription": "Treat linter findings as diagnostic evidence, correct their underlying design causes, and require explicit authorization for every suppression.",
+    "developerName": "meza",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/meza/skills",
+    "defaultPrompt": [
+      "Fix these linter violations by addressing their root causes."
+    ]
+  }
+}

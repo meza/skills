@@ -12,8 +12,10 @@ Each plugin includes its skill. You do not need to download or copy a
 
 | Plugin | Use it when you want to |
 | --- | --- |
+| `addressing-code-review-findings` | Verify and adjudicate code-review feedback before acting on it |
 | `skill-creator` | Create, revise, and evaluate agent skills |
 | `conventional-commit-message` | Generate a Conventional Commit message from staged changes or a working tree |
+| `fixing-linter-violations` | Fix linter findings at their underlying cause without unauthorized suppressions |
 | `review-swarm` | Run a comprehensive multi-agent review with one investigator per quality symptom |
 | `review-swarm-fast` | Cover the same review catalogue with nine grouped investigators for a faster result |
 
@@ -83,8 +85,10 @@ Ask your agent for the capability you installed. For example:
 
 | Plugin | Example prompt |
 | --- | --- |
+| `addressing-code-review-findings` | `Help me assess and address these code-review findings.` |
 | `skill-creator` | `Help me create and evaluate an agent skill.` |
 | `conventional-commit-message` | `Write a Conventional Commit message for my staged changes.` |
+| `fixing-linter-violations` | `Fix these linter violations by addressing their root causes.` |
 | `review-swarm` | `Run the review swarm on my current changes.` |
 | `review-swarm-fast` | `Run the fast review swarm on my current changes.` |
 

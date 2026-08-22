@@ -35,6 +35,32 @@ conventional-commit-message/
         `-- evals/
 ```
 
+## Addressing Code-Review Findings
+
+`addressing-code-review-findings` verifies and classifies review feedback before presenting or acting on it. The plugin is a self-contained skill shared unchanged by Codex and Claude.
+
+```text
+addressing-code-review-findings/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- addressing-code-review-findings/
+        `-- SKILL.md
+```
+
+## Fixing Linter Violations
+
+`fixing-linter-violations` treats linter output as diagnostic evidence and requires fixes to address the underlying cause. The plugin is a self-contained skill shared unchanged by Codex and Claude.
+
+```text
+fixing-linter-violations/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- fixing-linter-violations/
+        `-- SKILL.md
+```
+
 ## Review Swarm
 
 `review-swarm` reviews a submitted code change through 84 focused quality lenses. Each investigator owns one lens. A separate synthesis pass verifies and combines the evidence into one actionable report.
