@@ -54,7 +54,7 @@
     "jsdom": "30.0.1",
     "memfs": "4.68.1",
     "npm-run-all2": "9.0.3",
-    "postcss-preset-env": "11.3.2",
+    "postcss-preset-env": "11.4.0",
     "stylelint": "17.14.1",
     "stylelint-config-standard": "40.0.0",
     "tsx": "4.23.12",
