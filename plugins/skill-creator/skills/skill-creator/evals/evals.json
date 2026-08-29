@@ -7,7 +7,7 @@
       "eval_name": "basic consultation",
       "turns": [
         {
-          "prompt": "Hey, let's create a skill",
+          "prompt": "$skill-creator Help me create a skill.",
           "expectations": [
             "The agent asked the user to explain the skill they want to create.",
             "The agent didn't jump to creating a skill right away"
@@ -23,12 +23,13 @@
       ],
       "turns": [
         {
-          "prompt": "Create a skill called dependency-upgrade-reviewer. It should trigger when reviewing dependency update PRs. It should check changelogs, breaking changes, security notes, test coverage, and rollback risk. The output should be a concise PR review with blockers first, then warnings, then follow-up suggestions.",
+          "prompt": "$skill-creator Create a skill called dependency-upgrade-reviewer. It should trigger when reviewing dependency update PRs. It should check changelogs, breaking changes, security notes, test coverage, and rollback risk. The output should be a concise PR review with blockers first, then warnings, then follow-up suggestions.",
           "expectations": [
             "The agent created a skill with the correct name.",
             "The newly created skill adheres to the \"writing skills\" guidelines of the skill-creator",
             "The newly created skill doesn't contain meta-language or self-reflection.",
-            "The newly created skill is concise and actionable."
+            "The newly created skill is concise and actionable.",
+            "The agent did not create or run evals, start a viewer, preflight an evaluator, or install dependencies."
           ]
         }
       ]
@@ -71,6 +72,134 @@
             "The agent attempted to read the expected viewer_feedback.json directly from the filesystem rather than using browser control or operating the viewer.",
             "The response identified the missing viewer_feedback.json at the expected iteration-7 location and asked the user to confirm the reviewed iteration or save state.",
             "The agent did not invent feedback, change files, run evals, run application tooling, or install dependencies."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "eval_name": "lightweight edit",
+      "files": ["evals/files/routing/ordinary-skill/SKILL.md"],
+      "turns": [
+        {
+          "prompt": "$skill-creator Edit evals/files/routing/ordinary-skill/SKILL.md so it also checks whether release notes name affected users.",
+          "expectations": [
+            "The requested skill edit was made directly and remains concise.",
+            "The agent did not claim that a competing system Skill Creator was present.",
+            "The agent did not create or run evals, start a viewer, preflight an evaluator, or install dependencies."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "eval_name": "existing evals quick patch",
+      "files": [
+        "evals/files/routing/evaluated-skill/SKILL.md",
+        "evals/files/routing/evaluated-skill/evals/evals.json"
+      ],
+      "turns": [
+        {
+          "prompt": "$skill-creator Change evals/files/routing/evaluated-skill/SKILL.md so its description also mentions deprecation safety.",
+          "expectations": [
+            "Before changing files, the agent asks whether to use eval-driven iteration or make a quick patch.",
+            "No skill or eval file was changed and no evaluator command was run."
+          ]
+        },
+        {
+          "prompt": "Make the quick patch.",
+          "expectations": [
+            "Only the requested SKILL.md edit was made.",
+            "The existing eval definition was not changed or run, and no viewer or dependency installation was started."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "eval_name": "existing evals proper TDD",
+      "files": [
+        "evals/files/routing/evaluated-skill/SKILL.md",
+        "evals/files/routing/evaluated-skill/evals/evals.json"
+      ],
+      "turns": [
+        {
+          "prompt": "$skill-creator Change evals/files/routing/evaluated-skill/SKILL.md so its description also mentions deprecation safety.",
+          "expectations": [
+            "Before changing files, the agent asks whether to use eval-driven iteration or make a quick patch.",
+            "No skill or eval file was changed and no evaluator command was run."
+          ]
+        },
+        {
+          "prompt": "Use the proper eval-driven workflow.",
+          "expectations": [
+            "The agent inspects the existing eval suite and proposes an evidence-based eval change for deprecation safety.",
+            "The agent asks for user buy-in before changing files or executing the evaluator.",
+            "No skill or eval file was changed and no evaluator command was run."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "eval_name": "explicit full evaluation",
+      "files": ["evals/files/routing/ordinary-skill/SKILL.md"],
+      "turns": [
+        {
+          "prompt": "$skill-creator Use the full evaluation workflow to test evals/files/routing/ordinary-skill/SKILL.md. It has no eval suite yet.",
+          "expectations": [
+            "The agent proposes realistic eval cases, observable expectations, and any fixture requirements.",
+            "The agent asks for approval before creating the suite or running the evaluator."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "eval_name": "same identity precedence",
+      "files": [
+        "evals/files/routing/ordinary-skill/SKILL.md",
+        "evals/files/routing/host-catalog.json",
+        "evals/files/routing/system-skill-creator/SKILL.md"
+      ],
+      "outcome_expectations": [
+        "The user-installed Skill Creator frontmatter description explicitly declares priority over system-defined Skill Creator skills with the same identity."
+      ],
+      "turns": [
+        {
+          "prompt": "The host reports the additional active skill entry in evals/files/routing/host-catalog.json. Its identity and provenance are host-provided metadata. Help me make a lightweight edit to evals/files/routing/ordinary-skill/SKILL.md so it also checks whether release notes name affected users.",
+          "expectations": [
+            "The user-installed lightweight Skill Creator governs the request despite the same-identity system entry.",
+            "The requested edit is handled without creating or running evals, starting a viewer, preflighting the evaluator, or installing dependencies."
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "eval_name": "detected conflict and disable handoff",
+      "files": [
+        "evals/files/routing/ordinary-skill/SKILL.md",
+        "evals/files/routing/host-catalog.json",
+        "evals/files/routing/system-skill-creator/SKILL.md",
+        "evals/files/routing/host-controls/HOST_SKILL_CONTROLS.md",
+        "evals/files/routing/host-controls/skills.toml"
+      ],
+      "turns": [
+        {
+          "prompt": "The host reports the additional active skill entry in evals/files/routing/host-catalog.json. Its identity and provenance are host-provided metadata. Help me make a lightweight edit to evals/files/routing/ordinary-skill/SKILL.md. Resolve any duplicate Skill Creator identity first.",
+          "expectations": [
+            "The agent explains the same-identity conflict using host-supplied identity and provenance and offers the documented disable action.",
+            "The agent does not mutate skills.toml before authorization.",
+            "The competing entry is not identified using filenames, directories, path prefixes, provider names, or ordering."
+          ]
+        },
+        {
+          "prompt": "I authorize you to disable the system-provenance skill-creator entry using the supplied host controls.",
+          "expectations": [
+            "The system-provenance skill-creator record is disabled according to HOST_SKILL_CONTROLS.md.",
+            "The user-installed skill-creator record remains enabled and every unrelated field remains unchanged.",
+            "Selection does not rely on filenames, directories, path prefixes, provider names, or ordering."
           ]
         }
       ]

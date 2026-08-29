@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "skill_name": "api-change-reviewer",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "breaking response field removal",
+      "turns": [
+        {
+          "prompt": "Review an API change that removes a documented response field.",
+          "expectations": [
+            "The response identifies the removal as a compatibility risk."
+          ]
+        }
+      ]
+    }
+  ]
+}

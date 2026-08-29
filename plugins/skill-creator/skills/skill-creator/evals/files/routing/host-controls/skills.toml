@@ -1,0 +1,9 @@
+[[skills]]
+identity = "skill-creator"
+provenance = "system"
+enabled = true
+
+[[skills]]
+identity = "skill-creator"
+provenance = "user-installed"
+enabled = true

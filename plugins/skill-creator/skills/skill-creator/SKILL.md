@@ -1,71 +1,104 @@
 ---
 name: skill-creator
-description: Use only when the user explicitly invokes skill-creator by name. Do not trigger it merely because a task creates, modifies, reviews, or evaluates agent skills, or because skill-eval viewer feedback is ready. Once invoked, it provides a deliberate framework for structuring, authoring, and evaluating agent skills.
+description: Create, update, or evaluate skills. Overrides other `skill-creator` skills.
 compatibility: Skill evaluation requires Python 3.13 in the operator environment. The evaluator bootstraps its own packages. The review viewer requires Node.js 24 or newer.
 ---
 
 # Skill Creator
 
-The skill creator skill is made up of 3 main components, and this file is only the router, pointing to the relevant documentation for each component:
+Skill Creator is a light router for structuring, authoring, and evaluating agent
+skills. Match the amount of process to the user's actual goal. A small skill
+edit should remain small. The evaluation framework is valuable when the user
+chooses eval-driven development, not as mandatory ceremony around every skill
+request.
 
-1. how to structure skills on the filesystem
-2. how to write effective skills in collaboration with the user
-3. a framework for developing skills in a test-driven way
+## Resolve same-identity conflicts
 
-Depending on your current goal, you will need to use one or more of these components.
-The links below take you to the relevant documentation for each component. These are your authoritative resources for how to structure, write, and develop skills. You must read and follow the guidance in these documents when creating, modifying, or reviewing agent skills.
+When another active `skill-creator` is present, offer its documented disable action and wait for
+explicit authorization before changing configuration.
 
-## Structuring Skills
+## Choose the workflow
 
-Agent skills have a very specific structure on the filesystem. This structure is designed to be easy to understand, navigate, and use for both humans and machines. The structure also supports progressive disclosure of information, which helps keep the most important information in context while allowing access to more detailed information as needed.
+Use the lightweight authoring workflow for ordinary requests to create, edit,
+review, improve, or verify a skill. Those words do not activate the evaluation
+framework by themselves.
 
-Follow the [anatomy of a skill documentation](./references/skill-anatomy.md) for detailed guidance on how to structure skills on the filesystem.
+Use the full evaluation workflow only when either condition is true:
 
-## Writing Skills
+- the user explicitly asks to evaluate or test a skill through the evaluation
+  workflow
+- the target already has an eval suite and the user chooses eval-driven
+  iteration after being offered the choice
 
-Writing effective skills is a collaborative process that involves understanding the user's needs, goals, and constraints, and then crafting a skill that meets those needs in a way that is useful, relevant, and aligned with the user's intentions. This process often involves capturing the user's intent, asking clarifying questions, researching best practices, and iterating on the skill based on feedback.
+When a target already contains `evals/`, ask whether the user wants a quick
+patch or eval-driven iteration before changing any file. Do not choose on the
+user's behalf.
 
-Follow the [writing skills documentation](./references/writing-skills.md) for detailed guidance on how to write effective skills in collaboration with the user.
+## Lightweight authoring
 
-## Developing Skills
+Use the [skill anatomy](./references/skill-anatomy.md) when the request affects
+filesystem structure or bundled resources. Use the
+[writing skills guidance](./references/writing-skills.md) for the content and
+quality of authored instructions.
 
-The evaluation framework provides a repeatable workflow for developing skills through eval-driven iteration. The workflow runs realistic prompts against a skill, compares runs with and without that skill, grades the outputs, aggregates results, and opens a viewer for human review.
+Capture intent from the whole conversation before asking questions. When the
+request already provides the capability, trigger conditions, output, and
+material constraints, proceed directly. Do not require the user to reconfirm a
+complete brief or answer a generic testing question. When material information
+is missing, ask only the focused questions needed to avoid guessing. For this
+router, a complete brief already established in the conversation satisfies the
+writing guidance's collaboration and intent-capture step. These routing rules
+govern whether further interview or testing questions are needed.
 
-The evaluation framework is a set of deterministic scripts for running, comparing and viewing evals.
-There is no room for improvisation in this workflow: you must follow the rules and use the scripts as they are defined. This ensures that skill evals are consistent, comparable, and reviewable.
+For a lightweight edit, inspect the target and make the requested change
+directly. Keep the result concise and verify the changed skill against the
+applicable writing and structure guidance.
 
-To use the evaluation framework, follow the [evaluation framework documentation](./references/evaluation-framework.md).
+Do not create or alter `evals/`, preflight or run the evaluator, start the
+viewer, or install evaluation dependencies during lightweight authoring.
 
-When the user says they submitted feedback, finished the review, or otherwise
-signals that viewer feedback is ready, treat it as a workflow transition. Follow
-the [feedback handoff](./references/evaluation-framework.md#feedback-handoff)
-before changing the skill, changing evals, or starting another evaluator run.
+## Eval-driven development
 
-The operator environment and the provider environment are separate boundaries.
-Run `evaluate_skill.py` from the operator agent's host shell. Do not run it from
-inside an eval fixture, generated work directory, skill run, baseline run, or
-grading session. The operator resolves Python 3.13 and host permissions. The
-evaluator owns its isolated package environment below the external run root.
+Once the user explicitly chooses eval-driven work, follow the
+[evaluation framework](./references/evaluation-framework.md) exactly. The
+framework is deterministic infrastructure. Do not improvise replacements for
+its commands, artifacts, grading, or viewer.
 
-Do not improvise a virtual environment or manually install evaluator packages.
-Follow the operator preflight and acquisition ladder in the evaluation framework.
+Before creating or changing an eval suite or running the evaluator:
 
-### Iterating on Skills
+1. Inspect the skill and any existing evals.
+2. Propose realistic interaction turns with concrete prompts.
+3. State independently observable expectations for each turn and for the
+   completed interaction where needed.
+4. Assess fixture and file requirements. Say explicitly when no fixture is
+   needed.
+5. Obtain the user's approval of the eval design.
 
-When you're working on skill evaluation results, you must avoid optimizing for the eval results themselves. The goal of the evaluation framework is to provide feedback on how well the skill is working in realistic scenarios, not to create a skill that performs well on a specific set of evals. To avoid optimizing for eval results, you should:
+After approval, use the framework's documented workflow. Keep skill and
+baseline evidence distinct, inspect generated manifests and grading artifacts,
+and treat failing infrastructure as an execution problem rather than behavioral
+evidence.
 
-1. Focus on the feedback from the evals rather than the scores. Look for patterns in the feedback that indicate where the skill is falling short and use that to guide your revisions.
-2. Avoid making changes that are only designed to improve the eval scores. Instead, focus on making changes that improve the overall quality and usefulness of the skill, even if they don't directly impact the eval scores.
-3. Review and adjust the entire skill based on the feedback, rather than just tweaking specific parts that are underperforming in the evals. This helps ensure that you're improving the skill as a whole rather than just optimizing for the evals.
-4. Remember that the evals are just one source of feedback and should be considered alongside other factors such as user feedback, real-world performance, and alignment with the user's goals and intentions.
+When the user says viewer feedback is ready, follow the
+[feedback handoff](./references/evaluation-framework.md#feedback-handoff).
+Resolve the expected iteration from the established session context and attempt
+to read that iteration's `viewer_feedback.json` directly before broader
+inspection. If the artifact is missing or malformed, report its exact expected
+path and ask the user to confirm the reviewed iteration and that the viewer
+finished saving. Do not ask the user to paste the feedback, operate the viewer,
+or invent a fallback. Respect any requested discussion or pause before changing
+files or starting another run.
 
-## Self-Verification
+## Self-verification
 
 Before completing Skill Creator work, verify that:
 
-1. You read every reference required for the work you performed.
-2. Any evaluator command runs from the operator host, not a provider session.
-3. Python and host permissions were verified rather than assumed.
-4. No tool, Python runtime, package, or permission expansion occurred without the required user authority.
-5. The skill, documentation, and tests agree about the supported workflow.
-6. Any completed feedback handoff used the saved artifact directly and respected the user's authorization boundary.
+- no host configuration changed before explicit authorization
+- lightweight work did not activate evaluation machinery
+- an existing eval suite triggered the quick-patch versus eval-driven choice
+  before mutation
+- eval-driven work had an approved design with concrete expectations and an
+  explicit fixture assessment
+- every reference required for the chosen workflow was followed
+- the result was checked against the user's complete request rather than only
+  the examples or eval cases
