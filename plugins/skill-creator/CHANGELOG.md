@@ -1,3 +1,13 @@
+# [skill-creator-v1.0.9](https://github.com/meza/skills/compare/skill-creator-v1.0.8...skill-creator-v1.0.9) (2026-08-29)
+
+
+### Bug Fixes
+
+* better compatibility with existing skill-creator skills and lightweight modification ([5b18cde](https://github.com/meza/skills/commit/5b18cde3490277333c906c0399ed531917d95a19))
+* **deps:** update dependency @vitejs/plugin-react to v6.1.0 ([cd4e218](https://github.com/meza/skills/commit/cd4e218f3b15460069a29a70df79c6e6903b8129))
+* **deps:** update dependency fastify to v5.12.1 ([27038a8](https://github.com/meza/skills/commit/27038a8f0acd03b585ca2f59bbe918440ee9d664))
+* **deps:** update dependency vite to v8.2.2 ([514b827](https://github.com/meza/skills/commit/514b827213c050d54f442e1bf31bdff818eb9ee7))
+
 # [skill-creator-v1.0.8](https://github.com/meza/skills/compare/skill-creator-v1.0.7...skill-creator-v1.0.8) (2026-08-22)
 
 
