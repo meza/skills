@@ -2,6 +2,29 @@
 
 This directory contains installable agent plugins that can serve more than one host from one versioned package root.
 
+## Clean Code
+
+`clean-code` gives agents a progressive catalog of 84 qualities for reasoning
+about code, tests, APIs, modules, and architecture. Its short `SKILL.md` routes
+the current concern to one or more plainly named navigation documents. Each
+navigation document gives enough context to choose among its individual quality
+references, and every quality has its own Markdown file. The plugin contains
+everything it needs at runtime.
+
+```text
+clean-code/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- clean-code/
+        |-- README.md
+        |-- SKILL.md
+        `-- references/
+            |-- <category>.md
+            `-- <category>/
+                `-- <quality>.md
+```
+
 ## Skill Creator
 
 `skill-creator` packages the complete skill-authoring and evaluation environment for Codex and Claude. Its nested skill owns the evaluator scripts, schemas, tests, references, and eval viewer so those applications move and version together.

@@ -98,6 +98,7 @@ test('discovers configured components in stable order', () => {
     pluginDirectories(repoRoot).map(directory => basename(directory)),
     [
       'addressing-code-review-findings',
+      'clean-code',
       'conventional-commit-message',
       'fixing-linter-violations',
       'review-swarm',
@@ -115,16 +116,17 @@ test('checks every component before the marketplace', () => {
   }
 
   assert.equal(checkReleases({ env: {}, platform: 'linux', root: repoRoot, spawn }), 0)
-  assert.equal(calls.length, 7)
-  assert.deepEqual(calls.slice(0, 6).map(call => basename(call.options.cwd)), [
+  assert.equal(calls.length, 8)
+  assert.deepEqual(calls.slice(0, 7).map(call => basename(call.options.cwd)), [
     'addressing-code-review-findings',
+    'clean-code',
     'conventional-commit-message',
     'fixing-linter-violations',
     'review-swarm',
     'review-swarm-fast',
     'skill-creator',
   ])
-  assert.equal(calls[6].options.cwd, repoRoot)
+  assert.equal(calls[7].options.cwd, repoRoot)
   assert.ok(calls.every(call => call.args.includes('--dry-run')))
   assert.ok(calls.every(call => call.options.env.SEMANTIC_RELEASE_CHECK === '1'))
   assert.ok(calls.every(call => call.options.shell === false))
@@ -141,14 +143,14 @@ test('publishes with a recursion guard and runs the marketplace last', () => {
     publishReleases({ env: {}, platform: 'win32', root: repoRoot, spawn }),
     0
   )
-  assert.equal(calls.length, 7)
+  assert.equal(calls.length, 8)
   assert.ok(calls.every(call => call.executable === 'cmd.exe'))
   assert.ok(calls.every(call => call.args[3].includes('semantic-release.cmd')))
   assert.ok(calls.every(call => !call.args[3].includes('--dry-run')))
   assert.ok(calls.every(call => call.options.env[INTERNAL_PUSH] === '1'))
   assert.ok(calls.every(call => call.options.shell === false))
   assert.ok(calls.every(call => call.options.windowsVerbatimArguments === true))
-  assert.equal(calls[6].options.cwd, repoRoot)
+  assert.equal(calls[7].options.cwd, repoRoot)
 })
 
 test('reports how to install a missing release toolchain', () => {

@@ -1,0 +1,6 @@
+# Recovery paths are intentional
+
+Restart, retry, replay, rollback, and repair stories exist where the domain requires them.
+
+Recovery paths are part of maintainability because broken systems must be repairable. Review should ask whether replay, rollback, retry, restart, or manual recovery are possible where the domain needs them. In review, this is about whether the system can survive evolution, skew, retries, failures, and operational reality without losing coherence. Strong signals are deliberate recovery stories, compatibility-aware boundaries, reproducible delivery, navigable structure, and interfaces that make correct use easier than misuse. Weak signals are brittle migrations, unexamined version skew, hidden build assumptions, and local shortcuts that quietly increase long-term coupling. The educational point is that maintainability is proven over time, especially when the system is under stress or in transition. For this specific symptom, the reviewer should ask whether the change makes 'Recovery paths are intentional' easier to see and rely on, or whether it makes the surrounding code more ambiguous. A good detail line here should help a future reviewer explain not only what this symptom means, but also why its absence raises maintenance cost, defect risk, or review uncertainty.
+

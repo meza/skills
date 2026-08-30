@@ -1,0 +1,33 @@
+{
+  "name": "clean-code",
+  "version": "0.1.0",
+  "description": "A progressive catalog of clean-code qualities for reasoning about code, tests, APIs, modules, and architecture",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/clean-code",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "clean-code",
+    "code-quality",
+    "architecture",
+    "testing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Clean Code",
+    "shortDescription": "Reason through clean-code quality concerns",
+    "longDescription": "Use a progressive catalog of 84 quality symptoms to reason about code, tests, APIs, modules, and architecture.",
+    "developerName": "meza",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "websiteURL": "https://github.com/meza/skills",
+    "defaultPrompt": [
+      "Help me reason about the clean-code concerns in this design."
+    ]
+  }
+}
