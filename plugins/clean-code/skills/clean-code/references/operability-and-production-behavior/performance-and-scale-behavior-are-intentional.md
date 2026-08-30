@@ -8,3 +8,28 @@ Strong signs include identified critical paths, bounded queues or clear overload
 
 The educational point is that scalable design is as much about preserving local simplicity as it is about raw capacity. Review this symptom by asking whether the change reveals where performance matters, states the tradeoffs honestly, and keeps growth from turning into systemic fragility. A weak result here means the code may work today but accumulates hidden risk under load, in large datasets, or as the system evolves.
 
+## Examples
+
+### Bad
+
+```text
+queue = Queue()
+onDocumentUploaded(document):
+  queue.push(document)
+forever:
+  document = queue.pop()
+  spawn index(document)
+```
+
+### Good
+
+```text
+capacity = measuredCapacity("representative-load-test")
+queue = Queue(max = capacity.safeBacklog)
+workers = WorkerPool(size = capacity.safeConcurrency)
+workers.consume(queue, index)
+onDocumentUploaded(document):
+  if not queue.tryPush(document):
+    return OVERLOADED
+  return ACCEPTED
+```

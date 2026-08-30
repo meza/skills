@@ -9,3 +9,20 @@ Weak signs include vague failures such as expected true to be false, swallowed s
 This symptom matters because undiagnosable failures turn automated tests into delay rather than evidence.
 Review should ask whether a failing test would help the next engineer find the likely cause.
 
+## Examples
+
+### Bad
+
+```text
+assertTrue(discountedTotal(memberOrder) == 80)
+Failure: expected true, got false
+```
+
+### Good
+
+```text
+expectedTotal = 80
+actualTotal = discountedTotal(memberOrder)
+assertEqual(actualTotal, expectedTotal, "member order total after discount")
+Failure: member order total after discount: expected 80, got 100
+```

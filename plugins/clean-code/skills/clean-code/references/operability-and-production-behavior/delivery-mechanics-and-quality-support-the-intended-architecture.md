@@ -8,3 +8,23 @@ Strong signs include builds that do not depend on hidden machine-local state, au
 
 This symptom matters because maintainability is shaped by repeated daily pressure. If the toolchain rewards the wrong behavior, the architecture will drift no matter how good individual reviews are. Review this lens by asking whether the change improves or degrades the surrounding mechanics that keep code healthy, reproducible, and aligned with the system's intended design.
 
+## Examples
+
+### Bad
+
+```text
+developer builds checkout with workstation dependencies
+developer skips failing architecture and behavior checks
+developer copies the locally built payment service to production
+production runs an unverified artifact with a new boundary violation
+```
+
+### Good
+
+```text
+pipeline restores locked dependencies in an isolated environment
+pipeline builds the payment service from the reviewed commit
+pipeline requires behavior, security, and architecture checks to pass
+pipeline records the immutable artifact digest
+pipeline promotes that exact artifact to production
+```

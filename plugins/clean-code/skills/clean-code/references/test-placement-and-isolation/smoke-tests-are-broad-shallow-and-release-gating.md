@@ -9,3 +9,26 @@ Weak signs include smoke suites that take so long they become miniature regressi
 This symptom matters because smoke tests are the pipeline's early warning system.
 Review should ask whether the smoke suite is small enough to trust and meaningful enough to block waste.
 
+## Examples
+
+### Bad
+
+```text
+deploy checkout-api to staging
+run the four-hour checkout regression suite
+test every coupon boundary and payment retry sequence
+record smoke failures but continue the pipeline
+promote the staging release to production
+```
+
+### Good
+
+```text
+deploy checkout-api to staging
+assert readiness reports database and payment gateway ready
+assert a shopper can sign in
+assert a shopper can place one idempotent test order
+assert the order can be read back
+if any assertion fails, stop the release
+promote the staging release to production
+```

@@ -8,3 +8,32 @@ Strong signs include explicit ownership of shared mutable state, clear synchroni
 
 This symptom matters because many systems are retrying, asynchronous, distributed, or simply used by multiple actors at once. Review should therefore ask not only whether the happy path is correct, but whether the implementation stays correct when execution overlaps, partially fails, retries, or resumes. Good code makes those assumptions inspectable. Bad code leaves them implicit and turns correctness into luck.
 
+## Examples
+
+### Bad
+
+```text
+function withdraw(requestId, accountId, amount):
+  account = accounts.get(accountId)
+  if account.balance < amount: reject
+  account.balance -= amount
+  accounts.save(account)
+  result = withdrawals.insert(requestId, accountId, amount)
+  mailer.sendReceipt(result)
+  return result
+```
+
+### Good
+
+```text
+function withdraw(requestId, accountId, amount):
+  transaction:
+    if withdrawals.contains(requestId): return withdrawals.get(requestId)
+    account = accounts.getForUpdate(accountId)
+    if account.balance < amount: reject
+    account.balance -= amount
+    result = withdrawals.insertUnique(requestId, accountId, amount)
+    outbox.insertUnique(requestId, ReceiptRequested(requestId, result))
+  return result
+on ReceiptRequested(e): mailer.send(e.result, idempotencyKey=e.requestId)
+```

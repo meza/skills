@@ -9,3 +9,29 @@ Weak signs include arbitrary sleeps, CSS-selector fragility, global shared accou
 This symptom matters because brittle end-to-end suites train teams to rerun instead of investigate.
 Review should ask whether each end-to-end test protects a critical journey that is worth its cost.
 
+## Examples
+
+### Bad
+```text
+E2E "customer completes checkout"
+  customer = sharedCustomer("checkout-user")
+  checkout uses livePaymentProvider
+  click ".product:nth-child(7) .add"
+  enter shared test card details
+  click "#checkout .submit"
+  sleep 3000
+  assert confirmation and every checkout rule
+```
+
+### Good
+```text
+E2E "customer completes checkout"
+  customer = createIndependentCustomer()
+  product = createAvailableProduct()
+  checkout uses controlledApprovedPaymentProvider
+  customer signs in using role "Sign in"
+  customer adds product using role "Add to cart"
+  customer enters sandbox card details
+  customer uses role "Place order"
+  assert order confirmation shows the new order
+```

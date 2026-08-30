@@ -8,3 +8,26 @@ Strong signs include stable naming conventions, repeated solutions to repeated p
 
 This symptom matters because consistency reduces cognitive load and improves review accuracy. When the codebase has one local grammar, readers can transfer understanding from one area to another. When it has many, every new file becomes a relearning exercise and defects hide in the gaps between styles. This row is about local coherence across repeated practices. Whole-system product coherence remains a separate concern.
 
+## Examples
+
+### Bad
+
+```text
+function createOrder(command):
+  validate(command)
+  audit.record("order_created")
+function cancelOrder(command):
+  ensureValid(command)
+  logger.info("cancelled")
+```
+
+### Good
+
+```text
+function createOrder(command):
+  validate(command)
+  audit.record("order_created")
+function cancelOrder(command):
+  validate(command)
+  audit.record("order_cancelled")
+```

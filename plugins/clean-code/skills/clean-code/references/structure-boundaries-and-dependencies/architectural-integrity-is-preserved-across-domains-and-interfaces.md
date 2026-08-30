@@ -8,3 +8,28 @@ Strong signs include an obvious organizing principle for where behavior belongs;
 
 This symptom matters because architecture usually fails gradually. A single change rarely destroys it, but many small changes can make the structure stop reflecting the domain. Review this lens by asking whether the change strengthens or weakens the long-running integrity of the system's organizing principles and interface boundaries. A poor score here suggests that local convenience is winning over architectural coherence.
 
+## Examples
+
+### Bad
+
+```text
+Billing.renew(subscriptionId):
+  subscription = Subscriptions.database.find(subscriptionId)
+  discount = 0
+  if subscription.planCode == "ANNUAL" and subscription.failedPayments == 0:
+    discount = subscription.monthlyPrice * 0.10
+  return charge(subscription.accountId, subscription.monthlyPrice - discount)
+```
+
+### Good
+
+```text
+interface SubscriptionRenewals:
+  quote(subscriptionId) -> RenewalQuote
+Subscriptions.quoteRenewal(subscriptionId):
+  subscription = repository.get(subscriptionId)
+  return renewalPolicy.quote(subscription)
+RenewalCheckout.renew(subscriptionId):
+  quote = subscriptionRenewals.quote(subscriptionId)
+  return billing.charge(quote.accountId, quote.amount)
+```

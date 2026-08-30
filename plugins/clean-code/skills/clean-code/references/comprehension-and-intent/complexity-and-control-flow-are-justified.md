@@ -8,3 +8,26 @@ Strong signs include a small number of moving parts, abstractions that remove re
 
 This symptom matters because excessive complexity compounds. It raises review cost, hides defects, makes tests harder to trust, and turns later changes into archaeology. Review should ask whether the structure is carrying real domain load or whether the code has accumulated indirection and branching that mostly serves itself.
 
+## Examples
+
+### Bad
+
+```text
+function shippingFee(order):
+  if order.total >= 50:
+    if order.isMember:
+      return 0
+    else:
+      return 10
+  else:
+    return 10
+```
+
+### Good
+
+```text
+function shippingFee(order):
+  if order.total >= 50 and order.isMember:
+    return 0
+  return 10
+```

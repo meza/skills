@@ -9,3 +9,23 @@ Weak signs include exhaustive UI tests for logic that could be covered cheaply, 
 This symptom matters because misplaced tests create either false confidence or excessive maintenance cost.
 Review should ask whether the test proves the intended risk at the narrowest reliable layer.
 
+## Examples
+
+### Bad
+```text
+E2E "orders of 50 qualify for free shipping":
+  deploy the application and launch a browser
+  add products totalling 50 to the cart
+  complete every checkout step
+  assert the shipping charge is 0
+```
+
+### Good
+```text
+unit "orders of 50 qualify for free shipping":
+  assert shippingFee(subtotal = 50) == 0
+
+boundary "checkout returns the calculated shipping charge":
+  response = postCheckout(realHandler, subtotal = 50)
+  assert response.shippingCharge == 0
+```

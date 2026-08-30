@@ -9,3 +9,23 @@ Weak signs include fake integrations that cannot catch the real class of defect,
 This symptom matters because many production failures happen at seams rather than inside isolated logic.
 Review should ask whether the integration test exercises the boundary honestly and fails with evidence that points toward the broken seam.
 
+## Examples
+
+### Bad
+```text
+test "repository saves a customer":
+  database = FakeRows(acceptAnyColumn = true)
+  repository = CustomerRepository(database, productionMapping)
+  repository.save(Customer(email = "ada@example.test"))
+  assert database.saved.email == "ada@example.test"
+```
+
+### Good
+```text
+test "repository saves a customer":
+  database = DisposablePostgres(productionVersion)
+  applyProductionMigrations(database)
+  repository = CustomerRepository(database, productionMapping)
+  repository.save(Customer(email = "ada@example.test"))
+  assert repository.findByEmail("ada@example.test").email == "ada@example.test"
+```

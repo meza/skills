@@ -22,8 +22,10 @@ the whole catalog. Each concern-area document then provides enough context to
 choose the individual quality references that need deeper reading.
 
 Every quality has one dedicated Markdown document inside its concern-area folder.
-The installed skill is self-contained and does not require another review skill
-or an external catalog at runtime.
+Each document combines the quality explanation with a small paired pseudocode
+example showing what weak and strong practice look like. The installed skill is
+self-contained and does not require another review skill or an external catalog
+at runtime.
 
 ## Install with `npx skills`
 

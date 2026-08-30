@@ -8,3 +8,23 @@ Strong signs include configuration defined outside source, a clear composition o
 
 This symptom matters because configuration errors often look like logic errors in production. Externalizing, centralizing, and validating config reduces environmental drift, makes deployments safer, and keeps the trusted core of the system focused on business behavior rather than process state. It also gives reviewers a clear place to inspect how operating assumptions enter the code.
 
+## Examples
+
+### Bad
+
+```text
+function sendReceipt(order):
+  endpoint = environment["RECEIPT_API"] ?? "http://receipt.internal"
+  timeout = integer(environment["RECEIPT_TIMEOUT"])
+  post(endpoint, order, timeout)
+```
+
+### Good
+
+```text
+function start(environment):
+  config = ReceiptConfig(requiredUrl(environment, "RECEIPT_API"),
+                         requiredDuration(environment, "RECEIPT_TIMEOUT"))
+  require(config.timeout > 0)
+  run(ReceiptService(config))
+```

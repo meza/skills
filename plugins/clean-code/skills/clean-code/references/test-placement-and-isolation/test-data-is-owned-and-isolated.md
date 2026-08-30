@@ -9,3 +9,27 @@ Weak signs include dependence on magic records, shared mutable accounts, hidden 
 This symptom matters because uncontrolled test data is one of the fastest ways for useful automation to become flaky noise.
 Review should ask whether the test can prove the same thing from a clean starting point.
 
+## Examples
+
+### Bad
+
+```text
+test "suspend customer":
+  customer = findCustomer("customer-42")
+  suspend(customer)
+test "suspended customer cannot checkout":
+  customer = findCustomer("customer-42")
+  assert checkout(customer).error == "suspended"
+```
+
+### Good
+
+```text
+test "suspended customer cannot checkout":
+  customer = createCustomer(id = uniqueId(), status = "active")
+  try:
+    suspend(customer)
+    assert checkout(customer).error == "suspended"
+  finally:
+    deleteCustomer(customer)
+```

@@ -8,3 +8,24 @@ Strong signs include collaborators that are visible in constructors, parameters,
 
 The point of this lens is to ask whether the codebase preserves separable responsibilities. When these properties hold together, change stays local, tests are easier to write, and readers can understand why one part of the system depends on another. When they fail, modules become sticky, edits spread unpredictably, and architecture degrades into a mesh of hidden assumptions. A reviewer using this symptom should judge whether the change makes dependencies and module interactions easier to see, safer to change, and harder to misuse.
 
+## Examples
+
+### Bad
+
+```text
+function ship(order):
+  customer = App.services.database.tables.customers.find(order.customerId)
+  transport = App.services.email.transport
+  transport.send(customer.email, "Your order shipped")
+```
+
+### Good
+
+```text
+module Shipping:
+  interface ShipmentNotifier: shipped(customerId)
+  function ship(order, notifier: ShipmentNotifier):
+    notifier.shipped(order.customerId)
+module Email:
+  class EmailShipmentNotifier implements Shipping.ShipmentNotifier
+```

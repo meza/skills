@@ -8,3 +8,30 @@ Strong signs include a function whose name describes one responsibility, whose i
 
 This symptom matters because function shape is where maintainability is often won or lost. Overgrown or unfocused functions become hard to review, hard to test, and hard to change without collateral damage. A cohesive and bounded function makes intent visible, isolates reasons to change, and gives reviewers a realistic chance of understanding the whole unit rather than merely skimming fragments of it.
 
+## Examples
+
+### Bad
+
+```text
+function processOrder(order, pricing, invoices, mailer, logger):
+  require order.hasItems()
+  total = pricing.totalFor(order.items)
+  invoice = Invoice(order.customer, total)
+  invoices.save(invoice)
+  mailer.send(invoice)
+  logger.record("invoice sent")
+```
+
+### Good
+
+```text
+function fulfillOrder(order, pricing, invoices, mailer, logger):
+  invoice = createInvoice(order, pricing)
+  invoices.save(invoice)
+  mailer.send(invoice)
+  logger.record("invoice sent")
+
+function createInvoice(order, pricing):
+  require order.hasItems()
+  return Invoice(order.customer, pricing.totalFor(order.items))
+```

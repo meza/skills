@@ -10,3 +10,29 @@ Weak signs include casual use of tmpfiles for convenience, tests that read or wr
 This symptom matters because unit tests should be cheap, deterministic, and safe to run constantly.
 Review should ask whether any physical I/O in the unit test is essential to the behavior being proven, or whether it should be mocked, faked, or moved to an integration test.
 
+## Examples
+
+### Bad
+
+```text
+test "expired cache refreshes report" [misplaced broad test: filesystem, wall clock, live HTTP]:
+  files = OSFileSystem(tempDirectory())
+  clock = SystemClock()
+  api = HttpReportApi("https://reports.example.test")
+  files.write("report.cache", cached("old", expires = clock.now() - 1 second))
+  report = ReportService(files, api, clock).current()
+  assert report == "new"
+```
+
+### Good
+
+```text
+test "expired cache refreshes report" [unit]:
+  files = InMemoryFileSystem()
+  clock = FixedClock("2030-01-01T00:00:00Z")
+  api = FakeReportApi(returning = "new")
+  files.write("report.cache", cached("old", expires = clock.now() - 1 second))
+  report = ReportService(files, api, clock).current()
+  assert report == "new"
+  assert api.calls == 1
+```

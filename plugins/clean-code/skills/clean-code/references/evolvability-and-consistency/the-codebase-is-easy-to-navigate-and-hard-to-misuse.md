@@ -8,3 +8,20 @@ Strong signs include repository and module layouts that make likely locations ea
 
 This symptom matters because a large share of maintenance cost comes from accidental misuse and search friction, not just defects in core logic. Review this lens by asking whether the change helps the next contributor orient quickly and follow the intended path safely, or whether it adds more ways to get lost, call the wrong thing, or violate an assumption without noticing.
 
+## Examples
+
+### Bad
+
+```text
+// shared/utils/money
+function adjust(accountId, cents, reverse)
+adjust(order.customerId, order.totalCents, true)
+```
+
+### Good
+
+```text
+// billing/refunds
+function refund(order: PaidOrder): RefundReceipt
+refunds.refund(order)
+```

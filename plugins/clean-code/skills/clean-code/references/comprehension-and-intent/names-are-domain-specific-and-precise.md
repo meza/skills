@@ -8,3 +8,20 @@ Strong signs include names that map cleanly to business concepts, technical conc
 
 This symptom matters because names are part of the interface of every unit, even when the code is private. Imprecise or non-domain naming increases review friction, makes change risk harder to see, and encourages incorrect assumptions to spread. Maintainable code tends to let a reader predict behavior from names before reading the implementation. When this symptom is weak, the code becomes harder to search, harder to discuss, and easier to misuse.
 
+## Examples
+
+### Bad
+
+```text
+function process(data):
+  result = gateway.handle(data)
+  if result.ok: ledger.save(result)
+```
+
+### Good
+
+```text
+function renewSubscription(expiredSubscription):
+  renewalReceipt = paymentGateway.chargeRenewal(expiredSubscription)
+  if renewalReceipt.approved: subscriptionLedger.recordRenewal(renewalReceipt)
+```

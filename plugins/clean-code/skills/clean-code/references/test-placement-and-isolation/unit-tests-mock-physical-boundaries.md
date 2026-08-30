@@ -10,3 +10,32 @@ Physical I/O is acceptable only when the test is explicitly proving filesystem, 
 This symptom matters because unit tests should provide immediate behavior feedback without environmental cost or flakiness.
 Review should ask whether the physical boundary is genuinely the subject of the test. If not, the boundary should be mocked or the test should be reclassified as integration.
 
+## Examples
+
+### Bad
+
+```text
+class ReceiptStore:
+  function save(receipt):
+    files = OperatingSystemFiles()
+    files.write("/receipts/" + receipt.id, receipt.text)
+test "saves receipt":
+  store = ReceiptStore()
+  store.save(receipt)
+  assert OperatingSystemFiles().read("/receipts/" + receipt.id) == receipt.text
+```
+
+### Good
+
+```text
+interface Files:
+  write(path, text)
+class ReceiptStore(files):
+  function save(receipt):
+    files.write("/receipts/" + receipt.id, receipt.text)
+production = ReceiptStore(OperatingSystemFiles())
+test "saves receipt":
+  files = mock(Files)
+  ReceiptStore(files).save(receipt)
+  verify files.write("/receipts/" + receipt.id, receipt.text)
+```

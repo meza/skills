@@ -8,3 +8,26 @@ Strong signs include explicit failure modes, consistent representation of simila
 
 This symptom matters because many serious defects are not caused by the initial failure but by confusion about what the failure meant. Inconsistent or hidden error semantics make systems difficult to diagnose, difficult to integrate with safely, and easy to corrupt under stress. A reviewer should be able to see not only that failures are handled, but that they are handled truthfully and in line with the rest of the system.
 
+## Examples
+
+### Bad
+
+```text
+function loadOrder(id):
+  try: return orders.find(id)
+  catch NotFound: return null
+  catch error:
+    log("load failed")
+    return null
+```
+
+### Good
+
+```text
+function loadOrder(id) -> Result<Order, OrderFailure>:
+  try: return Ok(orders.find(id))
+  catch NotFound as cause:
+    return Err(OrderFailure.NotFound(orderId: id, cause: cause))
+  catch Timeout or ConnectionFailure as cause:
+    return Err(OrderFailure.Unavailable(orderId: id, cause: cause))
+```

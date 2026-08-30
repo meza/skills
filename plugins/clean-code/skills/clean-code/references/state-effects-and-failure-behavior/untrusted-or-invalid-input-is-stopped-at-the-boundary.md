@@ -8,3 +8,28 @@ Strong signs include explicit boundary checks, parsing and normalization near en
 
 This symptom matters because once malformed or unsafe input leaks into the trusted core, every downstream unit has to defend itself and reviewers lose confidence in system truth. Early boundary enforcement reduces bug surface, simplifies reasoning, and lowers security risk. The code becomes easier to review because the trusted and untrusted parts of the system are separated more clearly.
 
+## Examples
+
+### Bad
+
+```text
+function register(request):
+  user = users.create(request.body.email, request.body.displayName)
+  mailer.sendWelcome(request.body.email)
+  audit.record("registered", request.body)
+  return user
+```
+
+### Good
+
+```text
+function register(request):
+  input = RegistrationInput.validateAndNormalize(request.body)
+  if input.invalid: return BadRequest(input.errors)
+  return registerTrusted(input.value)
+function registerTrusted(input):
+  user = users.create(input.email, input.displayName)
+  mailer.sendWelcome(input.email)
+  audit.record("registered", input)
+  return user
+```

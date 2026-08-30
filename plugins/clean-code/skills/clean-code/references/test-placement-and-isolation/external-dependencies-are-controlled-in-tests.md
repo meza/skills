@@ -9,3 +9,21 @@ Weak signs include uncontrolled calls to third-party systems, tests that fail be
 This symptom matters because a test suite should identify defects, not outsource its signal to environmental luck.
 Review should ask whether every external dependency in the test is either controlled or intentionally under test.
 
+## Examples
+
+### Bad
+
+```text
+test "checkout charges the card":
+  receipt = checkout(LivePaymentProvider(), order)
+  assert receipt.status == "paid"
+```
+
+### Good
+
+```text
+test "checkout charges the card":
+  payments = ContractVerifiedFake(PaymentProviderContract, charge = approved)
+  receipt = checkout(payments, order)
+  assert receipt.status == "paid"
+```

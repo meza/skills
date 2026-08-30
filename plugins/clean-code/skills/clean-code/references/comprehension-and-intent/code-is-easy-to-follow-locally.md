@@ -8,3 +8,27 @@ Strong signs include control flow that unfolds in a readable sequence; helpers t
 
 This symptom matters because local reasoning is one of the foundations of safe maintenance. If the reader cannot understand the unit in a bounded scope, review quality drops, debugging slows down, and small changes become risky. Code that reads linearly and can be reasoned about locally is easier to test, easier to refactor, and less likely to produce accidental breakage.
 
+## Examples
+
+### Bad
+
+```text
+function canShip(orderId):
+  order = loadOrder(orderId)
+  return passesPolicy(order)
+function passesPolicy(order):
+  if isBlocked(order): return false
+  return hasStock(order)
+function hasStock(order):
+  return inventory.contains(order.items) and shippingEnabled
+```
+
+### Good
+
+```text
+function canShip(order, inventory, shippingEnabled):
+  if not shippingEnabled: return false
+  if order.isBlocked: return false
+  if not inventory.contains(order.items): return false
+  return true
+```

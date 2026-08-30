@@ -9,3 +9,22 @@ Weak signs include vague names, tests that assert several unrelated outcomes, se
 This symptom matters because unclear test intent makes review weaker and maintenance more dangerous.
 Review should ask whether the test would still make sense if read as documentation of the protected behavior.
 
+## Examples
+
+### Bad
+
+```text
+test "expired coupon is rejected":
+  coupon = Coupon(active = true)
+  result = checkout.apply(coupon)
+  assert audit.events contains "coupon_applied"
+```
+
+### Good
+
+```text
+test "expired coupon is rejected":
+  coupon = Coupon(expired = true)
+  result = checkout.apply(coupon)
+  assert result == Rejected("coupon expired")
+```

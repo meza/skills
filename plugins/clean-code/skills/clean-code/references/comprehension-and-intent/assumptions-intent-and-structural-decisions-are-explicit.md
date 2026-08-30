@@ -8,3 +8,27 @@ Strong signs include explicit notes where assumptions materially affect correctn
 
 This symptom matters because clarity of reasoning is part of maintainability. Future reviewers should not be forced to infer every hidden premise from implementation details alone. Review this lens by asking whether the change teaches the next engineer how to reason about it, or whether it hides assumptions and design intent behind local code that only appears obvious right now.
 
+## Examples
+
+### Bad
+
+```text
+function importOrders(orders):
+    transaction:
+        for order in orders:
+            save(order)
+        markBatchComplete()
+```
+
+### Good
+
+```text
+# Assumption: one worker owns a batch; save preserves input order.
+# Intent: downstream readers must never observe a partial batch.
+# Decision: commit the orders and completion marker atomically.
+function importOrders(orders):
+    transaction:
+        for order in orders:
+            save(order)
+        markBatchComplete()
+```
