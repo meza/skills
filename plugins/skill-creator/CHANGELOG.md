@@ -1,3 +1,11 @@
+# [skill-creator-v1.0.10](https://github.com/meza/skills/compare/skill-creator-v1.0.9...skill-creator-v1.0.10) (2026-09-04)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @types/react-dom to v19.2.5 ([fa8a766](https://github.com/meza/skills/commit/fa8a766503170898a486be09728d93f74846e15e))
+* **deps:** update dependency @vitejs/plugin-react to v6.1.1 ([0216fe0](https://github.com/meza/skills/commit/0216fe05fcf945befcb17f114a8ab56f1464c840))
+
 # [skill-creator-v1.0.9](https://github.com/meza/skills/compare/skill-creator-v1.0.8...skill-creator-v1.0.9) (2026-08-29)
 
 
