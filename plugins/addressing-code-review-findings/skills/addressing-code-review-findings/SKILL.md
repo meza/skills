@@ -1,6 +1,6 @@
 ---
 name: addressing-code-review-findings
-description: MUST CONSULT when reading or acting on code-review feedback
+description: MUST USE when assessing or addressing review feedback as the implementer
 ---
 
 # Addressing Code-Review Findings
