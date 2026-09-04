@@ -1,6 +1,6 @@
 {
   "name": "addressing-code-review-findings",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Adjudicate code-review feedback before presenting or acting on findings",
   "author": {
     "name": "meza"
