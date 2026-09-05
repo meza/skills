@@ -52,7 +52,7 @@
     "@types/react-dom": "19.2.5",
     "@vitest/coverage-v8": "4.1.11",
     "jsdom": "30.0.1",
-    "memfs": "4.68.1",
+    "memfs": "4.68.2",
     "npm-run-all2": "9.0.3",
     "postcss-preset-env": "11.5.0",
     "stylelint": "17.14.1",
