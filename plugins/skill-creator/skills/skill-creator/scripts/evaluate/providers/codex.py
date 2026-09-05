@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from . import PermissionMode, Provider, TurnResult, minimized_process_env
+from .codex_parent_evidence import enrich_parent
 from ..prompt_format import extract_prompt_sections
 from ..telemetry import redact_sensitive_telemetry
 
@@ -230,6 +231,11 @@ class CodexProvider(Provider):
     @property
     def skill_root(self) -> str:
         return ".codex"
+
+    def enrich_turn_result(
+        self, result, process_env, artifact_dir, turn_index, session_id
+    ) -> None:
+        enrich_parent(result, process_env, artifact_dir, turn_index, session_id)
 
     @property
     def requires_first_turn_session_id(self) -> bool:

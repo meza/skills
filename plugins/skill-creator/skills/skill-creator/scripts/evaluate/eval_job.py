@@ -586,6 +586,11 @@ class EvalJob:
             )
 
         turn_result = self.parse_turn_result(process_result, prompt)
+        enrich_result = getattr(self.provider, "enrich_turn_result", None)
+        if enrich_result is not None:
+            enrich_result(
+                turn_result, process_env, self.run_type_dir, turn_idx, self.session_id
+            )
         return self.record_turn_result(
             turn_idx,
             effective_timeout,
