@@ -1,3 +1,10 @@
+# [skill-creator-v1.0.11](https://github.com/meza/skills/compare/skill-creator-v1.0.10...skill-creator-v1.0.11) (2026-09-05)
+
+
+### Bug Fixes
+
+* exposing codex collaboration ([0d351a2](https://github.com/meza/skills/commit/0d351a2f462c70fb755c490d40c618eaff00a3be))
+
 # [skill-creator-v1.0.10](https://github.com/meza/skills/compare/skill-creator-v1.0.9...skill-creator-v1.0.10) (2026-09-04)
 
 
