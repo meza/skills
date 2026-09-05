@@ -151,6 +151,16 @@ class Provider(ABC):
         """Whether multi-turn runs must observe a provider-created session ID."""
         return False
 
+    def enrich_turn_result(
+        self, result, process_env, artifact_dir, turn_index, session_id
+    ) -> None:
+        """Add provider evidence before output saving and environment cleanup.
+
+        Called only for evaluated turns, never grading jobs. The session ID is
+        the runner's resume fallback when this result omits its parent ID.
+        Implementations must avoid shared instance state across concurrent jobs.
+        """
+
     @property
     @abstractmethod
     def skill_root(self) -> str:

@@ -430,6 +430,25 @@ Use the artifacts according to the question you are investigating:
 | `run_artifacts.json` | Files associated with the provider run. |
 | `timing.json` | Timing data for the run. |
 
+After a Codex turn is parsed, its transcript also includes collaboration records
+captured from the evaluated parent session: its agent calls, tool results, and
+messages received from other agents. Entries identify the operation or sender
+and recipient, with source locations for the recorded evidence. The evaluator
+does not read child sessions or reconstruct conversations between child agents.
+
+Selected original parent records are retained separately in
+`parent_collaboration/turn-N.jsonl`; the adjacent `turn-N.json` records source
+locations, turn attribution, and collection issues. Later turns capture newly
+recorded activity without repeating earlier records. Collection notes identify
+unavailable or incomplete evidence. Some received message bodies are encrypted
+in the source; their entries identify the sender and recipient but state that
+the body is
+unavailable. A recorded receipt alone does not establish what the message said.
+
+If the parent source is unavailable or capture fails, the transcript explains
+the gap and the evidence files may be absent. Runs that fail before turn parsing
+do not capture parent evidence.
+
 ## Review results in Eval Viewer
 
 Start the viewer after the first evaluator run completes:
