@@ -387,7 +387,16 @@ def _item_transcript_sections(item: dict) -> list[str]:
         return _command_execution_sections(item)
     if item.get("type") == "agent_message" and item.get("text", ""):
         return [f"[ASSISTANT TEXT]\n{item['text']}"]
-    return []
+    item_type = item.get("type", "")
+    if item_type == "collab_tool_call":
+        return [
+            f"[COLLABORATION] {item.get('tool', item_type)}\n"
+            f"{json.dumps(item, indent=2)}"
+        ]
+    if item_type.endswith("_tool_call") or item_type == "web_search":
+        tool = item.get("tool") or item.get("name") or item_type
+        return [f"[TOOL CALL] {tool}\n{json.dumps(item, indent=2)}"]
+    return [json.dumps(item, indent=2)]
 
 
 def _command_execution_sections(item: dict) -> list[str]:

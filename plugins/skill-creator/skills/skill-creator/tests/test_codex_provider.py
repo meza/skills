@@ -627,7 +627,75 @@ class CodexProviderEnvironmentTests(unittest.TestCase):
         self.assertIsNone(result.session_id)
         self.assertEqual(result.input_tokens, 0)
         self.assertEqual(result.output_tokens, 0)
-        self.assertEqual(result.transcript, "[USER INPUT]\nDo it")
+        self.assertEqual(
+            result.transcript,
+            '[USER INPUT]\nDo it\n\n{\n  "type": "reasoning"\n}',
+        )
+
+    def test_parse_output_labels_collaboration_and_preserves_recorded_fields(self):
+        for receivers, prompt, states in (
+            (["reviewer"], "Review the change", {"reviewer": {"status": "completed"}}),
+            ([], None, {}),
+        ):
+            item = {
+                "id": "item_7",
+                "type": "collab_tool_call",
+                "tool": "wait",
+                "sender_thread_id": "writer",
+                "receiver_thread_ids": receivers,
+                "prompt": prompt,
+                "agents_states": states,
+                "status": "completed",
+            }
+            with self.subTest(receivers=receivers):
+                stdout = json.dumps({"type": "item.completed", "item": item})
+                result = CodexProvider().parse_output(stdout, "Do it")
+                self.assertIn(
+                    "[COLLABORATION] wait\n" + json.dumps(item, indent=2),
+                    result.transcript,
+                )
+
+    def test_parse_output_labels_other_tools_and_preserves_recorded_fields(self):
+        cases = [
+            (
+                {
+                    "type": "mcp_tool_call",
+                    "server": "example",
+                    "tool": "lookup",
+                    "result": {"content": "tool result"},
+                },
+                "lookup",
+            ),
+            (
+                {
+                    "type": "future_tool_call",
+                    "name": "new_operation",
+                    "arguments": {"input": "kept"},
+                    "result": ["kept"],
+                },
+                "new_operation",
+            ),
+            ({"type": "unnamed_tool_call", "result": "kept"}, "unnamed_tool_call"),
+            ({"type": "web_search", "query": "search terms"}, "web_search"),
+        ]
+        for item, label in cases:
+            with self.subTest(item_type=item["type"]):
+                stdout = json.dumps({"type": "item.completed", "item": item})
+                result = CodexProvider().parse_output(stdout, "Do it")
+                self.assertIn(
+                    f"[TOOL CALL] {label}\n" + json.dumps(item, indent=2),
+                    result.transcript,
+                )
+
+    def test_parse_output_preserves_unknown_non_tool_without_tool_label(self):
+        item = {"type": "future_item", "new_field": ["preserved", {"nested": True}]}
+        stdout = json.dumps({"type": "item.completed", "item": item})
+
+        result = CodexProvider().parse_output(stdout, "Do it")
+
+        self.assertEqual(
+            result.transcript, "[USER INPUT]\nDo it\n\n" + json.dumps(item, indent=2)
+        )
 
     def test_source_codex_home_uses_userprofile_when_home_is_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
