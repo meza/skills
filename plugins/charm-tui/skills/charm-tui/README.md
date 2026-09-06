@@ -5,15 +5,41 @@ Bubbles v2, Lip Gloss v2, and Bubblebook. It teaches one architecture: a root
 coordinates the application, components own their local behavior, and thin story
 adapters expose the same components in the catalogue.
 
-Ask the agent to build, refactor, or review a Charm interface, for example:
-
-> Build a searchable results component with loading and error states, tests,
-> and Bubblebook stories for my Charm v2 application.
-
 The skill covers input and focus ownership, asynchronous work, terminal geometry,
 semantic styles, deterministic tests, and isolated component development. It
 respects the existing project's scope and does not automatically migrate a v1
 application.
+
+## Install with `npx skills`
+
+Install the skill into the current project:
+
+```console
+npx skills add meza/skills --skill charm-tui
+```
+
+Install it globally for Codex:
+
+```console
+npx skills add meza/skills --skill charm-tui --agent codex --global
+```
+
+Install it globally for Claude Code:
+
+```console
+npx skills add meza/skills --skill charm-tui --agent claude-code --global
+```
+
+After installation, ask your agent to build, refactor, or review a Charm interface.
+For example:
+
+```text
+Build a searchable results component with loading and error states, tests,
+and Bubblebook stories for my Charm v2 application.
+```
+
+For plugin installation, use this repository's
+[marketplace instructions](../../../../README.md).
 
 ## Bubblebook stories
 
@@ -46,5 +72,4 @@ routers require every guide applicable to the work; related examples retain
 explicit prerequisite links. Each lesson keeps its code, assumptions, and
 verification guidance together.
 
-Install through this repository's [marketplace instructions](../../../../README.md).
 Repository changes follow the [contribution guide](../../../../CONTRIBUTING.md).
