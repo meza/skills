@@ -32,7 +32,7 @@
     "last 2 Safari versions"
   ],
   "dependencies": {
-    "@fastify/static": "^8.3.0",
+    "@fastify/static": "^10.0.0",
     "@vitejs/plugin-react": "6.1.1",
     "ajv": "8.20.0",
     "fastify": "5.12.1",
