@@ -1,0 +1,23 @@
+{
+  "name": "charm-tui",
+  "version": "0.1.0",
+  "description": "Build reusable Charm v2 terminal components with explicit ownership and Bubblebook stories",
+  "author": {
+    "name": "meza"
+  },
+  "homepage": "https://github.com/meza/skills/tree/main/plugins/charm-tui",
+  "repository": "https://github.com/meza/skills",
+  "license": "Apache-2.0",
+  "keywords": ["bubbletea", "bubbles", "lipgloss", "bubblebook", "tui", "go"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Charm TUI",
+    "shortDescription": "Build reusable Charm v2 components",
+    "longDescription": "Design and implement Charm v2 applications with one coordinating root, reusable components, deterministic tests, and native v2 Bubblebook stories.",
+    "developerName": "meza",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/meza/skills",
+    "defaultPrompt": ["Help me build a Charm v2 application from reusable components with Bubblebook stories."]
+  }
+}

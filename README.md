@@ -19,6 +19,7 @@ Each plugin includes its skill. You do not need to download or copy a
 | `fixing-linter-violations` | Fix linter findings at their underlying cause without unauthorized suppressions |
 | `review-swarm` | Run a comprehensive multi-agent review with one investigator per quality symptom |
 | `review-swarm-fast` | Cover the same review catalogue with nine grouped investigators for a faster result |
+| `charm-tui` | Build reusable Charm v2 terminal components with explicit ownership, tests, and Bubblebook stories |
 
 `review-swarm` gives every quality symptom to a separate investigator.
 `review-swarm-fast` groups related symptoms into nine areas, reducing the
@@ -93,6 +94,10 @@ Ask your agent for the capability you installed. For example:
 | `fixing-linter-violations` | `Fix these linter violations by addressing their root causes.` |
 | `review-swarm` | `Run the review swarm on my current changes.` |
 | `review-swarm-fast` | `Run the fast review swarm on my current changes.` |
+| `charm-tui` | `Build a Charm v2 component with tests and Bubblebook stories.` |
+
+Charm TUI's [usage guide](plugins/charm-tui/skills/charm-tui/README.md) explains
+the component and Bubblebook story workflow.
 
 Skill Creator's [workflow guide](plugins/skill-creator/skills/skill-creator/README.md)
 explains how to define and run skill evaluations.

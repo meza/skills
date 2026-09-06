@@ -42,6 +42,11 @@
       "name": "fixing-linter-violations",
       "source": "./plugins/fixing-linter-violations",
       "description": "Fix linter findings by correcting their underlying causes without unauthorized suppressions"
+    },
+    {
+      "name": "charm-tui",
+      "source": "./plugins/charm-tui",
+      "description": "Build reusable Charm v2 terminal components with explicit ownership and Bubblebook stories"
     }
   ]
 }

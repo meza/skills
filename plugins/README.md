@@ -136,6 +136,47 @@ Validation can force a symptom to be answered, but it cannot force it to be sear
 
 The two plugins are independent packages and share no artifacts. `review-swarm` owns the per-symptom catalogue; `review-swarm-fast` owns the grouped one. A change to the review lenses that should apply to both has to be made in both.
 
+## Charm TUI
+
+`charm-tui` provides one shared skill for building Charm v2 applications from
+reusable components. Its `SKILL.md` owns the application architecture and testing
+discipline. Component design, testing, and performance/development references
+route to focused task guides. Layout and styling and Bubblebook stories remain
+cohesive references. Published-library support has its own conditional guide.
+The guides contain instructional code, diagrams, comparisons, and workflows;
+examples retain their assumptions and prerequisite links when loaded separately.
+The plugin contains instructions and documentation examples only.
+
+```text
+charm-tui/
+|-- .claude-plugin/plugin.json
+|-- .codex-plugin/plugin.json
+`-- skills/
+    `-- charm-tui/
+        |-- README.md
+        |-- SKILL.md
+        `-- references/
+            |-- component-design.md       # component contracts and task routes
+            |-- results-example.md
+            |-- input-routing.md
+            |-- effects-and-ordering.md
+            |-- lifecycle-and-bubbles.md
+            |-- layout-and-style.md
+            |-- testing.md                # test-layer selection and task routes
+            |-- testing-components.md
+            |-- testing-effects.md
+            |-- testing-rendering.md
+            |-- testing-routing.md
+            |-- testing-runtime.md
+            |-- bubblebook.md
+            |-- performance-and-debugging.md  # development task routes
+            |-- ci-and-delivery.md
+            |-- performance.md
+            |-- debugging.md
+            |-- recordings.md
+            `-- library-support.md
+```
+
 ## Artifact ownership
 
 The catalogues, instruction templates, and output schemas under each plugin's `shared` directory are authoritative in this repository. Runtime code does not download or synchronize them. Git and the plugin version are the version history.
