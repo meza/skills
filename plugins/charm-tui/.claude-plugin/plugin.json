@@ -1,6 +1,6 @@
 {
   "name": "charm-tui",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Build reusable Charm v2 terminal components with explicit ownership and Bubblebook stories",
   "author": {
     "name": "meza"
