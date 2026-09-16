@@ -36,8 +36,8 @@
     "@vitejs/plugin-react": "6.1.1",
     "ajv": "8.20.0",
     "fastify": "5.12.3",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "vite": "8.2.2"
   },
   "devDependencies": {
@@ -48,8 +48,8 @@
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
     "@types/node": "24.13.3",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.7",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@vitest/coverage-v8": "5.0.0",
     "jsdom": "30.0.1",
     "memfs": "4.71.0",
