@@ -1,7 +1,7 @@
 {
   "name": "mezas-skills-release-toolchain",
   "private": true,
-  "packageManager": "npm@11.16.0",
+  "packageManager": "npm@11.19.1",
   "engines": {
     "node": "24.18.0"
   },
