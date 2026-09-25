@@ -1,3 +1,15 @@
+# [skill-creator-v1.0.13](https://github.com/meza/skills/compare/skill-creator-v1.0.12...skill-creator-v1.0.13) (2026-09-25)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @types/react-dom to v19.2.6 ([7c3a0d7](https://github.com/meza/skills/commit/7c3a0d7c59527b738c4407f58d64b22678067ef7))
+* **deps:** update dependency @types/react-dom to v19.2.7 ([710830a](https://github.com/meza/skills/commit/710830a8a59e0bd33c0b0e81eecc7051d7e4d830))
+* **deps:** update dependency fastify to v5.12.3 ([f7bf21a](https://github.com/meza/skills/commit/f7bf21a66ec3e6553957a916a9cda70addd929d3))
+* **deps:** update dependency fastify to v5.12.4 ([e3c523e](https://github.com/meza/skills/commit/e3c523e02eee407531f91a750fe940e0021e9ca4))
+* **deps:** update dependency vite to v8.3.0 ([114e6da](https://github.com/meza/skills/commit/114e6da9538c4e16b57d5a1a1bbaeb2c89ac1114))
+* **deps:** update react monorepo to v19.3.0 ([b5457a5](https://github.com/meza/skills/commit/b5457a5d303a76bb616661a116c5b5f129a64197))
+
 # [skill-creator-v1.0.12](https://github.com/meza/skills/compare/skill-creator-v1.0.11...skill-creator-v1.0.12) (2026-09-05)
 
 
