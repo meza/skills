@@ -1,3 +1,10 @@
+# [addressing-code-review-findings-v1.0.2](https://github.com/meza/skills/compare/addressing-code-review-findings-v1.0.1...addressing-code-review-findings-v1.0.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* try to prevent scope expansion ([4de046a](https://github.com/meza/skills/commit/4de046ad71dd9a6bf504c94c12128e62a65cabf7))
+
 # [addressing-code-review-findings-v1.0.1](https://github.com/meza/skills/compare/addressing-code-review-findings-v1.0.0...addressing-code-review-findings-v1.0.1) (2026-09-04)
 
 
