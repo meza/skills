@@ -59,7 +59,7 @@
     "stylelint-config-standard": "40.0.0",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   },
   "engines": {
     "node": "24"
