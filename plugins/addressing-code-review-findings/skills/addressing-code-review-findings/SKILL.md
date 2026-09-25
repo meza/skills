@@ -1,6 +1,6 @@
 ---
 name: addressing-code-review-findings
-description: MUST USE when assessing or addressing review feedback as the implementer
+description: MUST CONSULT when reading or acting on code-review feedback
 ---
 
 # Addressing Code-Review Findings
@@ -17,16 +17,17 @@ For each finding:
 2. Inspect the cited implementation and existing tests. Reproduce claimed failures under the reported conditions when practical.
 3. Classify the evidence as verified, contradicted, or unverified. Lack of reproduction makes a finding unverified, not automatically invalid.
 4. Compare the observation with active user instructions, approved task scope, binding requirements, current and target architecture, CONTRIBUTING, and coverage at the appropriate test layer.
-5. Check prior authorizations exactly. Authorization permits the specifically approved action; it does not prove correctness, broaden scope, transfer to related changes, or authorize reuse later.
-6. Assign one disposition:
+5. Before accepting a finding as in scope, identify the violated requirement or established property, show that the condition is reachable in the supported operating model, and confirm that a correction is necessary to restore that property. Do not infer scope from reviewer severity.
+6. Check prior authorizations exactly. Authorization permits the specifically approved action; it does not prove correctness, broaden scope, transfer to related changes, or authorize reuse later.
+7. Assign one disposition:
    - **accepted—in scope**
    - **accepted—out of scope**
    - **already covered or duplicate**
    - **invalid**
    - **unverified**
    - **decision required**
-7. Preserve every observation and give evidence-backed reasons for its disposition. Do not erase a valid observation merely because it is out of scope.
-8. Evaluate the proposed remedy separately. A valid finding may have an invalid, disproportionate, architectural, or unauthorized remedy.
+8. Preserve every observation and give evidence-backed reasons for its disposition. Do not erase a valid observation merely because it is out of scope.
+9. Evaluate the proposed remedy separately. A valid finding may have an invalid, disproportionate, architectural, or unauthorized remedy.
 
 When reviewer verification conflicts with existing evidence, reproduce the relevant conditions and report both results until the discrepancy is explained. Never select the convenient result.
 
@@ -46,6 +47,8 @@ Return raw reviewer output only when explicitly requested, and label it as untri
 Review feedback does not itself authorize file changes, production behavior changes, dependency changes, documentation changes, CI changes, or further review cycles.
 
 Act only when the active task already authorizes the exact change. Otherwise report the finding and obtain direction. If a finding reveals a production defect, architectural conflict, or required change outside the authorized scope, stop before mutation and explain the evidence, impact, and recommended owner-level action.
+
+Review findings do not redefine the required outcome. Use the least-complex change that fully restores the violated property. If a proposed response would materially expand the task's scope, architecture, or ongoing ownership cost, separate the necessary correction from that expansion and obtain the required decision unless it is already authorized.
 
 After fixing accepted findings, run targeted verification and the relevant complete project gates. Check whether the fixes introduced new failures or invalidated earlier evidence. Do not commission another review unless the user requests it or the established workflow explicitly requires it.
 
