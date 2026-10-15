@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: plugins/skill-creator/skills/skill-creator/eval-viewer/package.json
           cache: npm
@@ -86,7 +86,7 @@ jobs:
       # `validate` still produces a report instead of just a red step.
       - name: Code Coverage Report
         if: ${{ !cancelled() && hashFiles('plugins/skill-creator/skills/skill-creator/eval-viewer/reports/coverage/unit/coverage-summary.json') != '' }}
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5 # v2.12.2
+        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2.13.0
         with:
           working-directory: plugins/skill-creator/skills/skill-creator/eval-viewer
           json-summary-path: reports/coverage/unit/coverage-summary.json
@@ -110,7 +110,7 @@ jobs:
 
       - name: Upload Playwright failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-results
           path: plugins/skill-creator/skills/skill-creator/eval-viewer/test-results/
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: plugins/skill-creator/skills/skill-creator/eval-viewer/package.json
           cache: npm
