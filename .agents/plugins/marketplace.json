@@ -5,46 +5,10 @@
   },
   "plugins": [
     {
-      "name": "addressing-code-review-findings",
-      "source": {
-        "source": "local",
-        "path": "./plugins/addressing-code-review-findings"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    },
-    {
-      "name": "clean-code",
-      "source": {
-        "source": "local",
-        "path": "./plugins/clean-code"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    },
-    {
       "name": "skill-creator",
       "source": {
         "source": "local",
         "path": "./plugins/skill-creator"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    },
-    {
-      "name": "conventional-commit-message",
-      "source": {
-        "source": "local",
-        "path": "./plugins/conventional-commit-message"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -69,30 +33,6 @@
       "source": {
         "source": "local",
         "path": "./plugins/review-swarm-fast"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    },
-    {
-      "name": "fixing-linter-violations",
-      "source": {
-        "source": "local",
-        "path": "./plugins/fixing-linter-violations"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Developer Tools"
-    },
-    {
-      "name": "charm-tui",
-      "source": {
-        "source": "local",
-        "path": "./plugins/charm-tui"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -1,110 +1,108 @@
 # Meza's Skills
 
-Meza's Skills is a plugin marketplace for [Codex](https://github.com/openai/codex)
-and [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Add the
-marketplace to either tool, then install the plugins that match the work you
-want your agent to perform.
+Agent skills for Codex and Claude Code. Browse [skills/](skills/) for standalone
+skills, or install one of the [plugins](#plugins) for a complete tool package.
 
-Each plugin includes its skill. You do not need to download or copy a
-`SKILL.md` file separately.
+## Standalone skills
 
-## Choose a plugin
+| Skill | Use it when you want to |
+| --- | --- |
+| [addressing-code-review-findings](skills/addressing-code-review-findings/) | Verify and adjudicate code-review feedback before acting on it |
+| [charm-tui](skills/charm-tui/) | Build reusable Charm v2 terminal components with tests and Bubblebook stories |
+| [clean-code](skills/clean-code/) | Reason about code, tests, APIs, modules, and architecture through a catalog of quality concerns |
+| [conventional-commit-message](skills/conventional-commit-message/) | Generate a Conventional Commit message from staged changes or a working tree |
+| [fixing-linter-violations](skills/fixing-linter-violations/) | Fix linter findings at their underlying cause without unauthorized suppressions |
+
+### Install a skill
+
+You need Node.js 22.20 or later and npm. Run this from the project where you want
+to use the skill, replacing `<name>` with a name from the table:
+
+```console
+npx skills add meza/skills --skill <name>
+```
+
+Choose your agent when prompted. To install a skill for all your projects,
+select the agent and add `--global`. For example, for Codex:
+
+```console
+npx skills add meza/skills --skill clean-code --agent codex --global
+```
+
+For Claude Code:
+
+```console
+npx skills add meza/skills --skill clean-code --agent claude-code --global
+```
+
+The installer includes the skill's bundled resources. Ask your agent for the
+capability you installed, such as `Review this design using the clean-code
+qualities.` See the [skills CLI reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
+for installation and update options.
+
+Charm TUI's [usage guide](skills/charm-tui/README.md) explains the component and
+Bubblebook story workflow.
+
+### Migrate from a standalone skill's old plugin
+
+The five skills above are distributed as standalone skills. If you installed
+one as a plugin:
+
+1. Uninstall that plugin through your agent's plugin manager, using the same
+   installation scope as the original installation.
+2. Install the corresponding standalone skill with the commands above.
+3. Start a new agent session and check its available skills. Confirm that the
+   skill appears once and the old plugin is no longer installed.
+
+Removing a plugin from the marketplace does not uninstall an existing copy or
+convert it into a standalone skill.
+
+## Plugins
 
 | Plugin | Use it when you want to |
 | --- | --- |
-| `addressing-code-review-findings` | Verify and adjudicate code-review feedback before acting on it |
-| `clean-code` | Reason about code, tests, APIs, modules, and architecture through a progressive catalog of quality concerns |
-| `skill-creator` | Create, revise, and evaluate agent skills |
-| `conventional-commit-message` | Generate a Conventional Commit message from staged changes or a working tree |
-| `fixing-linter-violations` | Fix linter findings at their underlying cause without unauthorized suppressions |
 | `review-swarm` | Run a comprehensive multi-agent review with one investigator per quality symptom |
 | `review-swarm-fast` | Cover the same review catalogue with nine grouped investigators for a faster result |
-| `charm-tui` | Build reusable Charm v2 terminal components with explicit ownership, tests, and Bubblebook stories |
+| `skill-creator` | Create, revise, and evaluate agent skills |
 
-`review-swarm` gives every quality symptom to a separate investigator.
-`review-swarm-fast` groups related symptoms into nine areas, reducing the
-number of agents while keeping the same catalogue coverage.
+Each plugin includes its skills and tools. Install it through your agent's
+marketplace; you do not need a separate skill installation.
 
-## Install in Codex
+### Install in Codex
 
-You need an installed and authenticated Codex CLI with plugin support. Add this
-repository as a marketplace:
+You need an installed and authenticated Codex CLI with plugin support:
 
 ```console
 codex plugin marketplace add meza/skills
-```
-
-Install a plugin by replacing `<plugin>` with a name from the table above:
-
-```console
 codex plugin add <plugin>@mezas-skills
-```
-
-For example, install Skill Creator with:
-
-```console
-codex plugin add skill-creator@mezas-skills
-```
-
-Confirm that the plugin is installed:
-
-```console
 codex plugin list
 ```
 
-## Install in Claude Code
+Replace `<plugin>` with a name from the plugin table. For example,
+`codex plugin add skill-creator@mezas-skills` installs Skill Creator.
 
-You need an installed and authenticated Claude Code CLI with plugin support.
-Add this repository as a marketplace:
+### Install in Claude Code
+
+You need an installed and authenticated Claude Code CLI with plugin support:
 
 ```console
 claude plugin marketplace add meza/skills
-```
-
-Install a plugin by replacing `<plugin>` with a name from the table above:
-
-```console
 claude plugin install <plugin>@mezas-skills
-```
-
-For example, install Skill Creator with:
-
-```console
-claude plugin install skill-creator@mezas-skills
-```
-
-Confirm that the plugin is installed:
-
-```console
 claude plugin list
 ```
 
-These commands use each CLI's default user-level configuration.
+Replace `<plugin>` with a name from the plugin table. These plugin commands use
+each CLI's default user-level configuration.
 
-## Use the installed skills
-
-Ask your agent for the capability you installed. For example:
-
-| Plugin | Example prompt |
-| --- | --- |
-| `addressing-code-review-findings` | `Help me assess and address these code-review findings.` |
-| `clean-code` | `Help me reason about the clean-code concerns in this design.` |
-| `skill-creator` | `Help me create and evaluate an agent skill.` |
-| `conventional-commit-message` | `Write a Conventional Commit message for my staged changes.` |
-| `fixing-linter-violations` | `Fix these linter violations by addressing their root causes.` |
-| `review-swarm` | `Run the review swarm on my current changes.` |
-| `review-swarm-fast` | `Run the fast review swarm on my current changes.` |
-| `charm-tui` | `Build a Charm v2 component with tests and Bubblebook stories.` |
-
-Charm TUI's [usage guide](plugins/charm-tui/skills/charm-tui/README.md) explains
-the component and Bubblebook story workflow.
+Ask your agent to `Run the review swarm on my current changes`,
+`Run the fast review swarm on my current changes`, or `Help me create and
+evaluate an agent skill`.
 
 Skill Creator's [workflow guide](plugins/skill-creator/skills/skill-creator/README.md)
 explains how to define and run skill evaluations.
 
 ## Contribute
 
-Repository contributors and maintainers should start with
-[CONTRIBUTING.md](CONTRIBUTING.md). The
-[plugin architecture guide](plugins/README.md) explains package structure and
-artifact ownership.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for repository structure,
+validation, and releases. The [plugin architecture guide](plugins/README.md)
+explains plugin package structure and artifact ownership.

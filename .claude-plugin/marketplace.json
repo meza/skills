@@ -9,24 +9,9 @@
   },
   "plugins": [
     {
-      "name": "addressing-code-review-findings",
-      "source": "./plugins/addressing-code-review-findings",
-      "description": "Adjudicate code-review feedback before presenting or acting on findings"
-    },
-    {
-      "name": "clean-code",
-      "source": "./plugins/clean-code",
-      "description": "A progressive catalog of clean-code qualities for reasoning about code, tests, APIs, modules, and architecture"
-    },
-    {
       "name": "skill-creator",
       "source": "./plugins/skill-creator",
       "description": "Meza's skill creator"
-    },
-    {
-      "name": "conventional-commit-message",
-      "source": "./plugins/conventional-commit-message",
-      "description": "Conventional Commit Message creator"
     },
     {
       "name": "review-swarm",
@@ -37,16 +22,6 @@
       "name": "review-swarm-fast",
       "source": "./plugins/review-swarm-fast",
       "description": "Fast symptom-based multi-agent code review: groups the quality symptoms into 9 areas of inquiry, fans out one investigator per area, then distills the findings into an actionable review"
-    },
-    {
-      "name": "fixing-linter-violations",
-      "source": "./plugins/fixing-linter-violations",
-      "description": "Fix linter findings by correcting their underlying causes without unauthorized suppressions"
-    },
-    {
-      "name": "charm-tui",
-      "source": "./plugins/charm-tui",
-      "description": "Build reusable Charm v2 terminal components with explicit ownership and Bubblebook stories"
     }
   ]
 }

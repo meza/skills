@@ -1,6 +1,9 @@
 # Contributing
 
-This repository publishes one marketplace for Codex and Claude Code. Each plugin is a single package with host-specific manifests and, where needed, host-specific integration files. Read [the plugin architecture guide](plugins/README.md) before changing package structure or shared runtime artifacts.
+This repository contains standalone skills and plugins for Codex and Claude Code.
+Standalone skills live directly under `skills/`. Plugins live under `plugins/`
+and are listed in both host marketplaces. Read [the plugin architecture guide](plugins/README.md)
+before changing plugin package structure or shared runtime artifacts.
 
 ## Prepare a checkout
 
@@ -20,7 +23,24 @@ An ordinary push runs non-mutating release checks. If a plugin or the aggregate 
 
 ## Make a change
 
-Keep changes within the plugin that owns the behavior. A plugin directory contains both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`; their `version` fields must always match exactly. Marketplace entries for the plugin must both point to `./plugins/<plugin-name>`.
+Keep each capability's instructions and resources together in the skill or plugin
+that owns them. Do not copy resources between the two distribution paths.
+
+### Standalone skills
+
+Add a standalone skill as `skills/<name>/SKILL.md`, with a frontmatter `name`
+matching its folder. Keep its references, scripts, fixtures, and other bundled
+resources inside that folder. Use one folder per skill, without category groups.
+
+Standalone skills do not need plugin manifests, marketplace entries, or release
+metadata. They are outside the automated plugin release process. Existing
+changelogs in skill folders are historical records, not generated release targets.
+
+### Plugins
+
+A plugin directory contains both `.claude-plugin/plugin.json` and
+`.codex-plugin/plugin.json`; their `version` fields must always match exactly.
+Marketplace entries for the plugin must both point to `./plugins/<plugin-name>`.
 
 Do not edit an existing plugin version or `CHANGELOG.md` manually. Semantic-release derives the next version from Conventional Commits that touch that plugin directory:
 
@@ -40,16 +60,21 @@ The Skill Creator package has additional development environments and contributo
 
 ## Validate the change
 
-Run the checks relevant to the files you changed. The repository-wide plugin checks are:
+Run the checks relevant to the files you changed. The repository layout and
+plugin checks are:
 
 ```console
 node --test .githooks/pre-push.test.cjs scripts/release.test.cjs .github/scripts/release-config.test.cjs
+node --test .github/scripts/check-plugins.test.mjs
 node --test plugins/review-swarm/shared/review-swarm.test.mjs
 node --test plugins/review-swarm-fast/shared/review-swarm-fast.test.mjs
 node .github/scripts/check-plugins.mjs .
 ```
 
-The invariant checker verifies marketplace sources, manifest shape, semantic versions, exact Claude/Codex version equality, release package identity, and required runtime artifacts.
+The invariant checker verifies direct standalone skill folders and their names,
+the absence of plugin wrappers in those folders, marketplace sources, manifest
+shape, semantic versions, exact Claude/Codex version equality, release package
+identity, and required runtime artifacts.
 
 CI additionally validates the Claude marketplace and every Claude plugin with `@anthropic-ai/claude-code@2.1.104`. It installs every Codex marketplace entry with `@openai/codex@0.145.0`, installs the locked release toolchain, and exercises the pre-push hook on Windows and Ubuntu.
 
@@ -59,7 +84,8 @@ Before opening a pull request, review the diff for generated files, unrelated ed
 
 Run `npm ci` whenever `package-lock.json` changes or `node_modules` is absent. The root package contains only exact release-toolchain development dependencies and the release command; it defines no workspaces, package version, or publishing workflow.
 
-The release script resolves semantic-release only from the repository's `node_modules/.bin` directory. On POSIX systems it executes the local binary directly. On Windows it uses the system `cmd.exe` to launch the local `semantic-release.cmd` shim with fixed arguments, because Node cannot execute a `.cmd` file directly through `CreateProcess`. No repository-owned Bash, PowerShell, or batch wrapper is involved. If the local executable is absent, release checks and publication exit before inspecting releases and direct the maintainer to run `npm ci`.
+If the local release executable is absent, release checks and publication exit
+with instructions to run `npm ci`.
 
 Releases run only from `main`. Start with a clean, current branch, passing validation, and direct permission to push commits and tags to `main`.
 

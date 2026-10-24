@@ -38,9 +38,6 @@ Build a searchable results component with loading and error states, tests,
 and Bubblebook stories for my Charm v2 application.
 ```
 
-For plugin installation, use this repository's
-[marketplace instructions](../../../../README.md).
-
 ## Bubblebook stories
 
 Use [meza/bubblebook](https://github.com/meza/bubblebook), the native Bubble Tea v2
@@ -72,4 +69,4 @@ routers require every guide applicable to the work; related examples retain
 explicit prerequisite links. Each lesson keeps its code, assumptions, and
 verification guidance together.
 
-Repository changes follow the [contribution guide](../../../../CONTRIBUTING.md).
+Repository changes follow the [contribution guide](../../CONTRIBUTING.md).

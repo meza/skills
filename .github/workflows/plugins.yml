@@ -86,6 +86,9 @@ jobs:
       - name: Test release configuration
         run: node --test .github/scripts/release-config.test.cjs
 
+      - name: Test standalone skill and plugin invariants
+        run: node --test .github/scripts/check-plugins.test.mjs
+
       # Invariants the CLI does not cover. Verified against 2.1.104: validating a
       # marketplace root does not recurse into plugin.json and does not check that a
       # `source` exists, so a plugin with a wrong name, a non-semver version, and a

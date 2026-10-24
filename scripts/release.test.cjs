@@ -97,15 +97,21 @@ test('discovers configured components in stable order', () => {
   assert.deepEqual(
     pluginDirectories(repoRoot).map(directory => basename(directory)),
     [
-      'addressing-code-review-findings',
-      'clean-code',
-      'conventional-commit-message',
-      'fixing-linter-violations',
       'review-swarm',
       'review-swarm-fast',
       'skill-creator',
     ]
   )
+})
+
+test('standalone skill changes are outside release component discovery', t => {
+  const root = mkdtempSync(join(tmpdir(), 'standalone-release-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  mkdirSync(join(root, 'plugins', 'retained'), { recursive: true })
+  writeFileSync(join(root, 'plugins', 'retained', '.releaserc.cjs'), '')
+  mkdirSync(join(root, 'skills', 'standalone'), { recursive: true })
+  writeFileSync(join(root, 'skills', 'standalone', 'SKILL.md'), '---\nname: standalone\n---\n')
+  assert.deepEqual(pluginDirectories(root), [join(root, 'plugins', 'retained')])
 })
 
 test('checks every component before the marketplace', () => {
@@ -116,17 +122,13 @@ test('checks every component before the marketplace', () => {
   }
 
   assert.equal(checkReleases({ env: {}, platform: 'linux', root: repoRoot, spawn }), 0)
-  assert.equal(calls.length, 8)
-  assert.deepEqual(calls.slice(0, 7).map(call => basename(call.options.cwd)), [
-    'addressing-code-review-findings',
-    'clean-code',
-    'conventional-commit-message',
-    'fixing-linter-violations',
+  assert.equal(calls.length, 4)
+  assert.deepEqual(calls.slice(0, 3).map(call => basename(call.options.cwd)), [
     'review-swarm',
     'review-swarm-fast',
     'skill-creator',
   ])
-  assert.equal(calls[7].options.cwd, repoRoot)
+  assert.equal(calls[3].options.cwd, repoRoot)
   assert.ok(calls.every(call => call.args.includes('--dry-run')))
   assert.ok(calls.every(call => call.options.env.SEMANTIC_RELEASE_CHECK === '1'))
   assert.ok(calls.every(call => call.options.shell === false))
@@ -143,14 +145,14 @@ test('publishes with a recursion guard and runs the marketplace last', () => {
     publishReleases({ env: {}, platform: 'win32', root: repoRoot, spawn }),
     0
   )
-  assert.equal(calls.length, 8)
+  assert.equal(calls.length, 4)
   assert.ok(calls.every(call => call.executable === 'cmd.exe'))
   assert.ok(calls.every(call => call.args[3].includes('semantic-release.cmd')))
   assert.ok(calls.every(call => !call.args[3].includes('--dry-run')))
   assert.ok(calls.every(call => call.options.env[INTERNAL_PUSH] === '1'))
   assert.ok(calls.every(call => call.options.shell === false))
   assert.ok(calls.every(call => call.options.windowsVerbatimArguments === true))
-  assert.equal(calls[7].options.cwd, repoRoot)
+  assert.equal(calls[3].options.cwd, repoRoot)
 })
 
 test('reports how to install a missing release toolchain', () => {

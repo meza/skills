@@ -2,29 +2,6 @@
 
 This directory contains installable agent plugins that can serve more than one host from one versioned package root.
 
-## Clean Code
-
-`clean-code` gives agents a progressive catalog of 84 qualities for reasoning
-about code, tests, APIs, modules, and architecture. Its short `SKILL.md` routes
-the current concern to one or more plainly named navigation documents. Each
-navigation document gives enough context to choose among its individual quality
-references, and every quality has its own Markdown file. The plugin contains
-everything it needs at runtime.
-
-```text
-clean-code/
-|-- .claude-plugin/plugin.json
-|-- .codex-plugin/plugin.json
-`-- skills/
-    `-- clean-code/
-        |-- README.md
-        |-- SKILL.md
-        `-- references/
-            |-- <category>.md
-            `-- <category>/
-                `-- <quality>.md
-```
-
 ## Skill Creator
 
 `skill-creator` packages the complete skill-authoring and evaluation environment for Codex and Claude. Its nested skill owns the evaluator scripts, schemas, tests, references, and eval viewer so those applications move and version together.
@@ -40,48 +17,6 @@ skill-creator/
         |-- schemas/
         |-- tests/
         `-- eval-viewer/
-```
-
-## Conventional Commit Message
-
-`conventional-commit-message` generates release-aware Conventional Commit messages from the actual Git surface. Its skill package includes the eval preparation script, fixture patches, and eval definitions so the workflow and its verification inputs remain versioned together.
-
-```text
-conventional-commit-message/
-|-- .claude-plugin/plugin.json
-|-- .codex-plugin/plugin.json
-`-- skills/
-    `-- conventional-commit-message/
-        |-- SKILL.md
-        |-- scripts/
-        |-- fixtures/
-        `-- evals/
-```
-
-## Addressing Code-Review Findings
-
-`addressing-code-review-findings` verifies and classifies review feedback before presenting or acting on it. The plugin is a self-contained skill shared unchanged by Codex and Claude.
-
-```text
-addressing-code-review-findings/
-|-- .claude-plugin/plugin.json
-|-- .codex-plugin/plugin.json
-`-- skills/
-    `-- addressing-code-review-findings/
-        `-- SKILL.md
-```
-
-## Fixing Linter Violations
-
-`fixing-linter-violations` treats linter output as diagnostic evidence and requires fixes to address the underlying cause. The plugin is a self-contained skill shared unchanged by Codex and Claude.
-
-```text
-fixing-linter-violations/
-|-- .claude-plugin/plugin.json
-|-- .codex-plugin/plugin.json
-`-- skills/
-    `-- fixing-linter-violations/
-        `-- SKILL.md
 ```
 
 ## Review Swarm
@@ -135,47 +70,6 @@ Coverage stays accountable rather than assumed. `verify` fails if two areas defi
 Validation can force a symptom to be answered, but it cannot force it to be searched. The brief's self-verification therefore asks the investigator whether any symptom in its area got a shallower search because a neighbouring symptom produced a louder finding, and requires it to search that symptom on its own terms before finishing.
 
 The two plugins are independent packages and share no artifacts. `review-swarm` owns the per-symptom catalogue; `review-swarm-fast` owns the grouped one. A change to the review lenses that should apply to both has to be made in both.
-
-## Charm TUI
-
-`charm-tui` provides one shared skill for building Charm v2 applications from
-reusable components. Its `SKILL.md` owns the application architecture and testing
-discipline. Component design, testing, and performance/development references
-route to focused task guides. Layout and styling and Bubblebook stories remain
-cohesive references. Published-library support has its own conditional guide.
-The guides contain instructional code, diagrams, comparisons, and workflows;
-examples retain their assumptions and prerequisite links when loaded separately.
-The plugin contains instructions and documentation examples only.
-
-```text
-charm-tui/
-|-- .claude-plugin/plugin.json
-|-- .codex-plugin/plugin.json
-`-- skills/
-    `-- charm-tui/
-        |-- README.md
-        |-- SKILL.md
-        `-- references/
-            |-- component-design.md       # component contracts and task routes
-            |-- results-example.md
-            |-- input-routing.md
-            |-- effects-and-ordering.md
-            |-- lifecycle-and-bubbles.md
-            |-- layout-and-style.md
-            |-- testing.md                # test-layer selection and task routes
-            |-- testing-components.md
-            |-- testing-effects.md
-            |-- testing-rendering.md
-            |-- testing-routing.md
-            |-- testing-runtime.md
-            |-- bubblebook.md
-            |-- performance-and-debugging.md  # development task routes
-            |-- ci-and-delivery.md
-            |-- performance.md
-            |-- debugging.md
-            |-- recordings.md
-            `-- library-support.md
-```
 
 ## Artifact ownership
 

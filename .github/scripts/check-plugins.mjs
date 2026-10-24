@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 
 const repoRoot = resolve(process.argv[2] ?? '.')
@@ -214,9 +214,45 @@ function validateSkillCreator(claudeEntries, codexEntries) {
   }
 }
 
+function validateStandaloneSkills(claudeEntries, codexEntries) {
+  const skillsRoot = join(repoRoot, 'skills')
+  if (!existsSync(skillsRoot) || !statSync(skillsRoot).isDirectory()) {
+    fail('Standalone skills: skills/ must be a directory')
+    return
+  }
+
+  for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const directory = join(skillsRoot, entry.name)
+    const skillPath = join(directory, 'SKILL.md')
+    if (!existsSync(skillPath) || !statSync(skillPath).isFile()) {
+      fail(`${entry.name}: standalone skill must contain a direct SKILL.md`)
+    } else {
+      const content = readFileSync(skillPath, 'utf8')
+      const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(content)?.[1]
+      const name = /^name:\s*(['"]?)([a-z0-9-]+)\1\s*$/m.exec(frontmatter ?? '')?.[2]
+      if (name !== entry.name) {
+        fail(`${entry.name}: standalone SKILL.md frontmatter name must match its directory`)
+      }
+    }
+    for (const forbidden of ['.claude-plugin', '.codex-plugin', 'package.json', '.releaserc.cjs']) {
+      if (existsSync(join(directory, forbidden))) {
+        fail(`${entry.name}: standalone skill must not contain plugin wrapper ${forbidden}`)
+      }
+    }
+    if (claudeEntries.has(entry.name) || codexEntries.has(entry.name)) {
+      fail(`${entry.name}: standalone skill must not be listed in a plugin marketplace`)
+    }
+    if (existsSync(join(repoRoot, 'plugins', entry.name))) {
+      fail(`${entry.name}: standalone skill must not retain a plugins/ wrapper`)
+    }
+  }
+}
+
 const claudeEntries = validateClaudeMarketplace()
 const codexEntries = validateCodexMarketplace()
 validateCrossHostPlugins(claudeEntries, codexEntries)
+validateStandaloneSkills(claudeEntries, codexEntries)
 validateSkillCreator(claudeEntries, codexEntries)
 validateSwarmPlugin('review-swarm', claudeEntries, codexEntries, [
   'shared/code_review_symptoms.csv',
