@@ -12,6 +12,7 @@ skills, or install one of the [plugins](#plugins) for a complete tool package.
 | [clean-code](skills/clean-code/) | Reason about code, tests, APIs, modules, and architecture through a catalog of quality concerns |
 | [conventional-commit-message](skills/conventional-commit-message/) | Generate a Conventional Commit message from staged changes or a working tree |
 | [fixing-linter-violations](skills/fixing-linter-violations/) | Fix linter findings at their underlying cause without unauthorized suppressions |
+| [web-accessibility](skills/web-accessibility/) | Apply WCAG 2.2 when building, testing, or reviewing web content and interfaces |
 
 ### Install a skill
 
@@ -45,8 +46,8 @@ Bubblebook story workflow.
 
 ### Migrate from a standalone skill's old plugin
 
-The five skills above are distributed as standalone skills. If you installed
-one as a plugin:
+Some standalone skills were previously distributed as plugins. If you installed
+one of those skills as a plugin:
 
 1. Uninstall that plugin through your agent's plugin manager, using the same
    installation scope as the original installation.
