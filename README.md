@@ -12,6 +12,11 @@ skills, or install one of the [plugins](#plugins) for a complete tool package.
 | [clean-code](skills/clean-code/) | Reason about code, tests, APIs, modules, and architecture through a catalog of quality concerns |
 | [conventional-commit-message](skills/conventional-commit-message/) | Generate a Conventional Commit message from staged changes or a working tree |
 | [fixing-linter-violations](skills/fixing-linter-violations/) | Fix linter findings at their underlying cause without unauthorized suppressions |
+| [paved-road](skills/paved-road/) | Check for a supported option before building a workaround |
+| [pnpm](skills/pnpm/) | Manage dependencies, workspaces, lockfiles, and installs with pnpm |
+| [solidstart](skills/solidstart/) | Build, review, and debug Solid and SolidStart applications |
+| [turborepo](skills/turborepo/) | Configure and troubleshoot Turborepo tasks, caching, and dependencies in pnpm monorepos |
+| [vitest](skills/vitest/) | Write, configure, and troubleshoot Vitest tests |
 | [web-accessibility](skills/web-accessibility/) | Apply WCAG 2.2 when building, testing, or reviewing web content and interfaces |
 
 ### Install a skill
@@ -22,6 +27,9 @@ to use the skill, replacing `<name>` with a name from the table:
 ```console
 npx skills add meza/skills --skill <name>
 ```
+
+To install the Turborepo and pnpm skills together, follow the
+[Turborepo installation instructions](skills/turborepo/README.md#install-with-npx-skills).
 
 Choose your agent when prompted. To install a skill for all your projects,
 select the agent and add `--global`. For example, for Codex:
