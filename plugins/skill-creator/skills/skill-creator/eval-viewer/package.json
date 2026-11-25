@@ -36,8 +36,8 @@
     "@vitejs/plugin-react": "6.1.1",
     "ajv": "8.20.0",
     "fastify": "5.12.4",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "vite": "8.3.0"
   },
   "devDependencies": {
