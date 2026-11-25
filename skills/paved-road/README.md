@@ -13,7 +13,7 @@ Run this in the project where you want to use the skill.
 npx skills add meza/skills --skill paved-road
 ```
 
-For prerequisites and global installation, see [Install a skill](../../README.md#install-a-skill).
+For prerequisites and global installation, see [Install a skill](https://github.com/meza/skills#install-a-skill).
 
 For example, ask your agent to check whether your deployment tool has a
 supported readiness check before proposing a polling script.

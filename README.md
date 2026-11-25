@@ -21,15 +21,18 @@ skills, or install one of the [plugins](#plugins) for a complete tool package.
 
 ### Install a skill
 
-You need Node.js 22.20 or later and npm. Run this from the project where you want
-to use the skill, replacing `<name>` with a name from the table:
+You need Git, npm and Node.js 22.20 or later.
+
+The Turborepo skill requires the pnpm skill. Follow the
+[Turborepo installation instructions](skills/turborepo/README.md#install-with-npx-skills)
+to install both together.
+
+For any other skill, run the following command in the project where you want to
+use it. Replace `<name>` with its name from the table.
 
 ```console
 npx skills add meza/skills --skill <name>
 ```
-
-To install the Turborepo and pnpm skills together, follow the
-[Turborepo installation instructions](skills/turborepo/README.md#install-with-npx-skills).
 
 Choose your agent when prompted. To install a skill for all your projects,
 select the agent and add `--global`. For example, for Codex:

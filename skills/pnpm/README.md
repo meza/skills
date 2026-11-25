@@ -13,7 +13,7 @@ Run this in the project where you want to use the skill.
 npx skills add meza/skills --skill pnpm
 ```
 
-For prerequisites and global installation, see [Install a skill](../../README.md#install-a-skill).
+For prerequisites and global installation, see [Install a skill](https://github.com/meza/skills#install-a-skill).
 
 For example, ask your agent to determine which workspace owns a dependency and
 how to add it using the project's pnpm version.

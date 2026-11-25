@@ -7,14 +7,15 @@ task dependencies, and scripts against official documentation. See the
 
 ## Install with `npx skills`
 
-Run this in the project where you want to use the skill. Install both skills so
-the agent can use the pnpm skill for package-manager operations.
+Install both skills for the same agent and at the same scope so the Turborepo
+skill can find the pnpm instructions. For a project install, run this in that
+project.
 
 ```console
 npx skills add meza/skills --skill turborepo --skill pnpm
 ```
 
-For prerequisites and global installation, see [Install a skill](../../README.md#install-a-skill).
+For prerequisites and global installation, see [Install a skill](https://github.com/meza/skills#install-a-skill).
 
 For example, ask your agent to check whether a Turbo task's dependencies and
 cache inputs match the repository's scripts.
